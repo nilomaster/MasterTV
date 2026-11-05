@@ -571,15 +571,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       className={`w-full bg-[#07090e] select-none font-sans ${
         isFullscreen
           ? 'fixed inset-0 z-50 h-screen overflow-hidden'
-          : 'min-h-screen md:h-[100dvh] md:overflow-hidden flex flex-col md:block relative'
+          : 'h-[100dvh] overflow-hidden flex flex-col md:block relative'
       }`}
     >
-      {/* Video Container (Sticky 16:9 on Mobile, Full-screen Cinema on Desktop) */}
+      {/* Video Container (Pinned 16:9 on Mobile, Full-screen Cinema on Desktop) */}
       <div
-        className={`relative bg-black transition-all ${
+        className={`relative bg-black shrink-0 transition-all ${
           isFullscreen
             ? 'w-full h-full'
-            : 'sticky top-0 z-30 w-full aspect-video md:static md:w-full md:h-full md:aspect-auto'
+            : 'w-full aspect-video md:static md:w-full md:h-full md:aspect-auto'
         }`}
       >
         {/* Video Element - Live TV without pause capability */}
@@ -1185,9 +1185,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
       {/* MOBILE APP INTERFACE (TiviMate / Smarters style) - Below Video */}
       {!isFullscreen && (
-        <div className="flex flex-col w-full bg-[#07090e] md:hidden">
+        <div className="flex-1 min-h-0 flex flex-col w-full bg-[#07090e] md:hidden overflow-hidden">
           {/* Active Channel Strip Header */}
-          <div className="p-3.5 bg-gradient-to-b from-[#0b0e14] to-[#07090e] border-b border-white/10 flex items-center justify-between gap-3">
+          <div className="shrink-0 p-3 bg-gradient-to-b from-[#0b0e14] to-[#07090e] border-b border-white/10 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative w-11 h-11 rounded-xl bg-slate-900 border border-cyan-500/30 p-1 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
                 {currentChannel?.logo ? (
@@ -1241,7 +1241,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* Progress bar of current program */}
           {currentLiveInfo && (
-            <div className="w-full h-1 bg-slate-900 overflow-hidden">
+            <div className="shrink-0 w-full h-1 bg-slate-900 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
                 style={{ width: `${currentLiveInfo.progressPercent}%` }}
@@ -1250,7 +1250,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           )}
 
           {/* Mobile App Navigation Tabs (Smarters / TiviMate style) */}
-          <div className="grid grid-cols-3 bg-[#0d111a] border-b border-white/10 p-1 gap-1">
+          <div className="shrink-0 grid grid-cols-3 bg-[#0d111a] border-b border-white/10 p-1 gap-1">
             <button
               onClick={() => setMobileTab('channels')}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1290,7 +1290,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* TAB 1: CANAIS */}
           {mobileTab === 'channels' && (
-            <div className="flex flex-col p-3 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24">
               {/* Search Bar */}
               <div className="relative flex items-center">
                 <Search className="absolute left-3 w-4 h-4 text-slate-400" />
@@ -1432,7 +1432,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* TAB 2: CATEGORIAS */}
           {mobileTab === 'categories' && (
-            <div className="p-3 grid grid-cols-2 gap-2.5">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 grid grid-cols-2 gap-2.5 custom-scroll pb-24">
               {categories.map((cat) => {
                 const count =
                   cat.id === 'todos'
@@ -1466,7 +1466,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* TAB 3: GUIA EPG */}
           {mobileTab === 'epg' && (
-            <div className="p-3 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24">
               <div className="flex items-center justify-between pb-2 border-b border-white/10">
                 <div>
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">

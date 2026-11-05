@@ -346,7 +346,7 @@ export const App: React.FC = () => {
         currentView === 'vod-player'
           ? 'pb-0 overflow-hidden'
           : currentView === 'player'
-          ? 'pb-16 md:pb-0 overflow-y-auto md:overflow-hidden'
+          ? 'h-[100dvh] overflow-hidden'
           : 'pb-16 sm:pb-0'
       }`}>
         {currentView === 'home' && (
