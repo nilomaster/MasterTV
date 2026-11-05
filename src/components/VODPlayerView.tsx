@@ -499,7 +499,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
       {/* TOP HEADER OVERLAY */}
       <div
-        className={`absolute top-0 left-0 right-0 pt-16 sm:pt-20 px-4 sm:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent flex items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
+        className={`absolute top-0 left-0 right-0 pt-4 sm:pt-6 px-4 sm:px-8 pb-8 bg-gradient-to-b from-black/85 via-black/40 to-transparent flex items-center justify-between z-20 pointer-events-none transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0'
         }`}
       >
