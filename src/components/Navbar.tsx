@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 
 interface NavbarProps {
-  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios';
+  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player';
   vodFilter?: 'all' | 'movies' | 'series' | 'animes' | 'doramas';
-  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios') => void;
-  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
+  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player') => void;
+  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenSettingsModal: () => void;

@@ -10,7 +10,7 @@ interface MediaModalProps {
   programItem?: { program: EPGProgram; channel: Channel } | null;
   isOpen: boolean;
   onClose: () => void;
-  onPlayMedia: (streamUrl: string, title: string) => void;
+  onPlayMedia: (streamUrl: string, title: string, mediaItem?: MediaItem, episode?: EpisodeItem) => void;
 }
 
 export const MediaModal: React.FC<MediaModalProps> = ({
@@ -36,7 +36,11 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const hasEpisodes = Boolean(mediaItem?.episodeList && mediaItem.episodeList.length > 0);
 
   const handlePlayEpisode = (episode: EpisodeItem) => {
-    onPlayMedia(episode.streamUrl, `${mediaItem?.title || ''} - ${episode.title}`);
+    if (mediaItem) {
+      onPlayMedia(episode.streamUrl, `${mediaItem.title} - ${episode.title}`, mediaItem, episode);
+    } else {
+      onPlayMedia(episode.streamUrl, episode.title);
+    }
     onClose();
   };
 
@@ -44,7 +48,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     if (hasEpisodes && mediaItem?.episodeList && mediaItem.episodeList.length > 0) {
       handlePlayEpisode(mediaItem.episodeList[0]);
     } else if (streamUrl) {
-      onPlayMedia(streamUrl, title || '');
+      onPlayMedia(streamUrl, title || '', mediaItem || undefined);
       onClose();
     }
   };
