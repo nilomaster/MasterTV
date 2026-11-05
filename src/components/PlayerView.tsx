@@ -23,7 +23,8 @@ import {
   Check,
   Radio,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  Play
 } from 'lucide-react';
 import type { Channel, Category } from '../types/iptv';
 import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
@@ -81,6 +82,14 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
   const [internalEPGOpen, setInternalEPGOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'channels' | 'categories' | 'epg'>('channels');
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState<boolean>(false);
+
+  // Reset active source and errors whenever channel changes
+  useEffect(() => {
+    setActiveSource(1);
+    setStreamError(null);
+    setIsAutoplayBlocked(false);
+  }, [currentChannel?.id]);
 
   const isEPGModalVisible = isEPGOpenProp !== undefined ? isEPGOpenProp : internalEPGOpen;
 
@@ -159,13 +168,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     // Safety timeout to avoid getting stuck indefinitely on Sintonizando
     let connectTimeout: number | null = window.setTimeout(() => {
-      if (activeSource === 1 && currentChannel?.backupStreamUrl) {
+      if (activeSource === 1 && currentChannel?.backupStreamUrl && currentChannel.backupStreamUrl.startsWith('https://')) {
         setActiveSource(2);
       } else {
         setIsLoadingStream(false);
         setStreamError('Sinal temporariamente indisponivel nesta fonte');
       }
-    }, 7500);
+    }, 15000);
 
     if (isHlsStream) {
       const hls = new Hls({
@@ -210,7 +219,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         video.play().catch(() => {
           setIsMuted(true);
           video.muted = true;
-          video.play().catch(() => {});
+          video.play().catch(() => {
+            setIsAutoplayBlocked(true);
+            setIsLoadingStream(false);
+          });
         });
       });
 
@@ -262,7 +274,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         video.play().catch(() => {
           setIsMuted(true);
           video.muted = true;
-          video.play().catch(() => {});
+          video.play().catch(() => {
+            setIsAutoplayBlocked(true);
+            setIsLoadingStream(false);
+          });
         });
       };
       video.onloadedmetadata = handleReady;
@@ -575,11 +590,26 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           autoPlay
           muted={isMuted}
           onClick={() => setShowControls((prev) => !prev)}
-          onPause={(e) => {
-            // Security lock: prevent pausing live TV stream
-            e.currentTarget.play().catch(() => {});
-          }}
         />
+
+        {/* Big Tap to Play Button when mobile browser blocks autoplay */}
+        {isAutoplayBlocked && (
+          <button
+            onClick={() => {
+              setIsAutoplayBlocked(false);
+              if (videoRef.current) {
+                videoRef.current.play().catch(() => {});
+              }
+            }}
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm cursor-pointer"
+          >
+            <div className="w-16 h-16 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.6)] animate-pulse mb-3">
+              <Play className="w-8 h-8 fill-slate-950 ml-1" />
+            </div>
+            <span className="text-white text-sm font-bold tracking-wide">Toque para Assistir</span>
+            <span className="text-cyan-400 text-xs font-semibold mt-1">{currentChannel?.name}</span>
+          </button>
+        )}
 
       {/* Loading Overlay - Splash Neon Effect matching Saimo TV */}
       {isLoadingStream && (

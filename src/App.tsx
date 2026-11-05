@@ -75,10 +75,8 @@ export const App: React.FC = () => {
   const [isNavbarHovered, setIsNavbarHovered] = useState<boolean>(false);
   const [channels, setChannels] = useState<Channel[]>(() => {
     const saved =
-      localStorage.getItem('mastertv_channels_v9') ||
-      localStorage.getItem('mastertv_channels_v8') ||
-      localStorage.getItem('mastertv_channels_v7') ||
-      localStorage.getItem('mastertv_channels_v6');
+      localStorage.getItem('mastertv_channels_v10') ||
+      localStorage.getItem('mastertv_channels_v9');
     if (saved) {
       try {
         const parsed: Channel[] = JSON.parse(saved);
@@ -215,7 +213,7 @@ export const App: React.FC = () => {
 
   // Sync channels to localStorage
   useEffect(() => {
-    localStorage.setItem('mastertv_channels_v9', JSON.stringify(channels));
+    localStorage.setItem('mastertv_channels_v10', JSON.stringify(channels));
   }, [channels]);
 
   // Toggle favorite channel

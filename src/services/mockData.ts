@@ -6,10 +6,10 @@ import type { Channel, EPGProgram, MediaItem, Category } from '../types/iptv';
 // Reliable stream URLs for IPTV live channels
 // Provided by user via Saimo TV proxy for tested 200 OK playback
 const STREAM_BAND_SP =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fbandsp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd2-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fbandsp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
 
 const STREAM_GLOBO_SP =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fglobosp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd2-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fglobosp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
 
 const STREAM_SBT =
   'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F92ef03b0a53c20499bcde22fe03440c5.s25-cloudfront-net.lat%2Fstream%2F31f7488a7407fcd7de95fb172c73cfca%2Ferror.txt&referer=https%3A%2F%2Fw7.embedtv.cc%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
