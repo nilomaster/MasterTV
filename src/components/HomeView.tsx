@@ -93,9 +93,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       icon: Sparkles,
       onClick: () => onOpenVODCategory?.('animes'),
       posters: [
-        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1563089145-599997674d42?w=300&auto=format&fit=crop&q=80',
+        './covers/DeathNoteAnime.webp',
       ],
     },
   ];

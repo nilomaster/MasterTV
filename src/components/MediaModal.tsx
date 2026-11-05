@@ -73,7 +73,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
           <div className="absolute bottom-4 left-6 right-6">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-500 text-slate-950">
-                {mediaItem ? (mediaItem.type === 'movie' ? 'Filme' : mediaItem.type === 'series' ? 'Série' : mediaItem.type) : 'Canal ao vivo'}
+                {mediaItem ? (mediaItem.type === 'movie' ? 'Filme' : mediaItem.type === 'series' ? 'Série' : mediaItem.type === 'anime' ? 'Anime' : mediaItem.type) : 'Canal ao vivo'}
               </span>
               <span className="flex items-center gap-1 text-xs font-bold text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-400/20">
                 <Star className="w-3.5 h-3.5 fill-amber-300" />
