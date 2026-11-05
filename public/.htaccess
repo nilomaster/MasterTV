@@ -1,0 +1,26 @@
+# Apache configuration for MasterTV SPA on Locaweb / cPanel
+# Strictly ASCII characters only
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Caching and MIME Types
+<IfModule mod_mime.c>
+  AddType image/svg+xml .svg
+  AddType application/vnd.apple.mpegurl .m3u8
+  AddType video/mp2t .ts
+  AddType application/javascript .js
+  AddType text/css .css
+</IfModule>
+
+# Enable compression if available
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
+</IfModule>
+
