@@ -76,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           }
         }}
         className={`z-40 w-full bg-[#0B0E14]/95 backdrop-blur-xl border-b border-white/5 transition-all duration-300 ease-in-out ${currentView === 'player'
-            ? `fixed top-0 left-0 right-0 ${isPlayerControlsVisible
+            ? `hidden md:block fixed top-0 left-0 right-0 ${isPlayerControlsVisible
               ? 'translate-y-0 opacity-100 pointer-events-auto'
               : '-translate-y-full opacity-0 pointer-events-none'
             }`

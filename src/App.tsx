@@ -344,7 +344,13 @@ export const App: React.FC = () => {
       )}
 
       {/* Main View Router */}
-      <main className={`flex-1 flex flex-col ${currentView === 'player' || currentView === 'vod-player' ? 'pb-0 overflow-hidden' : 'pb-16 sm:pb-0'}`}>
+      <main className={`flex-1 flex flex-col ${
+        currentView === 'vod-player'
+          ? 'pb-0 overflow-hidden'
+          : currentView === 'player'
+          ? 'pb-16 md:pb-0 overflow-y-auto md:overflow-hidden'
+          : 'pb-16 sm:pb-0'
+      }`}>
         {currentView === 'home' && (
           <HomeView
             channels={liveChannels}
