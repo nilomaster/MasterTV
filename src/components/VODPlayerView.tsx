@@ -71,8 +71,15 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
   const [isDraggingProgress, setIsDraggingProgress] = useState<boolean>(false);
+  const [activeSource, setActiveSource] = useState<number>(1);
 
   const controlsTimeoutRef = useRef<number | null>(null);
+
+  // Active stream URL based on selected source
+  const effectiveStreamUrl =
+    activeSource === 2 && (currentEpisode?.backupStreamUrl || mediaItem.backupStreamUrl)
+      ? (currentEpisode?.backupStreamUrl || mediaItem.backupStreamUrl || streamUrl)
+      : streamUrl;
 
   // Format seconds to HH:MM:SS or MM:SS
   const formatTime = (timeInSeconds: number): string => {
@@ -117,11 +124,11 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
   // Video source initializer (HLS vs native MP4)
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !streamUrl) return;
+    if (!video || !effectiveStreamUrl) return;
 
     setIsLoadingStream(true);
     setStreamError(null);
-    setCurrentTime(0);
+    const resumeTime = video.currentTime > 0 ? video.currentTime : 0;
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -129,14 +136,14 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     }
 
     const isDirectVideo =
-      streamUrl.includes('.mp4') ||
-      streamUrl.includes('.mkv') ||
-      streamUrl.includes('workers.dev');
+      effectiveStreamUrl.includes('.mp4') ||
+      effectiveStreamUrl.includes('.mkv') ||
+      effectiveStreamUrl.includes('workers.dev');
 
     const isHls =
       !isDirectVideo &&
       Hls.isSupported() &&
-      (streamUrl.includes('.m3u8') || streamUrl.includes('.txt') || streamUrl.includes('/api/proxy'));
+      (effectiveStreamUrl.includes('.m3u8') || effectiveStreamUrl.includes('.txt') || effectiveStreamUrl.includes('/api/proxy'));
 
     let connectTimeout: number | null = window.setTimeout(() => {
       setIsLoadingStream(false);
@@ -152,7 +159,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       });
 
       hlsRef.current = hls;
-      hls.loadSource(streamUrl);
+      hls.loadSource(effectiveStreamUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -161,6 +168,9 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
+        if (resumeTime > 0) {
+          video.currentTime = resumeTime;
+        }
         video.play().catch(() => {
           setIsPlaying(false);
         });
@@ -178,7 +188,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         }
       });
     } else {
-      video.src = streamUrl;
+      video.src = effectiveStreamUrl;
 
       const handleReady = () => {
         if (connectTimeout) {
@@ -186,6 +196,9 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
+        if (resumeTime > 0) {
+          video.currentTime = resumeTime;
+        }
         video.play().catch(() => {
           setIsPlaying(false);
         });
@@ -215,7 +228,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         video.onerror = null;
       }
     };
-  }, [streamUrl]);
+  }, [effectiveStreamUrl]);
 
   // Video time and buffer listeners
   useEffect(() => {
@@ -465,6 +478,18 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             Ocorreu uma instabilidade na reprodução deste título. Tente recarregar ou voltar para o catálogo.
           </p>
           <div className="flex gap-3">
+            {Boolean(mediaItem.backupStreamUrl || currentEpisode?.backupStreamUrl) && (
+              <button
+                onClick={() => {
+                  setActiveSource((s) => (s === 1 ? 2 : 1));
+                  setStreamError(null);
+                  setIsLoadingStream(true);
+                }}
+                className="px-5 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-cyan-400/25 cursor-pointer"
+              >
+                Alternar para Fonte {activeSource === 1 ? '2' : '1'}
+              </button>
+            )}
             <button
               onClick={() => {
                 setStreamError(null);
@@ -473,7 +498,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                   videoRef.current.load();
                 }
               }}
-              className="px-5 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-cyan-400/25 cursor-pointer"
+              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs transition-all cursor-pointer"
             >
               Tentar Novamente
             </button>
@@ -692,6 +717,17 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Source Switcher */}
+              {Boolean(mediaItem.backupStreamUrl || currentEpisode?.backupStreamUrl) && (
+                <button
+                  onClick={() => setActiveSource((s) => (s === 1 ? 2 : 1))}
+                  title="Alternar entre Fonte 1 e Fonte 2"
+                  className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white text-xs font-mono font-bold border border-white/10 transition-all cursor-pointer whitespace-nowrap"
+                >
+                  Fonte {activeSource}/2
+                </button>
+              )}
 
               {/* Volume Slider */}
               <div className="flex items-center gap-1.5">

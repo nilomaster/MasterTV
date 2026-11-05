@@ -44,6 +44,7 @@ export interface EpisodeItem {
   number: number;
   title: string;
   streamUrl: string;
+  backupStreamUrl?: string;
   duration?: string;
 }
 
@@ -60,6 +61,7 @@ export interface MediaItem {
   backdropUrl: string;
   description: string;
   streamUrl: string;
+  backupStreamUrl?: string;
   director?: string;
   writers?: string;
   creator?: string;

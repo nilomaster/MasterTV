@@ -473,7 +473,8 @@ export const HERO_FEATURED: MediaItem = {
   director: 'Destin Daniel Cretton',
   writers: 'Erik Sommers, Chris McKenna',
   production: 'Marvel Studios',
-  streamUrl: 'https://damp-cloud-0585.8ee7klupb4z1.workers.dev/t/1793852784.a7beffba92aa3caedb52a3559fe55a14b575c2fc6100fff70d49f89a30b54904/u/FonteMteus-AcessoFULL.VOD/e1.bMxmVKSt7VqL_NLImJnRj0S5V2guNBKyyhZBbog3Ylmbc7fPyPvk01nyGUVBrDZbe3sGSTPvgN28IEkiWNlh3A',
+  streamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
+  backupStreamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
 };
 
 export const TRENDING_MOVIES: MediaItem[] = [
@@ -492,7 +493,8 @@ export const TRENDING_MOVIES: MediaItem[] = [
     director: 'Destin Daniel Cretton',
     writers: 'Erik Sommers, Chris McKenna',
     production: 'Marvel Studios',
-    streamUrl: 'https://damp-cloud-0585.8ee7klupb4z1.workers.dev/t/1793852784.a7beffba92aa3caedb52a3559fe55a14b575c2fc6100fff70d49f89a30b54904/u/FonteMteus-AcessoFULL.VOD/e1.bMxmVKSt7VqL_NLImJnRj0S5V2guNBKyyhZBbog3Ylmbc7fPyPvk01nyGUVBrDZbe3sGSTPvgN28IEkiWNlh3A',
+    streamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
+    backupStreamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
   },
 ];
 
