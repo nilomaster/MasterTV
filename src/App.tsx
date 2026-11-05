@@ -6,6 +6,8 @@ import type { Channel, MediaItem, EpisodeItem } from './types/iptv';
 import {
   INITIAL_CHANNELS,
   INITIAL_CATEGORIES,
+  HERO_FEATURED,
+  TRENDING_MOVIES,
 } from './services/mockData';
 import {
   enrichChannelsWithLiveEPG,
@@ -256,7 +258,25 @@ export const App: React.FC = () => {
     currentEpisode?: EpisodeItem;
     streamUrl: string;
     title: string;
-  } | null>(null);
+  }>(() => {
+    try {
+      const saved = localStorage.getItem('mastertv_active_vod');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.mediaItem && parsed.streamUrl) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore parse error and fallback
+    }
+    const defaultMedia = TRENDING_MOVIES[0] || HERO_FEATURED;
+    return {
+      mediaItem: defaultMedia,
+      streamUrl: defaultMedia.streamUrl,
+      title: defaultMedia.title,
+    };
+  });
 
   const handlePlayMediaStream = (
     streamUrl: string,
@@ -265,12 +285,18 @@ export const App: React.FC = () => {
     episode?: EpisodeItem
   ) => {
     if (mediaItem) {
-      setActiveVOD({
+      const vodData = {
         mediaItem,
         currentEpisode: episode || (mediaItem.episodeList ? mediaItem.episodeList[0] : undefined),
         streamUrl,
         title,
-      });
+      };
+      setActiveVOD(vodData);
+      try {
+        localStorage.setItem('mastertv_active_vod', JSON.stringify(vodData));
+      } catch {
+        // Storage full or quota exceeded
+      }
       handleViewChange('vod-player');
     } else {
       const temporaryChannel: Channel = {
@@ -345,7 +371,7 @@ export const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'vod-player' && activeVOD && (
+        {currentView === 'vod-player' && (
           <VODPlayerView
             mediaItem={activeVOD.mediaItem}
             currentEpisode={activeVOD.currentEpisode}
@@ -363,16 +389,18 @@ export const App: React.FC = () => {
               handleViewChange('vod', category);
             }}
             onSelectEpisode={(ep) => {
-              setActiveVOD((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      currentEpisode: ep,
-                      streamUrl: ep.streamUrl,
-                      title: `${prev.mediaItem.title} - ${ep.title}`,
-                    }
-                  : null
-              );
+              const updated = {
+                ...activeVOD,
+                currentEpisode: ep,
+                streamUrl: ep.streamUrl,
+                title: `${activeVOD.mediaItem.title} - ${ep.title}`,
+              };
+              setActiveVOD(updated);
+              try {
+                localStorage.setItem('mastertv_active_vod', JSON.stringify(updated));
+              } catch {
+                // Ignore storage error
+              }
             }}
           />
         )}

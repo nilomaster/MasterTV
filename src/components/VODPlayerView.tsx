@@ -212,7 +212,18 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
-        setStreamError('Erro ao reproduzir o arquivo de video.');
+        const err = video.error;
+        let msg = 'Erro ao reproduzir o arquivo de video.';
+        if (err) {
+          if (err.code === 4) {
+            msg = 'Este video requer suporte a decodificacao de hardware HEVC / 4K. Caso nao inicie, teste no navegador Edge ou ative a aceleracao por hardware nas configuracoes do Chrome.';
+          } else if (err.code === 2) {
+            msg = 'Falha de conexao com a fonte de transmissao. Tente novamente ou selecione outra fonte.';
+          } else if (err.code === 3) {
+            msg = 'Erro na decodificacao do fluxo de video.';
+          }
+        }
+        setStreamError(msg);
       };
     }
 
@@ -448,6 +459,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       <video
         ref={videoRef}
         playsInline
+        preload="auto"
         onClick={togglePlay}
         className={`w-full h-full cursor-pointer transition-all ${
           aspectRatio === 'cover'
