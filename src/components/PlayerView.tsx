@@ -140,8 +140,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     const video = videoRef.current;
 
+    // Check if the stream is a direct video container (MP4, MKV or CDN workers file)
+    const isDirectVideo =
+      streamToPlay.includes('.mp4') ||
+      streamToPlay.includes('.mkv') ||
+      streamToPlay.includes('workers.dev');
+
     // Support standard HLS m3u8 as well as proxy endpoints and obfuscated txt streams
     const isHlsStream =
+      !isDirectVideo &&
       Hls.isSupported() &&
       (streamToPlay.includes('.m3u8') ||
         streamToPlay.includes('.txt') ||
@@ -245,7 +252,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       });
     } else {
       video.src = streamToPlay;
-      video.onloadedmetadata = () => {
+      const handleReady = () => {
         if (connectTimeout) {
           window.clearTimeout(connectTimeout);
           connectTimeout = null;
@@ -257,6 +264,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           video.play().catch(() => {});
         });
       };
+      video.onloadedmetadata = handleReady;
+      video.oncanplay = handleReady;
       video.onerror = () => {
         if (connectTimeout) {
           window.clearTimeout(connectTimeout);

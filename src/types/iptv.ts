@@ -39,19 +39,34 @@ export interface Category {
   icon?: string;
 }
 
+export interface EpisodeItem {
+  id: string;
+  number: number;
+  title: string;
+  streamUrl: string;
+  duration?: string;
+}
+
 export interface MediaItem {
   id: string;
   title: string;
+  tagline?: string;
   type: 'movie' | 'series' | 'anime' | 'dorama' | 'live';
   year: number;
   rating: number;
+  contentRating?: string;
   genres: string[];
   posterUrl: string;
   backdropUrl: string;
   description: string;
   streamUrl: string;
+  director?: string;
+  writers?: string;
+  creator?: string;
+  production?: string;
   seasons?: number;
   episodes?: number;
+  episodeList?: EpisodeItem[];
 }
 
 export interface PlaylistSource {

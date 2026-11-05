@@ -473,6 +473,23 @@ export const HERO_FEATURED: MediaItem = {
 
 export const TRENDING_MOVIES: MediaItem[] = [
   {
+    id: 'mov-spiderman-new-day',
+    title: 'Homem-Aranha: Um Novo Dia',
+    tagline: 'Um novo dia comeca agora.',
+    type: 'movie',
+    year: 2026,
+    rating: 8.7,
+    contentRating: '14',
+    genres: ['Ficcao cientifica', 'Acao', 'Aventura'],
+    posterUrl: './covers/HomenAranhaUmNovoDia.webp',
+    backdropUrl: './covers/HomenAranhaUmNovoDia.webp',
+    description: 'E um novo dia para Peter Parker. Combatendo o crime em tempo integral como Homem-Aranha em um mundo que nao se lembra mais dele e lidando com a pressao de ver seus antigos amigos seguirem em frente sem sua presenca, Peter passa por uma mudanca que talvez nem ele tenha o poder de controlar. Mas essa transformacao tambem pode ser a unica coisa capaz de deter uma surpreendente nova ameaca a cidade e as pessoas que ele ama: um poderoso vilao que ninguem sequer consegue enxergar.',
+    director: 'Destin Daniel Cretton',
+    writers: 'Erik Sommers, Chris McKenna',
+    production: 'Marvel Studios',
+    streamUrl: 'https://damp-cloud-0585.8ee7klupb4z1.workers.dev/t/1793852784.a7beffba92aa3caedb52a3559fe55a14b575c2fc6100fff70d49f89a30b54904/u/FonteMteus-AcessoFULL.VOD/e1.bMxmVKSt7VqL_NLImJnRj0S5V2guNBKyyhZBbog3Ylmbc7fPyPvk01nyGUVBrDZbe3sGSTPvgN28IEkiWNlh3A',
+  },
+  {
     id: 'mov-1',
     title: 'Resident Evil (2026)',
     type: 'movie',
@@ -571,6 +588,40 @@ export const TRENDING_MOVIES: MediaItem[] = [
 ];
 
 export const TRENDING_SERIES: MediaItem[] = [
+  {
+    id: 'ser-vision-quest',
+    title: 'VisionQuest',
+    tagline: 'O despertar da consciencia em um novo proposito.',
+    type: 'series',
+    year: 2026,
+    rating: 8.7,
+    contentRating: '14',
+    genres: ['Sci-Fi & Fantasy', 'Drama'],
+    posterUrl: './covers/VisionQuest.webp',
+    backdropUrl: './covers/VisionQuest.webp',
+    description: 'Um Visao repaginado tem se escondido daqueles que buscam usa-lo como arma. Enquanto permanece na clandestinidade, ele consulta as personalidades de IA embutidas em sua programacao, incluindo o infame Ultron, para encontrar seu verdadeiro proposito. Essa vida tranquila de autorreflexao chega ao fim quando uma recompensa por sua cabeca o forca a fugir ao lado de Thomas Shepard, um garoto misterioso que pode ser a reencarnacao de seu filho.',
+    creator: 'Terry Matalas',
+    production: 'Marvel Studios',
+    seasons: 1,
+    episodes: 2,
+    streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
+    episodeList: [
+      {
+        id: 'vq-ep-1',
+        number: 1,
+        title: 'Episodio 1',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
+        duration: '52min',
+      },
+      {
+        id: 'vq-ep-2',
+        number: 2,
+        title: 'Episodio 2',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/b9f98cb30c22a9fe0bd8bca9/index.m3u8',
+        duration: '48min',
+      },
+    ],
+  },
   {
     id: 'ser-1',
     title: 'Um Trabalho do Inferno',
