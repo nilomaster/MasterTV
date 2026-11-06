@@ -12,12 +12,9 @@ const STREAM_GLOBO_SP =
   'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd2-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fglobosp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
 
 const STREAM_SBT_1_HD =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fpremiereclubes%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
-
-const STREAM_SBT_2_HD =
   'https://cdn.live.br1.jmvstream.com/w/LVW-10801/LVW10801_Xvg4R0u57n/chunklist.m3u8?checkedby:iptvcat.com';
 
-const STREAM_SBT_3_FHD =
+const STREAM_SBT_2_FHD =
   'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F6836041ea1117.streamlock.net%2Fcverde%2Fcverde%2Fchunklist_w1662197046.m3u8&referer=https%3A%2F%2F6836041ea1117.streamlock.net%2F';
 
 const STREAM_RECORD_SP =
@@ -112,11 +109,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/sbt.png',
     category: 'aberta',
     streamUrl: STREAM_SBT_1_HD,
-    backupStreamUrl: STREAM_SBT_2_HD,
+    backupStreamUrl: STREAM_SBT_2_FHD,
     sources: [
       { id: 1, name: 'Fonte 1 HD', url: STREAM_SBT_1_HD, quality: '720p' },
-      { id: 2, name: 'Fonte 2 HD', url: STREAM_SBT_2_HD, quality: '720p' },
-      { id: 3, name: 'Fonte 3 FHD', url: STREAM_SBT_3_FHD, quality: '1080p' }
+      { id: 2, name: 'Fonte 2 FHD', url: STREAM_SBT_2_FHD, quality: '1080p' }
     ],
     currentProgram: 'Programa Silvio Santos',
     currentProgramTime: '16:30 - 19:00',

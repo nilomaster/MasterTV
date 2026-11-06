@@ -1,8 +1,6 @@
 SBT HD 
-Fonte 1 HD: https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fpremiereclubes%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36
-Fonte 2 HD: https://cdn.live.br1.jmvstream.com/w/LVW-10801/LVW10801_Xvg4R0u57n/chunklist.m3u8?checkedby:iptvcat.com
-Fonte 3 FHD: https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F6836041ea1117.streamlock.net%2Fcverde%2Fcverde%2Fchunklist_w1662197046.m3u8&referer=https%3A%2F%2F6836041ea1117.streamlock.net%2F
-Fonte 4:
+Fonte 1 HD: https://cdn.live.br1.jmvstream.com/w/LVW-10801/LVW10801_Xvg4R0u57n/chunklist.m3u8?checkedby:iptvcat.com
+Fonte 2 FHD: https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F6836041ea1117.streamlock.net%2Fcverde%2Fcverde%2Fchunklist_w1662197046.m3u8&referer=https%3A%2F%2F6836041ea1117.streamlock.net%2F
 
 Rede TV ( Correção do canal )
 https://45.162.64.114/REDE_TV/index.m3u8
