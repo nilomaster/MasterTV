@@ -153,9 +153,11 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     if (isHls) {
       const hls = new Hls({
         enableWorker: true,
+        startFragPrefetch: true,
         lowLatencyMode: false,
-        backBufferLength: 120,
-        maxBufferLength: 60,
+        backBufferLength: 30,
+        maxBufferLength: 20,
+        maxMaxBufferLength: 40,
       });
 
       hlsRef.current = hls;

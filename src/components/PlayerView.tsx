@@ -203,14 +203,23 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     }, 15000);
 
     if (isHlsStream) {
+      // High-performance low latency config for fast channel zapping and low memory devices
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: zeroDelayActive,
-        backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 8,
+        lowLatencyMode: true,
+        startFragPrefetch: true,
+        backBufferLength: 10,
+        maxBufferLength: 8,
+        maxMaxBufferLength: 15,
+        maxBufferSize: 30 * 1000 * 1000,
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 3,
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 1,
+        nudgeOffset: 0.1,
+        nudgeMaxRetry: 5,
+        fragLoadingTimeOut: 12000,
+        manifestLoadingTimeOut: 12000,
         xhrSetup: (xhr) => {
           xhr.withCredentials = false;
         },
