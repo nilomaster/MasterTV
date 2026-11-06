@@ -24,6 +24,10 @@
 }
 
 /* Custom scrollbar for IPTV vertical lists only */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.4) transparent;
+}
 .custom-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -32,11 +36,11 @@
   background: rgba(15, 23, 42, 0.6);
 }
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.35);
   border-radius: 4px;
 }
 .custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.6);
 }
 
 /* Glassmorphism helpers */

@@ -65,10 +65,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       icon: Film,
       onClick: () => onOpenVODCategory?.('movies'),
       posters: [
-        'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1635805737707-575885ab0820?w=300&auto=format&fit=crop&q=80',
+        './covers/HomenAranhaUmNovoDia.webp',
       ],
     },
     {
@@ -82,9 +79,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       icon: Tv2,
       onClick: () => onOpenVODCategory?.('series'),
       posters: [
-        'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80',
+        './covers/VisionQuest.webp',
       ],
     },
     {
@@ -98,9 +93,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       icon: Sparkles,
       onClick: () => onOpenVODCategory?.('animes'),
       posters: [
-        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=300&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1563089145-599997674d42?w=300&auto=format&fit=crop&q=80',
+        './covers/DeathNoteAnime.webp',
       ],
     },
   ];

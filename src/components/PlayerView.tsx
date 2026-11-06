@@ -23,10 +23,11 @@ import {
   Check,
   Radio,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  Play
 } from 'lucide-react';
 import type { Channel, Category } from '../types/iptv';
-import { getLiveEPGForChannel } from '../services/epgService';
+import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
 import { EPGGuideView } from './EPGGuideView';
 
 interface PlayerViewProps {
@@ -80,6 +81,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   const [zeroDelayActive, setZeroDelayActive] = useState<boolean>(true);
   const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
   const [internalEPGOpen, setInternalEPGOpen] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'channels' | 'categories' | 'epg'>('channels');
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState<boolean>(false);
+
+  // Reset active source and errors whenever channel changes
+  useEffect(() => {
+    setActiveSource(1);
+    setStreamError(null);
+    setIsAutoplayBlocked(false);
+  }, [currentChannel?.id]);
 
   const isEPGModalVisible = isEPGOpenProp !== undefined ? isEPGOpenProp : internalEPGOpen;
 
@@ -115,10 +125,33 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   }, []);
 
   const currentChannelId = currentChannel?.id;
-  const streamToPlay =
-    activeSource === 2 && currentChannel?.backupStreamUrl
-      ? currentChannel.backupStreamUrl
-      : currentChannel?.streamUrl || '';
+
+  // Resolve all available stream sources for the active channel
+  const channelSources = useMemo(() => {
+    if (!currentChannel) return [];
+    if (currentChannel.sources && currentChannel.sources.length > 0) {
+      return currentChannel.sources;
+    }
+    const list = [
+      { id: 1, name: 'Fonte 1', url: currentChannel.streamUrl, quality: currentChannel.quality || 'HD' }
+    ];
+    if (currentChannel.backupStreamUrl) {
+      list.push({ id: 2, name: 'Fonte 2', url: currentChannel.backupStreamUrl, quality: 'HD' });
+    }
+    return list;
+  }, [currentChannel]);
+
+  const activeSourceObj = channelSources.find((s) => s.id === activeSource) || channelSources[0];
+  const streamToPlay = activeSourceObj?.url || currentChannel?.streamUrl || '';
+
+  const cycleSource = useCallback(() => {
+    if (channelSources.length <= 1) return;
+    setActiveSource((prev) => {
+      const idx = channelSources.findIndex((s) => s.id === prev);
+      const nextIdx = (idx + 1) % channelSources.length;
+      return channelSources[nextIdx].id;
+    });
+  }, [channelSources]);
 
   // Initialize and update HLS stream
   useEffect(() => {
@@ -140,8 +173,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     const video = videoRef.current;
 
+    // Check if the stream is a direct video container (MP4, MKV or CDN workers file)
+    const isDirectVideo =
+      streamToPlay.includes('.mp4') ||
+      streamToPlay.includes('.mkv') ||
+      streamToPlay.includes('workers.dev');
+
     // Support standard HLS m3u8 as well as proxy endpoints and obfuscated txt streams
     const isHlsStream =
+      !isDirectVideo &&
       Hls.isSupported() &&
       (streamToPlay.includes('.m3u8') ||
         streamToPlay.includes('.txt') ||
@@ -151,13 +191,16 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     // Safety timeout to avoid getting stuck indefinitely on Sintonizando
     let connectTimeout: number | null = window.setTimeout(() => {
-      if (activeSource === 1 && currentChannel?.backupStreamUrl) {
-        setActiveSource(2);
-      } else {
+      setActiveSource((prev) => {
+        const currentIdx = channelSources.findIndex((s) => s.id === prev);
+        if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
+          return channelSources[currentIdx + 1].id;
+        }
         setIsLoadingStream(false);
         setStreamError('Sinal temporariamente indisponivel nesta fonte');
-      }
-    }, 7500);
+        return prev;
+      });
+    }, 15000);
 
     if (isHlsStream) {
       const hls = new Hls({
@@ -202,7 +245,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         video.play().catch(() => {
           setIsMuted(true);
           video.muted = true;
-          video.play().catch(() => {});
+          video.play().catch(() => {
+            setIsAutoplayBlocked(true);
+            setIsLoadingStream(false);
+          });
         });
       });
 
@@ -219,13 +265,16 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   window.clearTimeout(connectTimeout);
                   connectTimeout = null;
                 }
-                if (activeSource === 1 && currentChannel?.backupStreamUrl) {
-                  setActiveSource(2);
-                } else {
+                setActiveSource((prev) => {
+                  const currentIdx = channelSources.findIndex((s) => s.id === prev);
+                  if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
+                    return channelSources[currentIdx + 1].id;
+                  }
                   setStreamError('Sinal temporariamente indisponivel nesta fonte');
                   setIsLoadingStream(false);
                   hls.destroy();
-                }
+                  return prev;
+                });
               }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -245,7 +294,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       });
     } else {
       video.src = streamToPlay;
-      video.onloadedmetadata = () => {
+      const handleReady = () => {
         if (connectTimeout) {
           window.clearTimeout(connectTimeout);
           connectTimeout = null;
@@ -254,20 +303,28 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         video.play().catch(() => {
           setIsMuted(true);
           video.muted = true;
-          video.play().catch(() => {});
+          video.play().catch(() => {
+            setIsAutoplayBlocked(true);
+            setIsLoadingStream(false);
+          });
         });
       };
+      video.onloadedmetadata = handleReady;
+      video.oncanplay = handleReady;
       video.onerror = () => {
         if (connectTimeout) {
           window.clearTimeout(connectTimeout);
           connectTimeout = null;
         }
-        if (activeSource === 1 && currentChannel?.backupStreamUrl) {
-          setActiveSource(2);
-        } else {
+        setActiveSource((prev) => {
+          const currentIdx = channelSources.findIndex((s) => s.id === prev);
+          if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
+            return channelSources[currentIdx + 1].id;
+          }
           setIsLoadingStream(false);
           setStreamError('Transmissao temporariamente indisponivel nesta fonte');
-        }
+          return prev;
+        });
       };
     }
 
@@ -282,7 +339,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         lastLoadedStreamRef.current = '';
       }
     };
-  }, [currentChannelId, streamToPlay, zeroDelayActive]);
+  }, [currentChannelId, streamToPlay, zeroDelayActive, channelSources]);
 
   // Effective controls visibility takes navbar hover into account
   const isControlsVisible = showControls || isNavbarHovered;
@@ -507,6 +564,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     return currentChannel ? getLiveEPGForChannel(currentChannel.id) : null;
   }, [currentChannel, epgRevision]);
 
+  // Get full timeline programs for mobile EPG tab
+  const currentTimeline = useMemo(() => {
+    if (!currentChannel) return [];
+    void epgRevision;
+    const now = Date.now();
+    return getChannelTimelinePrograms(
+      currentChannel.id,
+      now - 4 * 3600 * 1000,
+      now + 16 * 3600 * 1000,
+      now
+    );
+  }, [currentChannel, epgRevision]);
+
   // Filter channels based on search and category
   const filteredChannels = channels.filter((ch) => {
     const matchesSearch =
@@ -530,25 +600,48 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`relative w-full bg-black overflow-hidden select-none font-sans ${
+      className={`w-full bg-[#07090e] select-none font-sans ${
         isFullscreen
-          ? 'h-screen fixed inset-0 z-50'
-          : 'h-[100dvh]'
+          ? 'fixed inset-0 z-50 h-screen overflow-hidden'
+          : 'h-[100dvh] overflow-hidden flex flex-col md:block relative'
       }`}
     >
-      {/* Video Element - Live TV without pause capability */}
-      <video
-        ref={videoRef}
-        className={`w-full h-full object-${aspectRatio === 'cover' ? 'cover' : 'contain'} cursor-default`}
-        playsInline
-        autoPlay
-        muted={isMuted}
-        onClick={() => setShowControls((prev) => !prev)}
-        onPause={(e) => {
-          // Security lock: prevent pausing live TV stream
-          e.currentTarget.play().catch(() => {});
-        }}
-      />
+      {/* Video Container (Pinned 16:9 on Mobile, Full-screen Cinema on Desktop) */}
+      <div
+        className={`relative bg-black shrink-0 transition-all ${
+          isFullscreen
+            ? 'w-full h-full'
+            : 'w-full aspect-video md:static md:w-full md:h-full md:aspect-auto'
+        }`}
+      >
+        {/* Video Element - Live TV without pause capability */}
+        <video
+          ref={videoRef}
+          className={`w-full h-full object-${aspectRatio === 'cover' ? 'cover' : 'contain'} cursor-default`}
+          playsInline
+          autoPlay
+          muted={isMuted}
+          onClick={() => setShowControls((prev) => !prev)}
+        />
+
+        {/* Big Tap to Play Button when mobile browser blocks autoplay */}
+        {isAutoplayBlocked && (
+          <button
+            onClick={() => {
+              setIsAutoplayBlocked(false);
+              if (videoRef.current) {
+                videoRef.current.play().catch(() => {});
+              }
+            }}
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm cursor-pointer"
+          >
+            <div className="w-16 h-16 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.6)] animate-pulse mb-3">
+              <Play className="w-8 h-8 fill-slate-950 ml-1" />
+            </div>
+            <span className="text-white text-sm font-bold tracking-wide">Toque para Assistir</span>
+            <span className="text-cyan-400 text-xs font-semibold mt-1">{currentChannel?.name}</span>
+          </button>
+        )}
 
       {/* Loading Overlay - Splash Neon Effect matching Saimo TV */}
       {isLoadingStream && (
@@ -584,15 +677,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
           <h3 className="text-lg font-bold text-white mb-1">{streamError}</h3>
           <p className="text-xs text-slate-400 max-w-md mb-4">
-            Voce pode alternar entre a Fonte 1 e a Fonte 2 de transmissao ou selecionar outro canal.
+            {channelSources.length > 1
+              ? `Voce pode alternar entre as ${channelSources.length} fontes disponiveis ou selecionar outro canal.`
+              : 'Voce pode tentar recarregar a transmissao ou selecionar outro canal.'}
           </p>
           <div className="flex gap-3">
-            <button
-              onClick={() => setActiveSource(activeSource === 1 ? 2 : 1)}
-              className="px-4 py-2 bg-[#4fe3d0] hover:bg-[#38d4c1] text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-[#4fe3d0]/20"
-            >
-              Alternar para Fonte {activeSource === 1 ? '2' : '1'}
-            </button>
+            {channelSources.length > 1 && (
+              <button
+                onClick={cycleSource}
+                className="px-4 py-2 bg-[#4fe3d0] hover:bg-[#38d4c1] text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-[#4fe3d0]/20"
+              >
+                Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})
+              </button>
+            )}
             <button
               onClick={() => {
                 setStreamError(null);
@@ -609,9 +706,84 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         </div>
       )}
 
+      {/* MOBILE COMPACT OVERLAY ON VIDEO (When not in fullscreen) */}
+      {!isFullscreen && (
+        <div
+          className={`md:hidden absolute inset-0 flex flex-col justify-between p-2.5 bg-gradient-to-b from-black/80 via-transparent to-black/85 pointer-events-none transition-opacity duration-300 z-20 ${
+            isControlsVisible ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {/* Top Row: Live badge, Source switch, Mute, Cinema Mode */}
+          <div className="flex items-center justify-between gap-2 pointer-events-auto">
+            <div className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md shadow-red-600/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                AO VIVO
+              </span>
+              {channelSources.length > 1 && (
+                <button
+                  onClick={cycleSource}
+                  className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold border border-white/20 backdrop-blur-md cursor-pointer"
+                >
+                  Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={toggleMute}
+                className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white border border-white/20 backdrop-blur-md cursor-pointer"
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                )}
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                title="Modo Cinema em Tela Cheia"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] shadow-lg shadow-cyan-500/30 backdrop-blur-md cursor-pointer"
+              >
+                <Maximize className="w-3.5 h-3.5" />
+                <span>Cinema</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Row: Quick Prev/Next zapping & aspect ratio */}
+          <div className="flex items-center justify-between pointer-events-auto">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => jumpChannels('prev')}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
+              >
+                <SkipBack className="w-3 h-3 text-cyan-400" />
+                <span className="text-[10px]">Anterior</span>
+              </button>
+              <button
+                onClick={() => jumpChannels('next')}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
+              >
+                <span className="text-[10px]">Próximo</span>
+                <SkipForward className="w-3 h-3 text-cyan-400" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setAspectRatio(aspectRatio === 'contain' ? 'cover' : 'contain')}
+              className="px-2 py-1 rounded-lg bg-black/70 text-slate-200 text-[10px] font-bold border border-white/15 backdrop-blur-md cursor-pointer"
+            >
+              {aspectRatio === 'contain' ? 'Ajustar' : 'Expandir'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* TOP BAR OVERLAY - Anchored to top: 0 with seamless downward gradient */}
       <div
-        className={`absolute top-0 left-0 right-0 pt-16 sm:pt-20 px-4 sm:px-6 lg:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent flex items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
+        className={`${isFullscreen ? 'flex' : 'hidden md:flex'} absolute top-0 left-0 right-0 pt-16 sm:pt-20 px-4 sm:px-6 lg:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
           isControlsVisible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -664,10 +836,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         </div>
       </div>
 
-      {/* LEFT CHANNEL DRAWER - Faithful to Saimo TV PainelDeCanais */}
+      {/* LEFT CHANNEL DRAWER - Desktop */}
       {isDrawerOpen && (
         <aside
-          className="absolute top-16 sm:top-20 bottom-16 sm:bottom-20 left-2 right-2 sm:right-auto sm:left-4 sm:w-88 lg:w-96 rounded-[24px] bg-[#0b0e14]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.8)] flex flex-col z-30 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-left-4 duration-200"
+          className="hidden md:flex absolute top-16 sm:top-20 bottom-16 sm:bottom-20 left-2 right-2 sm:right-auto sm:left-4 sm:w-88 lg:w-96 rounded-[24px] bg-[#0b0e14]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.8)] flex-col z-30 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-left-4 duration-200"
         >
           {/* Header */}
           <div className="px-4 py-3.5 border-b border-white/10 flex items-center justify-between">
@@ -867,16 +1039,18 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               {contextMenu.channel.isFavorite ? 'Remover dos Favoritos' : 'Favoritar Canal'}
             </span>
           </button>
-          <button
-            onClick={() => {
-              setActiveSource(activeSource === 1 ? 2 : 1);
-              setContextMenu(null);
-            }}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 text-left transition-colors"
-          >
-            <Radio className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Alternar para Fonte {activeSource === 1 ? '2' : '1'}</span>
-          </button>
+          {channelSources.length > 1 && (
+            <button
+              onClick={() => {
+                cycleSource();
+                setContextMenu(null);
+              }}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 text-left transition-colors"
+            >
+              <Radio className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})</span>
+            </button>
+          )}
           <button
             onClick={() => {
               navigator.clipboard.writeText(contextMenu.channel.streamUrl);
@@ -900,7 +1074,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
       {/* BOTTOM FLOATING CONTROLS BAR - Responsive Glass Controlbar */}
       <div
-        className={`absolute bottom-16 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 lg:left-8 lg:right-8 z-30 transition-opacity duration-300 ${
+        className={`${isFullscreen ? 'flex' : 'hidden md:flex'} absolute bottom-16 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 lg:left-8 lg:right-8 z-30 transition-opacity duration-300 ${
           isControlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -948,13 +1122,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             </button>
 
             {/* Source switch */}
-            <button
-              onClick={() => setActiveSource(activeSource === 1 ? 2 : 1)}
-              title="Alternar Fonte de Transmissao"
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition-all whitespace-nowrap"
-            >
-              <span>Fonte {activeSource}/2</span>
-            </button>
+            {channelSources.length > 1 && (
+              <button
+                onClick={cycleSource}
+                title="Alternar Fonte de Transmissao"
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition-all whitespace-nowrap cursor-pointer"
+              >
+                <span>Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}</span>
+              </button>
+            )}
 
             {/* Quick Live Jump button */}
             <button
@@ -1047,6 +1223,367 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
         </div>
       </div>
+      </div>
+
+      {/* MOBILE APP INTERFACE (TiviMate / Smarters style) - Below Video */}
+      {!isFullscreen && (
+        <div className="flex-1 min-h-0 flex flex-col w-full bg-[#07090e] md:hidden overflow-hidden">
+          {/* Active Channel Strip Header */}
+          <div className="shrink-0 p-3 bg-gradient-to-b from-[#0b0e14] to-[#07090e] border-b border-white/10 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative w-11 h-11 rounded-xl bg-slate-900 border border-cyan-500/30 p-1 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+                {currentChannel?.logo ? (
+                  <img
+                    src={currentChannel.logo}
+                    alt={currentChannel.name}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <Tv className="w-6 h-6 text-cyan-400" />
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono font-bold text-cyan-400">
+                    CH {currentChannel?.number ? String(currentChannel.number).padStart(2, '0') : '01'}
+                  </span>
+                  <h2 className="text-sm font-extrabold text-white truncate">
+                    {currentChannel?.name || 'Canal'}
+                  </h2>
+                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                    {currentChannel?.quality || 'HD'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 font-semibold truncate mt-0.5">
+                  {currentLiveInfo?.currentProgram || currentChannel?.currentProgram || 'Programacao Ao Vivo'}
+                </p>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                  <span className="text-cyan-400 font-mono font-bold">
+                    {currentLiveInfo?.currentProgramTime || currentChannel?.currentProgramTime || 'Agora'}
+                  </span>
+                  <span>· {currentLiveInfo?.durationText || 'Ao Vivo'}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => currentChannel && onToggleFavorite(currentChannel.id)}
+              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 shrink-0 transition-all cursor-pointer"
+              title="Favoritar"
+            >
+              <Star
+                className={`w-5 h-5 ${
+                  currentChannel?.isFavorite
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'text-slate-400'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Progress bar of current program */}
+          {currentLiveInfo && (
+            <div className="shrink-0 w-full h-1 bg-slate-900 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+                style={{ width: `${currentLiveInfo.progressPercent}%` }}
+              />
+            </div>
+          )}
+
+          {/* Mobile App Navigation Tabs (Smarters / TiviMate style) */}
+          <div className="shrink-0 grid grid-cols-3 bg-[#0d111a] border-b border-white/10 p-1 gap-1">
+            <button
+              onClick={() => setMobileTab('channels')}
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                mobileTab === 'channels'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <List className="w-4 h-4" />
+              <span>Canais ({filteredChannels.length})</span>
+            </button>
+
+            <button
+              onClick={() => setMobileTab('categories')}
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                mobileTab === 'categories'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Categorias</span>
+            </button>
+
+            <button
+              onClick={() => setMobileTab('epg')}
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                mobileTab === 'epg'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Guia EPG</span>
+            </button>
+          </div>
+
+          {/* TAB 1: CANAIS */}
+          {mobileTab === 'channels' && (
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24">
+              {/* Search Bar */}
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar canal ou programa..."
+                  value={searchChannel}
+                  onChange={(e) => setSearchChannel(e.target.value)}
+                  className="w-full pl-9 pr-9 py-2.5 bg-slate-900/90 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-all"
+                />
+                {searchChannel && (
+                  <button
+                    onClick={() => setSearchChannel('')}
+                    className="absolute right-3 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Pills Horizontal Scroll */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {categories.map((cat) => {
+                  const isCatActive = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                        isCatActive
+                          ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-400/25'
+                          : 'bg-slate-900 border border-white/10 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Channel Cards (Zapping Rapido) */}
+              <div className="space-y-2">
+                {filteredChannels.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    Nenhum canal encontrado nesta categoria.
+                  </div>
+                ) : (
+                  filteredChannels.map((ch) => {
+                    const isSelected = currentChannel?.id === ch.id;
+                    const chLive = getLiveEPGForChannel(ch.id);
+                    return (
+                      <div
+                        key={ch.id}
+                        onClick={() => onSelectChannel(ch)}
+                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border ${
+                          isSelected
+                            ? 'bg-cyan-500/10 border-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.2)]'
+                            : 'bg-slate-900/60 border-white/5 hover:bg-slate-800/80 hover:border-white/15'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Channel Number */}
+                          <span
+                            className={`font-mono text-xs w-6 text-right shrink-0 font-black ${
+                              isSelected ? 'text-cyan-400' : 'text-slate-500'
+                            }`}
+                          >
+                            {String(ch.number).padStart(2, '0')}
+                          </span>
+
+                          {/* Channel Logo */}
+                          <div className="relative w-10 h-10 rounded-xl bg-slate-950 border border-white/10 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                            <img
+                              src={ch.logo}
+                              alt={ch.name}
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+
+                          {/* Channel Name, Program & Progress */}
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-sm truncate font-bold ${
+                                  isSelected ? 'text-cyan-300' : 'text-white'
+                                }`}
+                              >
+                                {ch.name}
+                              </span>
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-400">
+                                {ch.quality || 'HD'}
+                              </span>
+                              {isSelected && (
+                                <span className="flex items-center gap-1 text-[9px] font-black text-cyan-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                                  NO AR
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-400 truncate max-w-[220px] mt-0.5 font-medium">
+                              {chLive.currentProgram}
+                            </span>
+                            {/* Real-time progress bar */}
+                            <div className="w-full max-w-[180px] h-[3px] bg-slate-800 rounded-full overflow-hidden mt-1.5">
+                              <div
+                                className="h-full bg-cyan-400 rounded-full transition-all duration-500"
+                                style={{ width: `${chLive.progressPercent}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Star Favorite Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(ch.id);
+                          }}
+                          className="p-2 text-slate-400 hover:text-yellow-400 transition-all shrink-0 cursor-pointer"
+                        >
+                          <Star
+                            className={`w-5 h-5 ${
+                              ch.isFavorite
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'opacity-30'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: CATEGORIAS */}
+          {mobileTab === 'categories' && (
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 grid grid-cols-2 gap-2.5 custom-scroll pb-24">
+              {categories.map((cat) => {
+                const count =
+                  cat.id === 'todos'
+                    ? channels.length
+                    : cat.id === 'favoritos'
+                    ? channels.filter((c) => c.isFavorite).length
+                    : channels.filter((c) => c.category.toLowerCase() === cat.id.toLowerCase()).length;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setMobileTab('channels');
+                    }}
+                    className="flex flex-col items-start p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 hover:border-cyan-400/50 transition-all text-left cursor-pointer group shadow-lg"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-2 group-hover:scale-110 transition-transform">
+                      <Tv className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-extrabold text-white group-hover:text-cyan-300 transition-colors">
+                      {cat.name}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      {count} {count === 1 ? 'canal' : 'canais'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* TAB 3: GUIA EPG */}
+          {mobileTab === 'epg' && (
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24">
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Grade de Programacao
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {currentChannel?.name}
+                  </p>
+                </div>
+                <button
+                  onClick={handleOpenEPG}
+                  className="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Grade Completa</span>
+                </button>
+              </div>
+
+              {/* Timeline Items */}
+              <div className="space-y-2">
+                {currentTimeline.length === 0 ? (
+                  <div className="text-center py-10 text-slate-500 text-xs">
+                    Carregando guia de programacao...
+                  </div>
+                ) : (
+                  currentTimeline.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-3 rounded-2xl border transition-all ${
+                        item.isLive
+                          ? 'bg-cyan-500/10 border-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.15)]'
+                          : 'bg-slate-900/60 border-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-mono text-xs font-bold ${
+                              item.isLive ? 'text-cyan-400' : 'text-slate-400'
+                            }`}
+                          >
+                            {item.startTime} - {item.endTime}
+                          </span>
+                          {item.isLive && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-red-600 text-white animate-pulse">
+                              NO AR AGORA
+                            </span>
+                          )}
+                        </div>
+                        {item.rating && (
+                          <span className="text-[10px] font-mono font-bold px-1 rounded bg-white/10 text-slate-300">
+                            {item.rating}
+                          </span>
+                        )}
+                      </div>
+                      <h4
+                        className={`text-sm font-bold ${
+                          item.isLive ? 'text-white' : 'text-slate-200'
+                        }`}
+                      >
+                        {item.title}
+                      </h4>
+                      {item.synopsis && (
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                          {item.synopsis}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* EPG Guide Modal Overlay */}
       {isEPGModalVisible && (

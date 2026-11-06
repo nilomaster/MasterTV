@@ -2,10 +2,12 @@
 // Strictly ASCII comments only
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Channel, MediaItem } from './types/iptv';
+import type { Channel, MediaItem, EpisodeItem } from './types/iptv';
 import {
   INITIAL_CHANNELS,
   INITIAL_CATEGORIES,
+  HERO_FEATURED,
+  TRENDING_MOVIES,
 } from './services/mockData';
 import {
   enrichChannelsWithLiveEPG,
@@ -16,11 +18,12 @@ import { Navbar } from './components/Navbar';
 import { HomeView } from './components/HomeView';
 import { PlayerView } from './components/PlayerView';
 import { VODView } from './components/VODView';
+import { VODPlayerView } from './components/VODPlayerView';
 import { PlaylistModal } from './components/PlaylistModal';
 import { MediaModal } from './components/MediaModal';
 import { SettingsModal } from './components/SettingsModal';
 
-type ViewType = 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios';
+type ViewType = 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player';
 
 const VIEW_HASH_MAP: Record<ViewType, string> = {
   home: '#/inicio',
@@ -29,10 +32,12 @@ const VIEW_HASH_MAP: Record<ViewType, string> = {
   vod: '#/on-demand',
   favorites: '#/favoritos',
   radios: '#/radios',
+  'vod-player': '#/assistir',
 };
 
 function getViewFromHash(): ViewType {
   const hash = window.location.hash.toLowerCase();
+  if (hash.includes('assistir') || hash.includes('vod-player')) return 'vod-player';
   if (hash.includes('ao-vivo') || hash.includes('player')) return 'player';
   if (hash.includes('guia') || hash.includes('epg')) return 'epg';
   if (
@@ -49,7 +54,7 @@ function getViewFromHash(): ViewType {
   if (hash.includes('inicio') || hash === '#/' || hash === '#') return 'home';
 
   const saved = localStorage.getItem('mastertv_current_view') as ViewType | null;
-  if (saved && ['home', 'player', 'epg', 'vod', 'favorites', 'radios'].includes(saved)) {
+  if (saved && ['home', 'player', 'epg', 'vod', 'favorites', 'radios', 'vod-player'].includes(saved)) {
     return saved;
   }
   return 'home';
@@ -70,22 +75,24 @@ export const App: React.FC = () => {
   const [isNavbarHovered, setIsNavbarHovered] = useState<boolean>(false);
   const [channels, setChannels] = useState<Channel[]>(() => {
     const saved =
-      localStorage.getItem('mastertv_channels_v9') ||
-      localStorage.getItem('mastertv_channels_v8') ||
-      localStorage.getItem('mastertv_channels_v7') ||
-      localStorage.getItem('mastertv_channels_v6');
+      localStorage.getItem('mastertv_channels_v12') ||
+      localStorage.getItem('mastertv_channels_v11') ||
+      localStorage.getItem('mastertv_channels_v10');
     if (saved) {
       try {
         const parsed: Channel[] = JSON.parse(saved);
         const initialMap = new Map(INITIAL_CHANNELS.map((c) => [c.id, c]));
-        // Keep user favorites but sync updated streamUrl and logo from master catalog
+        // Keep user favorites but sync updated streamUrl, sources and name from master catalog
         const updated = parsed.map((c) => {
           const init = initialMap.get(c.id);
           if (init) {
             return {
               ...c,
+              name: init.name,
               streamUrl: init.streamUrl,
               backupStreamUrl: init.backupStreamUrl,
+              sources: init.sources,
+              quality: init.quality || c.quality,
               logo: init.logo,
             };
           }
@@ -210,7 +217,7 @@ export const App: React.FC = () => {
 
   // Sync channels to localStorage
   useEffect(() => {
-    localStorage.setItem('mastertv_channels_v9', JSON.stringify(channels));
+    localStorage.setItem('mastertv_channels_v12', JSON.stringify(channels));
   }, [channels]);
 
   // Toggle favorite channel
@@ -248,50 +255,104 @@ export const App: React.FC = () => {
     setIsSettingsModalOpen(false);
   };
 
-  const handlePlayMediaStream = (streamUrl: string, title: string) => {
-    const temporaryChannel: Channel = {
-      id: `temp-${Date.now()}`,
-      number: 999,
-      name: title,
-      logo: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=120&auto=format&fit=crop&q=80',
-      category: 'filmes',
-      streamUrl: streamUrl,
-      currentProgram: title,
-      currentProgramTime: 'Agora',
-      nextProgram: 'Fim da transmissão',
-      nextProgramTime: '',
-      synopsis: 'Exibição On Demand em alta definição.',
-      isFavorite: false,
-      quality: '1080p',
+  const [activeVOD, setActiveVOD] = useState<{
+    mediaItem: MediaItem;
+    currentEpisode?: EpisodeItem;
+    streamUrl: string;
+    title: string;
+  }>(() => {
+    try {
+      const saved = localStorage.getItem('mastertv_active_vod');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.mediaItem && parsed.streamUrl) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore parse error and fallback
+    }
+    const defaultMedia = TRENDING_MOVIES[0] || HERO_FEATURED;
+    return {
+      mediaItem: defaultMedia,
+      streamUrl: defaultMedia.streamUrl,
+      title: defaultMedia.title,
     };
-    setCurrentChannel(temporaryChannel);
-    handleViewChange('player');
+  });
+
+  const handlePlayMediaStream = (
+    streamUrl: string,
+    title: string,
+    mediaItem?: MediaItem,
+    episode?: EpisodeItem
+  ) => {
+    if (mediaItem) {
+      const vodData = {
+        mediaItem,
+        currentEpisode: episode || (mediaItem.episodeList ? mediaItem.episodeList[0] : undefined),
+        streamUrl,
+        title,
+      };
+      setActiveVOD(vodData);
+      try {
+        localStorage.setItem('mastertv_active_vod', JSON.stringify(vodData));
+      } catch {
+        // Storage full or quota exceeded
+      }
+      handleViewChange('vod-player');
+    } else {
+      const temporaryChannel: Channel = {
+        id: `temp-${Date.now()}`,
+        number: 999,
+        name: title,
+        logo: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=120&auto=format&fit=crop&q=80',
+        category: 'filmes',
+        streamUrl: streamUrl,
+        currentProgram: title,
+        currentProgramTime: 'Agora',
+        nextProgram: 'Fim da transmissão',
+        nextProgramTime: '',
+        synopsis: 'Exibição em alta definição.',
+        isFavorite: false,
+        quality: '1080p',
+      };
+      setCurrentChannel(temporaryChannel);
+      handleViewChange('player');
+    }
   };
 
   const favoritesCount = channels.filter((c) => c.isFavorite).length;
 
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col">
-      {/* Top Navigation Bar */}
-      <Navbar
-        currentView={currentView}
-        vodFilter={vodFilter}
-        setCurrentView={handleViewChange}
-        onNavigateCategory={handleOpenVODCategory}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
-        favoritesCount={favoritesCount}
-        isPlayerControlsVisible={isPlayerControlsVisible}
-        onNavbarMouseEnter={() => {
-          setIsNavbarHovered(true);
-          setIsPlayerControlsVisible(true);
-        }}
-        onNavbarMouseLeave={() => setIsNavbarHovered(false)}
-      />
+      {/* Top Navigation Bar - Hidden during VOD Player playback for full immersion */}
+      {currentView !== 'vod-player' && (
+        <Navbar
+          currentView={currentView}
+          vodFilter={vodFilter}
+          setCurrentView={handleViewChange}
+          onNavigateCategory={handleOpenVODCategory}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+          favoritesCount={favoritesCount}
+          isPlayerControlsVisible={isPlayerControlsVisible}
+          onNavbarMouseEnter={() => {
+            setIsNavbarHovered(true);
+            setIsPlayerControlsVisible(true);
+          }}
+          onNavbarMouseLeave={() => setIsNavbarHovered(false)}
+        />
+      )}
 
       {/* Main View Router */}
-      <main className={`flex-1 flex flex-col ${currentView === 'player' ? 'pb-0 overflow-hidden' : 'pb-16 sm:pb-0'}`}>
+      <main className={`flex-1 flex flex-col ${
+        currentView === 'vod-player'
+          ? 'pb-0 overflow-hidden'
+          : currentView === 'player'
+          ? 'h-[100dvh] overflow-hidden'
+          : 'pb-16 sm:pb-0'
+      }`}>
         {currentView === 'home' && (
           <HomeView
             channels={liveChannels}
@@ -315,6 +376,40 @@ export const App: React.FC = () => {
             categories={INITIAL_CATEGORIES}
             onControlsVisibilityChange={setIsPlayerControlsVisible}
             isNavbarHovered={isNavbarHovered}
+          />
+        )}
+
+        {currentView === 'vod-player' && (
+          <VODPlayerView
+            mediaItem={activeVOD.mediaItem}
+            currentEpisode={activeVOD.currentEpisode}
+            streamUrl={activeVOD.streamUrl}
+            title={activeVOD.title}
+            onBack={() => {
+              const category =
+                activeVOD.mediaItem.type === 'movie'
+                  ? 'movies'
+                  : activeVOD.mediaItem.type === 'series'
+                  ? 'series'
+                  : activeVOD.mediaItem.type === 'anime'
+                  ? 'animes'
+                  : 'all';
+              handleViewChange('vod', category);
+            }}
+            onSelectEpisode={(ep) => {
+              const updated = {
+                ...activeVOD,
+                currentEpisode: ep,
+                streamUrl: ep.streamUrl,
+                title: `${activeVOD.mediaItem.title} - ${ep.title}`,
+              };
+              setActiveVOD(updated);
+              try {
+                localStorage.setItem('mastertv_active_vod', JSON.stringify(updated));
+              } catch {
+                // Ignore storage error
+              }
+            }}
           />
         )}
 

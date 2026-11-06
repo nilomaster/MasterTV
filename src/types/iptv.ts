@@ -1,6 +1,13 @@
 // IPTV and EPG Types definition
 // Strictly ASCII comments as per project guidelines
 
+export interface ChannelSource {
+  id: number;
+  name: string;
+  url: string;
+  quality?: string;
+}
+
 export interface Channel {
   id: string;
   number: number;
@@ -9,6 +16,7 @@ export interface Channel {
   category: string;
   streamUrl: string;
   backupStreamUrl?: string;
+  sources?: ChannelSource[];
   epgId?: string;
   currentProgram?: string;
   currentProgramTime?: string;
@@ -39,19 +47,36 @@ export interface Category {
   icon?: string;
 }
 
+export interface EpisodeItem {
+  id: string;
+  number: number;
+  title: string;
+  streamUrl: string;
+  backupStreamUrl?: string;
+  duration?: string;
+}
+
 export interface MediaItem {
   id: string;
   title: string;
+  tagline?: string;
   type: 'movie' | 'series' | 'anime' | 'dorama' | 'live';
   year: number;
   rating: number;
+  contentRating?: string;
   genres: string[];
   posterUrl: string;
   backdropUrl: string;
   description: string;
   streamUrl: string;
+  backupStreamUrl?: string;
+  director?: string;
+  writers?: string;
+  creator?: string;
+  production?: string;
   seasons?: number;
   episodes?: number;
+  episodeList?: EpisodeItem[];
 }
 
 export interface PlaylistSource {

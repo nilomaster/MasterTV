@@ -2,24 +2,24 @@
 // All comments in this file strictly follow ASCII rules
 
 import React, { useState } from 'react';
-import { 
-  Tv, 
-  Search, 
-  Home, 
-  Film, 
+import {
+  Tv,
+  Search,
+  Home,
+  Film,
   Tv2,
   Sparkles,
-  Heart, 
-  Settings, 
+  Heart,
+  Settings,
   Menu,
   X
 } from 'lucide-react';
 
 interface NavbarProps {
-  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios';
+  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player';
   vodFilter?: 'all' | 'movies' | 'series' | 'animes' | 'doramas';
-  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios') => void;
-  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
+  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player') => void;
+  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenSettingsModal: () => void;
@@ -75,19 +75,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             onNavbarMouseLeave?.();
           }
         }}
-        className={`z-40 w-full bg-[#0B0E14]/95 backdrop-blur-xl border-b border-white/5 transition-all duration-300 ease-in-out ${
-          currentView === 'player'
-            ? `fixed top-0 left-0 right-0 ${
-                isPlayerControlsVisible
-                  ? 'translate-y-0 opacity-100 pointer-events-auto'
-                  : '-translate-y-full opacity-0 pointer-events-none'
-              }`
+        className={`z-40 w-full bg-[#0B0E14]/95 backdrop-blur-xl border-b border-white/5 transition-all duration-300 ease-in-out ${currentView === 'player'
+            ? `hidden md:block fixed top-0 left-0 right-0 ${isPlayerControlsVisible
+              ? 'translate-y-0 opacity-100 pointer-events-auto'
+              : '-translate-y-full opacity-0 pointer-events-none'
+            }`
             : 'sticky top-0'
-        }`}
+          }`}
       >
         <div className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-2.5 max-w-[1920px] mx-auto gap-2">
           {/* Brand Logo */}
-          <div 
+          <div
             onClick={() => handleNavClick('home')}
             className="flex items-center gap-2.5 cursor-pointer group select-none shrink-0"
           >
@@ -133,11 +131,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <nav className="hidden xl:flex items-center gap-1">
             <button
               onClick={() => handleNavClick('home')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                currentView === 'home'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${currentView === 'home'
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <Home className="w-3.5 h-3.5" />
               <span>Início</span>
@@ -145,11 +142,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('player')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                currentView === 'player'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${currentView === 'player'
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <Tv className="w-3.5 h-3.5" />
               <span>Ao vivo</span>
@@ -157,11 +153,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('vod', 'movies')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                isMoviesActive
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${isMoviesActive
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <Film className="w-3.5 h-3.5" />
               <span>Filmes</span>
@@ -169,11 +164,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('vod', 'series')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                isSeriesActive
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${isSeriesActive
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <Tv2 className="w-3.5 h-3.5" />
               <span>Séries</span>
@@ -181,11 +175,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('vod', 'animes')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                isAnimesActive
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${isAnimesActive
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Animes</span>
@@ -193,11 +186,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('favorites')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                currentView === 'favorites'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${currentView === 'favorites'
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <Heart className="w-3.5 h-3.5" />
               <span>Favoritos</span>
@@ -270,11 +262,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="xl:hidden px-4 py-4 bg-[#0B0E14]/98 border-t border-white/10 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2 duration-200">
             <button
               onClick={() => handleNavClick('home')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                currentView === 'home'
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${currentView === 'home'
                   ? 'bg-cyan-500 text-slate-950'
                   : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <Home className="w-4 h-4" />
               <span>Início</span>
@@ -282,11 +273,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('player')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                currentView === 'player'
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${currentView === 'player'
                   ? 'bg-cyan-500 text-slate-950'
                   : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <Tv className="w-4 h-4" />
               <span>Ao Vivo</span>
@@ -294,11 +284,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('vod', 'movies')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isMoviesActive
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${isMoviesActive
                   ? 'bg-cyan-500 text-slate-950'
                   : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <Film className="w-4 h-4" />
               <span>Filmes</span>
@@ -306,11 +295,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('vod', 'series')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isSeriesActive
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${isSeriesActive
                   ? 'bg-cyan-500 text-slate-950'
                   : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <Tv2 className="w-4 h-4" />
               <span>Séries</span>
@@ -318,11 +306,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('vod', 'animes')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isAnimesActive
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${isAnimesActive
                   ? 'bg-cyan-500 text-slate-950'
                   : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <Sparkles className="w-4 h-4" />
               <span>Animes</span>
@@ -330,11 +317,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('favorites')}
-              className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                currentView === 'favorites'
+              className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${currentView === 'favorites'
                   ? 'bg-cyan-500 text-slate-950'
                   : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 <Heart className="w-4 h-4" />
@@ -352,17 +338,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* MOBILE-FIRST BOTTOM APP BAR (Fixed at bottom for mobile phones & small tablets) */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 bg-[#0B0E14]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around sm:hidden transition-all duration-300 ease-in-out ${
-          currentView === 'player' && !isPlayerControlsVisible
+        className={`fixed bottom-0 left-0 right-0 z-40 bg-[#0B0E14]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around sm:hidden transition-all duration-300 ease-in-out ${currentView === 'player' && !isPlayerControlsVisible
             ? 'translate-y-full opacity-0 pointer-events-none'
             : 'translate-y-0 opacity-100 pointer-events-auto'
-        }`}
+          }`}
       >
         <button
           onClick={() => handleNavClick('home')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
-            currentView === 'home' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${currentView === 'home' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
         >
           <Home className="w-4 h-4" />
           <span className="text-[10px]">Início</span>
@@ -370,9 +354,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => handleNavClick('player')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
-            currentView === 'player' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${currentView === 'player' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
         >
           <Tv className="w-4 h-4" />
           <span className="text-[10px]">Ao Vivo</span>
@@ -380,9 +363,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => handleNavClick('vod', 'movies')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${
-            isMoviesActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${isMoviesActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
         >
           <Film className="w-4 h-4" />
           <span className="text-[10px]">Filmes</span>
@@ -390,9 +372,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => handleNavClick('vod', 'series')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${
-            isSeriesActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${isSeriesActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
         >
           <Tv2 className="w-4 h-4" />
           <span className="text-[10px]">Séries</span>
@@ -400,9 +381,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => handleNavClick('vod', 'animes')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${
-            isAnimesActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${isAnimesActive ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
         >
           <Sparkles className="w-4 h-4" />
           <span className="text-[10px]">Animes</span>
@@ -410,9 +390,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => handleNavClick('favorites')}
-          className={`relative flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
-            currentView === 'favorites' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
+          className={`relative flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${currentView === 'favorites' ? 'text-cyan-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
         >
           <Heart className="w-4 h-4" />
           <span className="text-[10px]">Favoritos</span>

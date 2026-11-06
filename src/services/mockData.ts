@@ -6,13 +6,16 @@ import type { Channel, EPGProgram, MediaItem, Category } from '../types/iptv';
 // Reliable stream URLs for IPTV live channels
 // Provided by user via Saimo TV proxy for tested 200 OK playback
 const STREAM_BAND_SP =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fbandsp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd2-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fbandsp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
 
 const STREAM_GLOBO_SP =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fglobosp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd2-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fglobosp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
 
-const STREAM_SBT =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F92ef03b0a53c20499bcde22fe03440c5.s25-cloudfront-net.lat%2Fstream%2F31f7488a7407fcd7de95fb172c73cfca%2Ferror.txt&referer=https%3A%2F%2Fw7.embedtv.cc%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+const STREAM_SBT_1_HD =
+  'https://cdn.live.br1.jmvstream.com/w/LVW-10801/LVW10801_Xvg4R0u57n/chunklist.m3u8?checkedby:iptvcat.com';
+
+const STREAM_SBT_2_FHD =
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F6836041ea1117.streamlock.net%2Fcverde%2Fcverde%2Fchunklist_w1662197046.m3u8&referer=https%3A%2F%2F6836041ea1117.streamlock.net%2F';
 
 const STREAM_RECORD_SP =
   'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Frecordsp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
@@ -62,7 +65,6 @@ const STREAM_ESPN_HD =
 
 const STREAM_ESPN_HD_BACKUP = 'http://45.162.64.114/ESPN_BRASIL/index.m3u8';
 
-const HLS_SAMPLE_BACKUP = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
 const HLS_SAMPLE_1 = STREAM_BAND_SP;
 const HLS_SAMPLE_2 = STREAM_GLOBO_SP;
 const HLS_SAMPLE_3 = STREAM_RECORD_SP;
@@ -90,7 +92,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/globosp.png',
     category: 'aberta',
     streamUrl: STREAM_GLOBO_SP,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Vale a Pena Ver de Novo: Avenida Brasil',
     currentProgramTime: '17:05 - 18:25',
     nextProgram: 'A Nobreza do Amor',
@@ -104,11 +105,15 @@ export const INITIAL_CHANNELS: Channel[] = [
   {
     id: 'ch-sbt',
     number: 2,
-    name: 'SBT',
+    name: 'SBT HD',
     logo: './logos/sbt.png',
     category: 'aberta',
-    streamUrl: STREAM_SBT,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
+    streamUrl: STREAM_SBT_1_HD,
+    backupStreamUrl: STREAM_SBT_2_FHD,
+    sources: [
+      { id: 1, name: 'Fonte 1 HD', url: STREAM_SBT_1_HD, quality: '720p' },
+      { id: 2, name: 'Fonte 2 FHD', url: STREAM_SBT_2_FHD, quality: '1080p' }
+    ],
     currentProgram: 'Programa Silvio Santos',
     currentProgramTime: '16:30 - 19:00',
     nextProgram: 'SBT Brasil',
@@ -126,7 +131,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/record-tv.png',
     category: 'aberta',
     streamUrl: STREAM_RECORD_SP,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Cidade Alerta',
     currentProgramTime: '16:45 - 18:45',
     nextProgram: 'Jornal da Record',
@@ -144,7 +148,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/band.png',
     category: 'aberta',
     streamUrl: STREAM_BAND_SP,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Apito Final',
     currentProgramTime: '16:00 - 18:30',
     nextProgram: 'Jornal da Band',
@@ -162,7 +165,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/Rede-tv.png',
     category: 'aberta',
     streamUrl: STREAM_REDE_TV,
-    backupStreamUrl: STREAM_BAND_SP,
     currentProgram: 'Operação de Risco',
     currentProgramTime: '17:00 - 18:30',
     nextProgram: 'RedeTV News',
@@ -180,7 +182,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/amc.png',
     category: 'filmes',
     streamUrl: STREAM_AMC_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Velozes & Furiosos 9 - A Saga Velozes & Furiosos',
     currentProgramTime: '13:15 - 15:50',
     nextProgram: 'Tomb Raider - A Origem',
@@ -198,7 +199,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/amcseries.png',
     category: 'series',
     streamUrl: STREAM_AMC_SERIES_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Mad Men: Conflitos e Criatividade',
     currentProgramTime: '12:15 - 13:45',
     nextProgram: 'Better Call Saul',
@@ -216,7 +216,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbo.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Duna: Parte 2',
     currentProgramTime: '14:00 - 16:45',
     nextProgram: 'Casa do Dragao',
@@ -234,7 +233,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbo2.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_2_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Succession: Maratona',
     currentProgramTime: '13:30 - 15:30',
     nextProgram: 'Batman (2022)',
@@ -252,7 +250,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbofamily.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_FAMILY_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Harry Potter e o Prisioneiro de Azkaban',
     currentProgramTime: '14:15 - 16:40',
     nextProgram: 'Wonka',
@@ -270,7 +267,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbomundi.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_MUNDI_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Cinema Mundial: Parasita',
     currentProgramTime: '13:00 - 15:15',
     nextProgram: 'O Fabuloso Destino de Amelie Poulain',
@@ -289,6 +285,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_PLUS_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_PLUS_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Pacificador (Peacemaker)',
     currentProgramTime: '14:30 - 15:30',
     nextProgram: 'Esquadrao Suicida',
@@ -307,6 +307,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_POP_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_POP_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Barbie: O Filme',
     currentProgramTime: '14:00 - 16:00',
     nextProgram: 'Amor a Toda Prova',
@@ -325,6 +329,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_SIGNATURE_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_SIGNATURE_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Chernobyl: Minisserie',
     currentProgramTime: '13:45 - 15:00',
     nextProgram: 'Band of Brothers',
@@ -343,6 +351,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_XTREME_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_XTREME_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Mad Max: Estrada da Furia',
     currentProgramTime: '14:00 - 16:00',
     nextProgram: 'John Wick 4: Baba Yaga',
@@ -361,6 +373,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'esportes',
     streamUrl: STREAM_PREMIERE_CLUBES_HD,
     backupStreamUrl: STREAM_PREMIERE_CLUBES_HD_BACKUP,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_PREMIERE_CLUBES_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_PREMIERE_CLUBES_HD_BACKUP, quality: 'HD' }
+    ],
     currentProgram: 'Futebol Ao Vivo - Serie A',
     currentProgramTime: '16:00 - 18:00',
     nextProgram: 'Linha de Passe',
@@ -379,6 +395,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'esportes',
     streamUrl: STREAM_PREMIERE_CLUBES_FHD,
     backupStreamUrl: STREAM_PREMIERE_CLUBES_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1 FHD', url: STREAM_PREMIERE_CLUBES_FHD, quality: '1080p' },
+      { id: 2, name: 'Fonte 2 HD', url: STREAM_PREMIERE_CLUBES_HD, quality: '720p' }
+    ],
     currentProgram: 'Futebol Ao Vivo - Full HD 60FPS',
     currentProgramTime: '16:00 - 18:00',
     nextProgram: 'Redacao SporTV',
@@ -397,6 +417,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'esportes',
     streamUrl: STREAM_ESPN_HD,
     backupStreamUrl: STREAM_ESPN_HD_BACKUP,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_ESPN_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_ESPN_HD_BACKUP, quality: 'HD' }
+    ],
     currentProgram: 'SportsCenter - Ao Vivo',
     currentProgramTime: '15:00 - 16:30',
     nextProgram: 'Futebol 360',
@@ -459,239 +483,137 @@ export const generateEPGSchedule = (channels: Channel[]): EPGProgram[] => {
 };
 
 export const HERO_FEATURED: MediaItem = {
-  id: 'hero-resident-evil',
-  title: 'Resident Evil (2026)',
+  id: 'mov-spiderman-new-day',
+  title: 'Homem-Aranha: Um Novo Dia',
+  tagline: 'Um novo dia comeca agora.',
   type: 'movie',
   year: 2026,
-  rating: 7.3,
-  genres: ['Terror', 'Ficção científica', 'Aventura'],
-  posterUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=500&auto=format&fit=crop&q=80',
-  backdropUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
-  description: 'Bryan, um tranquilo entregador de orgaos, e enviado para uma entrega noturna no Hospital Geral de Raccoon City. No caminho por uma estrada montanhosa coberta de neve, ele acidentalmente atropela uma mulher desconhecida. Ela sobrevive, mas algo esta muito...',
-  streamUrl: HLS_SAMPLE_1,
+  rating: 8.7,
+  contentRating: '14',
+  genres: ['Ficcao cientifica', 'Acao', 'Aventura'],
+  posterUrl: './covers/HomenAranhaUmNovoDia.webp',
+  backdropUrl: './covers/HomenAranhaUmNovoDia.webp',
+  description: 'E um novo dia para Peter Parker. Combatendo o crime em tempo integral como Homem-Aranha em um mundo que nao se lembra mais dele e lidando com a pressao de ver seus antigos amigos seguirem em frente sem sua presenca, Peter passa por uma mudanca que talvez nem ele tenha o poder de controlar. Mas essa transformacao tambem pode ser a unica coisa capaz de deter uma surpreendente nova ameaca a cidade e as pessoas que ele ama: um poderoso vilao que ninguem sequer consegue enxergar.',
+  director: 'Destin Daniel Cretton',
+  writers: 'Erik Sommers, Chris McKenna',
+  production: 'Marvel Studios',
+  streamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
+  backupStreamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
 };
 
 export const TRENDING_MOVIES: MediaItem[] = [
   {
-    id: 'mov-1',
-    title: 'Resident Evil (2026)',
-    type: 'movie',
-    year: 2026,
-    rating: 7.3,
-    genres: ['Terror', 'Ação'],
-    posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80',
-    description: 'Suspense sombrio em Raccoon City quando experimentos saem do controle.',
-    streamUrl: HLS_SAMPLE_1,
-  },
-  {
-    id: 'mov-2',
-    title: 'A Ilha Esquecida',
-    type: 'movie',
-    year: 2026,
-    rating: 8.1,
-    genres: ['Aventura', 'Fantasia'],
-    posterUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1200&auto=format&fit=crop&q=80',
-    description: 'Exploradores descobrem uma terra congelada no tempo repleta de perigos ancestrais.',
-    streamUrl: HLS_SAMPLE_2,
-  },
-  {
-    id: 'mov-3',
-    title: 'Ali G: Quem é Eu? (2026)',
-    type: 'movie',
-    year: 2026,
-    rating: 7.0,
-    genres: ['Comédia'],
-    posterUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=1200&auto=format&fit=crop&q=80',
-    description: 'O retorno mais irreverente da comedia em uma satira mundial de tirar o folego.',
-    streamUrl: HLS_SAMPLE_3,
-  },
-  {
-    id: 'mov-4',
-    title: 'Velocidade e Paixão',
-    type: 'movie',
-    year: 2026,
-    rating: 7.9,
-    genres: ['Romance', 'Drama'],
-    posterUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&auto=format&fit=crop&q=80',
-    description: 'Dois pilotos rivais encontram um amor proibido nas pistas mais perigosas do circuito.',
-    streamUrl: HLS_SAMPLE_1,
-  },
-  {
-    id: 'mov-5',
-    title: 'Obsessão (2026)',
-    type: 'movie',
-    year: 2026,
-    rating: 6.8,
-    genres: ['Suspense'],
-    posterUrl: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=1200&auto=format&fit=crop&q=80',
-    description: 'Um jogo psicologico sinistro comeca apos um encontro casual num cafe de Paris.',
-    streamUrl: HLS_SAMPLE_2,
-  },
-  {
-    id: 'mov-6',
+    id: 'mov-spiderman-new-day',
     title: 'Homem-Aranha: Um Novo Dia',
+    tagline: 'Um novo dia comeca agora.',
     type: 'movie',
     year: 2026,
     rating: 8.7,
-    genres: ['Ação', 'Ficção'],
-    posterUrl: 'https://images.unsplash.com/photo-1635805737707-575885ab0820?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1635805737707-575885ab0820?w=1200&auto=format&fit=crop&q=80',
-    description: 'Peter Parker enfrenta novos desafios protegendo as ruas de Nova York sem recursos.',
-    streamUrl: HLS_SAMPLE_3,
+    contentRating: '14',
+    genres: ['Ficcao cientifica', 'Acao', 'Aventura'],
+    posterUrl: './covers/HomenAranhaUmNovoDia.webp',
+    backdropUrl: './covers/HomenAranhaUmNovoDia.webp',
+    description: 'E um novo dia para Peter Parker. Combatendo o crime em tempo integral como Homem-Aranha em um mundo que nao se lembra mais dele e lidando com a pressao de ver seus antigos amigos seguirem em frente sem sua presenca, Peter passa por uma mudanca que talvez nem ele tenha o poder de controlar. Mas essa transformacao tambem pode ser a unica coisa capaz de deter uma surpreendente nova ameaca a cidade e as pessoas que ele ama: um poderoso vilao que ninguem sequer consegue enxergar.',
+    director: 'Destin Daniel Cretton',
+    writers: 'Erik Sommers, Chris McKenna',
+    production: 'Marvel Studios',
+    streamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
+    backupStreamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
   },
-  {
-    id: 'mov-7',
-    title: 'Três Horas Para Viver',
-    type: 'movie',
-    year: 2026,
-    rating: 7.5,
-    genres: ['Ação', 'Policial'],
-    posterUrl: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=1200&auto=format&fit=crop&q=80',
-    description: 'Uma contagem regressiva letal obriga um detetive aposentado a arriscar tudo.',
-    streamUrl: HLS_SAMPLE_1,
-  },
-  {
-    id: 'mov-8',
-    title: 'Moana (2026)',
-    type: 'movie',
-    year: 2026,
-    rating: 8.4,
-    genres: ['Animação', 'Aventura'],
-    posterUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80',
-    description: 'Novas aventuras maritimas alem do horizonte com ancestrais e forcas da natureza.',
-    streamUrl: HLS_SAMPLE_2,
-  }
 ];
 
 export const TRENDING_SERIES: MediaItem[] = [
   {
-    id: 'ser-1',
-    title: 'Um Trabalho do Inferno',
+    id: 'ser-vision-quest',
+    title: 'VisionQuest',
+    tagline: 'O despertar da consciencia em um novo proposito.',
     type: 'series',
-    year: 2025,
-    rating: 8.2,
-    genres: ['Comédia', 'Sobrenatural'],
-    posterUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80',
-    description: 'Um funcionario de escritorio descobre que seu novo chefe e literalmente o Diabo.',
-    streamUrl: HLS_SAMPLE_1,
-    seasons: 2,
-    episodes: 16
-  },
-  {
-    id: 'ser-2',
-    title: 'Lupin',
-    type: 'series',
-    year: 2024,
-    rating: 8.5,
-    genres: ['Mistério', 'Crime'],
-    posterUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1200&auto=format&fit=crop&q=80',
-    description: 'Inspirado pelas aventuras de Arsene Lupin, Assane Diop busca vinganca para o pai.',
-    streamUrl: HLS_SAMPLE_2,
-    seasons: 3,
-    episodes: 21
-  },
-  {
-    id: 'ser-3',
-    title: 'Dexter Ressurreição',
-    type: 'series',
-    year: 2025,
-    rating: 8.9,
-    genres: ['Drama', 'Crime'],
-    posterUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=1200&auto=format&fit=crop&q=80',
-    description: 'O assassino de assassinos retorna em uma nova jornada na gelada costa leste.',
-    streamUrl: HLS_SAMPLE_3,
+    year: 2026,
+    rating: 8.7,
+    contentRating: '14',
+    genres: ['Sci-Fi & Fantasy', 'Drama'],
+    posterUrl: './covers/VisionQuest.webp',
+    backdropUrl: './covers/VisionQuest.webp',
+    description: 'Um Visao repaginado tem se escondido daqueles que buscam usa-lo como arma. Enquanto permanece na clandestinidade, ele consulta as personalidades de IA embutidas em sua programacao, incluindo o infame Ultron, para encontrar seu verdadeiro proposito. Essa vida tranquila de autorreflexao chega ao fim quando uma recompensa por sua cabeca o forca a fugir ao lado de Thomas Shepard, um garoto misterioso que pode ser a reencarnacao de seu filho.',
+    creator: 'Terry Matalas',
+    production: 'Marvel Studios',
     seasons: 1,
-    episodes: 10
+    episodes: 2,
+    streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
+    episodeList: [
+      {
+        id: 'vq-ep-1',
+        number: 1,
+        title: 'Episodio 1',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
+        duration: '52min',
+      },
+      {
+        id: 'vq-ep-2',
+        number: 2,
+        title: 'Episodio 2',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/b9f98cb30c22a9fe0bd8bca9/index.m3u8',
+        duration: '48min',
+      },
+    ],
   },
-  {
-    id: 'ser-4',
-    title: 'Cyberpunk: Mercenários',
-    type: 'series',
-    year: 2024,
-    rating: 9.0,
-    genres: ['Anime', 'Ficção'],
-    posterUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=1200&auto=format&fit=crop&q=80',
-    description: 'Um jovem garoto de rua tentando sobreviver em Night City, uma cidade obcecada por tecnologia.',
-    streamUrl: HLS_SAMPLE_1,
-    seasons: 1,
-    episodes: 10
-  },
-  {
-    id: 'ser-5',
-    title: 'Matéria Escura',
-    type: 'series',
-    year: 2024,
-    rating: 8.4,
-    genres: ['Ficção Científica', 'Suspense'],
-    posterUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80',
-    description: 'Um fisico e sequestrado para uma versao alternativa de sua vida entre infinitas realidades.',
-    streamUrl: HLS_SAMPLE_2,
-    seasons: 1,
-    episodes: 9
-  }
 ];
 
 export const ANIMES_LIST: MediaItem[] = [
   {
-    id: 'ani-1',
-    title: 'Star Wars: Visions - A Nona Jedi',
+    id: 'ani-death-note',
+    title: 'Death Note',
+    tagline: 'Olhe ao seu redor e tudo o que voce vera sao pessoas que o mundo estaria melhor sem.',
     type: 'anime',
-    year: 2026,
-    rating: 8.8,
-    genres: ['Anime', 'Ficção'],
-    posterUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=1200&auto=format&fit=crop&q=80',
-    description: 'A filha de um mestre armeiro viaja para entregar sabres de luz a guerreiros Jedi.',
-    streamUrl: HLS_SAMPLE_1,
-  },
-  {
-    id: 'ani-2',
-    title: 'Baki-Dou: O Samurai Invencível',
-    type: 'anime',
-    year: 2026,
+    year: 2006,
     rating: 8.6,
-    genres: ['Anime', 'Luta'],
-    posterUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1200&auto=format&fit=crop&q=80',
-    description: 'Baki e os lutadores mais fortes da Terra encaram o lendario Miyamoto Musashi.',
-    streamUrl: HLS_SAMPLE_2,
+    contentRating: '16',
+    genres: ['Animacao', 'Misterio', 'Sci-Fi & Fantasy'],
+    posterUrl: './covers/DeathNoteAnime.webp',
+    backdropUrl: './covers/DeathNoteAnime.webp',
+    description: 'O jovem estudante Light Yagami acha um caderno com poderes sobrenaturais, chamado Death Note, no qual e possivel matar uma pessoa apenas escrevendo seu nome no caderno. Quando o descobre, Light tenta eliminar todos os criminosos do mundo e dar a sociedade um mundo livre do mal. Mas seus planos comecam a sair de rumo quando o detetive L resolve contrariar Light.',
+    production: 'Madhouse',
+    seasons: 1,
+    episodes: 37,
+    streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901082.3199889aa7dbc9690c3e2f8f9c0c259afb584f4ffa28b5a1e51269647f8346a3/u/LinhaZed099183u/e1.S0z4LUPEbRG8hMMdjPrOtRxgNeh7NTHD3nWm0kCYlv9evmyfoWPc6fMyfXTGvrvrtsRJsk20NtSJAqwO3ef2t9rXRs00kDbpbdxifEG8bHc',
+    episodeList: [
+      {
+        id: 'dn-ep-1',
+        number: 1,
+        title: 'Episodio 1',
+        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901082.3199889aa7dbc9690c3e2f8f9c0c259afb584f4ffa28b5a1e51269647f8346a3/u/LinhaZed099183u/e1.S0z4LUPEbRG8hMMdjPrOtRxgNeh7NTHD3nWm0kCYlv9evmyfoWPc6fMyfXTGvrvrtsRJsk20NtSJAqwO3ef2t9rXRs00kDbpbdxifEG8bHc',
+        duration: '22min',
+      },
+      {
+        id: 'dn-ep-2',
+        number: 2,
+        title: 'Episodio 2',
+        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901195.c3b050b32a0cbcf20055d303cf812cdf58e01d8546e8b1cf2a5b16bc8d8e8f8f/u/LinhaZed099183u/e1.05-v55GoSBKxdLwKaG7SO2MnFyiCmr_azMGw06nuVp1rVluqYVW2tK77AptE38FIFNWJJir1P4doqc2_f8rzAXubIvPLwv0miHMTA2dGelg',
+        duration: '22min',
+      },
+      {
+        id: 'dn-ep-3',
+        number: 3,
+        title: 'Episodio 3',
+        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901208.452217341a9f11e42f9a671023124a80c37c56b36b84727dda974900644545db/u/LinhaZed099183u/e1.oyLrU7rDMffHr5ukaF3S1644bTodnw66UNdi2enCUGCdrgp6EFPbJdasdho7k8214Rw6e8yax4-4S6CdBBLcqDEzOTq42wPNrnWPwsNAcbM',
+        duration: '22min',
+      },
+      {
+        id: 'dn-ep-4',
+        number: 4,
+        title: 'Episodio 4',
+        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901762.65613aee5944fcc85664b0ca469dba1a41a0046009340ce585c41dd338959987/u/LinhaZed099183u/e1.5R_TfqWRXJPbrn3he_cTFaLrOtNjskQm6XQv9ViCfiAJOZ0brEoVgEz-MUKPyhDTxwa98tVKPGPoH3SdVAghLZSo-xrsByx7-bnYT-y-qBk',
+        duration: '22min',
+      },
+      {
+        id: 'dn-ep-5',
+        number: 5,
+        title: 'Episodio 5',
+        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901816.cd376a6d6ac05988da8aacd0c806c7d4fd3db51c59e00e0e17ca93628fcc140c/u/LinhaZed099183u/e1.yf4_c0_asxG7ALF37JLzzZSyhzbf3FGuZcQ-83oYqpYWhoZALMLcfWYfDkJZW3gyPgu8xlh7V-QVsn-BN7lhSbArH9qiCRVriv_ZrU4Kj_s',
+        duration: '22min',
+      },
+    ],
   },
-  {
-    id: 'ani-3',
-    title: 'Rooster Fighter',
-    type: 'anime',
-    year: 2026,
-    rating: 8.2,
-    genres: ['Anime', 'Comédia', 'Ação'],
-    posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1200&auto=format&fit=crop&q=80',
-    description: 'Um galo solitario viaja pelo Japao destruindo monstros mutantes com seu grito de guerra.',
-    streamUrl: HLS_SAMPLE_3,
-  },
-  {
-    id: 'ani-4',
-    title: 'Bleach: Guerra Sangrenta',
-    type: 'anime',
-    year: 2025,
-    rating: 9.1,
-    genres: ['Anime', 'Ação'],
-    posterUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=400&auto=format&fit=crop&q=80',
-    backdropUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=1200&auto=format&fit=crop&q=80',
-    description: 'O confronto milenar final entre os Shinigamis da Soul Society e o exercito de Quincies.',
-    streamUrl: HLS_SAMPLE_1,
-  }
 ];
 
 export const DORAMAS_LIST: MediaItem[] = [
