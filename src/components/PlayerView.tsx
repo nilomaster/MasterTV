@@ -125,10 +125,33 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   }, []);
 
   const currentChannelId = currentChannel?.id;
-  const streamToPlay =
-    activeSource === 2 && currentChannel?.backupStreamUrl
-      ? currentChannel.backupStreamUrl
-      : currentChannel?.streamUrl || '';
+
+  // Resolve all available stream sources for the active channel
+  const channelSources = useMemo(() => {
+    if (!currentChannel) return [];
+    if (currentChannel.sources && currentChannel.sources.length > 0) {
+      return currentChannel.sources;
+    }
+    const list = [
+      { id: 1, name: 'Fonte 1', url: currentChannel.streamUrl, quality: currentChannel.quality || 'HD' }
+    ];
+    if (currentChannel.backupStreamUrl) {
+      list.push({ id: 2, name: 'Fonte 2', url: currentChannel.backupStreamUrl, quality: 'HD' });
+    }
+    return list;
+  }, [currentChannel]);
+
+  const activeSourceObj = channelSources.find((s) => s.id === activeSource) || channelSources[0];
+  const streamToPlay = activeSourceObj?.url || currentChannel?.streamUrl || '';
+
+  const cycleSource = useCallback(() => {
+    if (channelSources.length <= 1) return;
+    setActiveSource((prev) => {
+      const idx = channelSources.findIndex((s) => s.id === prev);
+      const nextIdx = (idx + 1) % channelSources.length;
+      return channelSources[nextIdx].id;
+    });
+  }, [channelSources]);
 
   // Initialize and update HLS stream
   useEffect(() => {
@@ -168,12 +191,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     // Safety timeout to avoid getting stuck indefinitely on Sintonizando
     let connectTimeout: number | null = window.setTimeout(() => {
-      if (activeSource === 1 && currentChannel?.backupStreamUrl && currentChannel.backupStreamUrl.startsWith('https://')) {
-        setActiveSource(2);
-      } else {
+      setActiveSource((prev) => {
+        const currentIdx = channelSources.findIndex((s) => s.id === prev);
+        if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
+          return channelSources[currentIdx + 1].id;
+        }
         setIsLoadingStream(false);
         setStreamError('Sinal temporariamente indisponivel nesta fonte');
-      }
+        return prev;
+      });
     }, 15000);
 
     if (isHlsStream) {
@@ -239,13 +265,16 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   window.clearTimeout(connectTimeout);
                   connectTimeout = null;
                 }
-                if (activeSource === 1 && currentChannel?.backupStreamUrl) {
-                  setActiveSource(2);
-                } else {
+                setActiveSource((prev) => {
+                  const currentIdx = channelSources.findIndex((s) => s.id === prev);
+                  if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
+                    return channelSources[currentIdx + 1].id;
+                  }
                   setStreamError('Sinal temporariamente indisponivel nesta fonte');
                   setIsLoadingStream(false);
                   hls.destroy();
-                }
+                  return prev;
+                });
               }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -287,12 +316,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           window.clearTimeout(connectTimeout);
           connectTimeout = null;
         }
-        if (activeSource === 1 && currentChannel?.backupStreamUrl) {
-          setActiveSource(2);
-        } else {
+        setActiveSource((prev) => {
+          const currentIdx = channelSources.findIndex((s) => s.id === prev);
+          if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
+            return channelSources[currentIdx + 1].id;
+          }
           setIsLoadingStream(false);
           setStreamError('Transmissao temporariamente indisponivel nesta fonte');
-        }
+          return prev;
+        });
       };
     }
 
@@ -307,7 +339,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         lastLoadedStreamRef.current = '';
       }
     };
-  }, [currentChannelId, streamToPlay, zeroDelayActive]);
+  }, [currentChannelId, streamToPlay, zeroDelayActive, channelSources]);
 
   // Effective controls visibility takes navbar hover into account
   const isControlsVisible = showControls || isNavbarHovered;
@@ -645,15 +677,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
           <h3 className="text-lg font-bold text-white mb-1">{streamError}</h3>
           <p className="text-xs text-slate-400 max-w-md mb-4">
-            Voce pode alternar entre a Fonte 1 e a Fonte 2 de transmissao ou selecionar outro canal.
+            {channelSources.length > 1
+              ? `Voce pode alternar entre as ${channelSources.length} fontes disponiveis ou selecionar outro canal.`
+              : 'Voce pode tentar recarregar a transmissao ou selecionar outro canal.'}
           </p>
           <div className="flex gap-3">
-            <button
-              onClick={() => setActiveSource(activeSource === 1 ? 2 : 1)}
-              className="px-4 py-2 bg-[#4fe3d0] hover:bg-[#38d4c1] text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-[#4fe3d0]/20"
-            >
-              Alternar para Fonte {activeSource === 1 ? '2' : '1'}
-            </button>
+            {channelSources.length > 1 && (
+              <button
+                onClick={cycleSource}
+                className="px-4 py-2 bg-[#4fe3d0] hover:bg-[#38d4c1] text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-[#4fe3d0]/20"
+              >
+                Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})
+              </button>
+            )}
             <button
               onClick={() => {
                 setStreamError(null);
@@ -684,12 +720,14 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
                 AO VIVO
               </span>
-              <button
-                onClick={() => setActiveSource(activeSource === 1 ? 2 : 1)}
-                className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold border border-white/20 backdrop-blur-md cursor-pointer"
-              >
-                Fonte {activeSource}/2
-              </button>
+              {channelSources.length > 1 && (
+                <button
+                  onClick={cycleSource}
+                  className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold border border-white/20 backdrop-blur-md cursor-pointer"
+                >
+                  Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -1001,16 +1039,18 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               {contextMenu.channel.isFavorite ? 'Remover dos Favoritos' : 'Favoritar Canal'}
             </span>
           </button>
-          <button
-            onClick={() => {
-              setActiveSource(activeSource === 1 ? 2 : 1);
-              setContextMenu(null);
-            }}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 text-left transition-colors"
-          >
-            <Radio className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Alternar para Fonte {activeSource === 1 ? '2' : '1'}</span>
-          </button>
+          {channelSources.length > 1 && (
+            <button
+              onClick={() => {
+                cycleSource();
+                setContextMenu(null);
+              }}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 text-left transition-colors"
+            >
+              <Radio className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})</span>
+            </button>
+          )}
           <button
             onClick={() => {
               navigator.clipboard.writeText(contextMenu.channel.streamUrl);
@@ -1082,13 +1122,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             </button>
 
             {/* Source switch */}
-            <button
-              onClick={() => setActiveSource(activeSource === 1 ? 2 : 1)}
-              title="Alternar Fonte de Transmissao"
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition-all whitespace-nowrap"
-            >
-              <span>Fonte {activeSource}/2</span>
-            </button>
+            {channelSources.length > 1 && (
+              <button
+                onClick={cycleSource}
+                title="Alternar Fonte de Transmissao"
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition-all whitespace-nowrap cursor-pointer"
+              >
+                <span>Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}</span>
+              </button>
+            )}
 
             {/* Quick Live Jump button */}
             <button

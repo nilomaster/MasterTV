@@ -1,6 +1,13 @@
 // IPTV and EPG Types definition
 // Strictly ASCII comments as per project guidelines
 
+export interface ChannelSource {
+  id: number;
+  name: string;
+  url: string;
+  quality?: string;
+}
+
 export interface Channel {
   id: string;
   number: number;
@@ -9,6 +16,7 @@ export interface Channel {
   category: string;
   streamUrl: string;
   backupStreamUrl?: string;
+  sources?: ChannelSource[];
   epgId?: string;
   currentProgram?: string;
   currentProgramTime?: string;

@@ -957,6 +957,7 @@ const XMLTV_CHANNEL_ALIAS: Record<string, string> = {
   'GLOBO SP': 'ch-globo',
   'GLOBO HD': 'ch-globo',
   'SBT': 'ch-sbt',
+  'SBT HD': 'ch-sbt',
   'SBT São Paulo': 'ch-sbt',
   'SBT SP': 'ch-sbt',
   'Band SP_local': 'ch-band',

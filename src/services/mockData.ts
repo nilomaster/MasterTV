@@ -11,8 +11,14 @@ const STREAM_BAND_SP =
 const STREAM_GLOBO_SP =
   'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd2-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fglobosp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
 
-const STREAM_SBT =
-  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F92ef03b0a53c20499bcde22fe03440c5.s25-cloudfront-net.lat%2Fstream%2F31f7488a7407fcd7de95fb172c73cfca%2Ferror.txt&referer=https%3A%2F%2Fw7.embedtv.cc%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+const STREAM_SBT_1_HD =
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Fpremiereclubes%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
+
+const STREAM_SBT_2_HD =
+  'https://cdn.live.br1.jmvstream.com/w/LVW-10801/LVW10801_Xvg4R0u57n/chunklist.m3u8?checkedby:iptvcat.com';
+
+const STREAM_SBT_3_FHD =
+  'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2F6836041ea1117.streamlock.net%2Fcverde%2Fcverde%2Fchunklist_w1662197046.m3u8&referer=https%3A%2F%2F6836041ea1117.streamlock.net%2F';
 
 const STREAM_RECORD_SP =
   'https://saimo-tv.pages.dev/api/proxy?url=https%3A%2F%2Fd1-ywppjexvlyulasvmgzjdftfjikth2210oq80soveui6lkbi2iza2zf.cdn13embed.xyz%2Frecordsp%2Findex.m3u8&referer=https%3A%2F%2Fembedcanaisdetv.xyz%2F&ua=Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F126.0%20Safari%2F537.36';
@@ -62,7 +68,6 @@ const STREAM_ESPN_HD =
 
 const STREAM_ESPN_HD_BACKUP = 'http://45.162.64.114/ESPN_BRASIL/index.m3u8';
 
-const HLS_SAMPLE_BACKUP = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
 const HLS_SAMPLE_1 = STREAM_BAND_SP;
 const HLS_SAMPLE_2 = STREAM_GLOBO_SP;
 const HLS_SAMPLE_3 = STREAM_RECORD_SP;
@@ -90,7 +95,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/globosp.png',
     category: 'aberta',
     streamUrl: STREAM_GLOBO_SP,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Vale a Pena Ver de Novo: Avenida Brasil',
     currentProgramTime: '17:05 - 18:25',
     nextProgram: 'A Nobreza do Amor',
@@ -104,11 +108,16 @@ export const INITIAL_CHANNELS: Channel[] = [
   {
     id: 'ch-sbt',
     number: 2,
-    name: 'SBT',
+    name: 'SBT HD',
     logo: './logos/sbt.png',
     category: 'aberta',
-    streamUrl: STREAM_SBT,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
+    streamUrl: STREAM_SBT_1_HD,
+    backupStreamUrl: STREAM_SBT_2_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1 HD', url: STREAM_SBT_1_HD, quality: '720p' },
+      { id: 2, name: 'Fonte 2 HD', url: STREAM_SBT_2_HD, quality: '720p' },
+      { id: 3, name: 'Fonte 3 FHD', url: STREAM_SBT_3_FHD, quality: '1080p' }
+    ],
     currentProgram: 'Programa Silvio Santos',
     currentProgramTime: '16:30 - 19:00',
     nextProgram: 'SBT Brasil',
@@ -126,7 +135,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/record-tv.png',
     category: 'aberta',
     streamUrl: STREAM_RECORD_SP,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Cidade Alerta',
     currentProgramTime: '16:45 - 18:45',
     nextProgram: 'Jornal da Record',
@@ -144,7 +152,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/band.png',
     category: 'aberta',
     streamUrl: STREAM_BAND_SP,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Apito Final',
     currentProgramTime: '16:00 - 18:30',
     nextProgram: 'Jornal da Band',
@@ -162,7 +169,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/Rede-tv.png',
     category: 'aberta',
     streamUrl: STREAM_REDE_TV,
-    backupStreamUrl: STREAM_BAND_SP,
     currentProgram: 'Operação de Risco',
     currentProgramTime: '17:00 - 18:30',
     nextProgram: 'RedeTV News',
@@ -180,7 +186,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/amc.png',
     category: 'filmes',
     streamUrl: STREAM_AMC_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Velozes & Furiosos 9 - A Saga Velozes & Furiosos',
     currentProgramTime: '13:15 - 15:50',
     nextProgram: 'Tomb Raider - A Origem',
@@ -198,7 +203,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/amcseries.png',
     category: 'series',
     streamUrl: STREAM_AMC_SERIES_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Mad Men: Conflitos e Criatividade',
     currentProgramTime: '12:15 - 13:45',
     nextProgram: 'Better Call Saul',
@@ -216,7 +220,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbo.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Duna: Parte 2',
     currentProgramTime: '14:00 - 16:45',
     nextProgram: 'Casa do Dragao',
@@ -234,7 +237,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbo2.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_2_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Succession: Maratona',
     currentProgramTime: '13:30 - 15:30',
     nextProgram: 'Batman (2022)',
@@ -252,7 +254,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbofamily.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_FAMILY_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Harry Potter e o Prisioneiro de Azkaban',
     currentProgramTime: '14:15 - 16:40',
     nextProgram: 'Wonka',
@@ -270,7 +271,6 @@ export const INITIAL_CHANNELS: Channel[] = [
     logo: './logos/hbomundi.png',
     category: 'filmes',
     streamUrl: STREAM_HBO_MUNDI_HD,
-    backupStreamUrl: HLS_SAMPLE_BACKUP,
     currentProgram: 'Cinema Mundial: Parasita',
     currentProgramTime: '13:00 - 15:15',
     nextProgram: 'O Fabuloso Destino de Amelie Poulain',
@@ -289,6 +289,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_PLUS_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_PLUS_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Pacificador (Peacemaker)',
     currentProgramTime: '14:30 - 15:30',
     nextProgram: 'Esquadrao Suicida',
@@ -307,6 +311,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_POP_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_POP_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Barbie: O Filme',
     currentProgramTime: '14:00 - 16:00',
     nextProgram: 'Amor a Toda Prova',
@@ -325,6 +333,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_SIGNATURE_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_SIGNATURE_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Chernobyl: Minisserie',
     currentProgramTime: '13:45 - 15:00',
     nextProgram: 'Band of Brothers',
@@ -343,6 +355,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'filmes',
     streamUrl: STREAM_HBO_XTREME_HD,
     backupStreamUrl: STREAM_HBO_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_HBO_XTREME_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+    ],
     currentProgram: 'Mad Max: Estrada da Furia',
     currentProgramTime: '14:00 - 16:00',
     nextProgram: 'John Wick 4: Baba Yaga',
@@ -361,6 +377,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'esportes',
     streamUrl: STREAM_PREMIERE_CLUBES_HD,
     backupStreamUrl: STREAM_PREMIERE_CLUBES_HD_BACKUP,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_PREMIERE_CLUBES_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_PREMIERE_CLUBES_HD_BACKUP, quality: 'HD' }
+    ],
     currentProgram: 'Futebol Ao Vivo - Serie A',
     currentProgramTime: '16:00 - 18:00',
     nextProgram: 'Linha de Passe',
@@ -379,6 +399,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'esportes',
     streamUrl: STREAM_PREMIERE_CLUBES_FHD,
     backupStreamUrl: STREAM_PREMIERE_CLUBES_HD,
+    sources: [
+      { id: 1, name: 'Fonte 1 FHD', url: STREAM_PREMIERE_CLUBES_FHD, quality: '1080p' },
+      { id: 2, name: 'Fonte 2 HD', url: STREAM_PREMIERE_CLUBES_HD, quality: '720p' }
+    ],
     currentProgram: 'Futebol Ao Vivo - Full HD 60FPS',
     currentProgramTime: '16:00 - 18:00',
     nextProgram: 'Redacao SporTV',
@@ -397,6 +421,10 @@ export const INITIAL_CHANNELS: Channel[] = [
     category: 'esportes',
     streamUrl: STREAM_ESPN_HD,
     backupStreamUrl: STREAM_ESPN_HD_BACKUP,
+    sources: [
+      { id: 1, name: 'Fonte 1', url: STREAM_ESPN_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2', url: STREAM_ESPN_HD_BACKUP, quality: 'HD' }
+    ],
     currentProgram: 'SportsCenter - Ao Vivo',
     currentProgramTime: '15:00 - 16:30',
     nextProgram: 'Futebol 360',
