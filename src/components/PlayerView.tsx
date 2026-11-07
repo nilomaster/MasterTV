@@ -251,19 +251,21 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         }
         setIsLoadingStream(false);
 
-        // Populate available resolutions
-        if (data && data.levels && data.levels.length > 0) {
+        // Populate available resolutions only from actual stream levels
+        if (data && data.levels && data.levels.length > 1) {
           const lvls = data.levels.map((lvl, index) => ({
             id: index,
             name: lvl.height ? `${lvl.height}p` : `Nivel ${index + 1}`,
           }));
           setAvailableLevels([{ id: -1, name: 'Auto' }, ...lvls]);
-        } else {
+        } else if (data && data.levels && data.levels.length === 1) {
+          const height = data.levels[0].height;
           setAvailableLevels([
             { id: -1, name: 'Auto' },
-            { id: 1, name: '1080p' },
-            { id: 2, name: '720p' },
+            { id: 0, name: height ? `${height}p` : 'HD' },
           ]);
+        } else {
+          setAvailableLevels([{ id: -1, name: 'Auto' }]);
         }
 
         video.muted = isMuted;
@@ -670,7 +672,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   };
 
   const cycleQuality = () => {
-    if (availableLevels.length > 0) {
+    if (availableLevels.length > 1) {
       const currentIdx = availableLevels.findIndex((l) => l.name === quality);
       const nextIdx = (currentIdx + 1) % availableLevels.length;
       const nextLevel = availableLevels[nextIdx];
@@ -679,9 +681,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         hlsRef.current.currentLevel = nextLevel.id;
       }
     } else {
-      const defaultList = ['Auto', '1080p', '720p'];
-      const nextIdx = (defaultList.indexOf(quality) + 1) % defaultList.length;
-      setQuality(defaultList[nextIdx]);
+      setQuality('Auto');
+      if (hlsRef.current) {
+        hlsRef.current.currentLevel = -1;
+      }
     }
   };
 

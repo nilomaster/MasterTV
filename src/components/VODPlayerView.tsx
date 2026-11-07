@@ -214,11 +214,16 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
+        // Automatically try fallback source if available
+        if (activeSource === 1 && mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) {
+          setActiveSource(2);
+          return;
+        }
         const err = video.error;
         let msg = 'Erro ao reproduzir o arquivo de video.';
         if (err) {
           if (err.code === 4) {
-            msg = 'Este video requer suporte a decodificacao de hardware HEVC / 4K. Caso nao inicie, teste no navegador Edge ou ative a aceleracao por hardware nas configuracoes do Chrome.';
+            msg = 'Fonte de transmissao temporariamente indisponivel. Tente alternar para outra fonte.';
           } else if (err.code === 2) {
             msg = 'Falha de conexao com a fonte de transmissao. Tente novamente ou selecione outra fonte.';
           } else if (err.code === 3) {

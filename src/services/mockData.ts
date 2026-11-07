@@ -283,11 +283,11 @@ export const INITIAL_CHANNELS: Channel[] = [
     name: 'HBO Plus HD',
     logo: './logos/hboplus.png',
     category: 'filmes',
-    streamUrl: STREAM_HBO_PLUS_HD,
-    backupStreamUrl: STREAM_HBO_HD,
+    streamUrl: STREAM_HBO_HD,
+    backupStreamUrl: STREAM_HBO_PLUS_HD,
     sources: [
-      { id: 1, name: 'Fonte 1', url: STREAM_HBO_PLUS_HD, quality: 'HD' },
-      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+      { id: 1, name: 'Fonte 1 (Principal)', url: STREAM_HBO_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2 (Reserva)', url: STREAM_HBO_PLUS_HD, quality: 'HD' }
     ],
     currentProgram: 'Pacificador (Peacemaker)',
     currentProgramTime: '14:30 - 15:30',
@@ -305,11 +305,11 @@ export const INITIAL_CHANNELS: Channel[] = [
     name: 'HBO Pop HD',
     logo: './logos/hbopop.png',
     category: 'filmes',
-    streamUrl: STREAM_HBO_POP_HD,
-    backupStreamUrl: STREAM_HBO_HD,
+    streamUrl: STREAM_HBO_HD,
+    backupStreamUrl: STREAM_HBO_POP_HD,
     sources: [
-      { id: 1, name: 'Fonte 1', url: STREAM_HBO_POP_HD, quality: 'HD' },
-      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+      { id: 1, name: 'Fonte 1 (Principal)', url: STREAM_HBO_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2 (Reserva)', url: STREAM_HBO_POP_HD, quality: 'HD' }
     ],
     currentProgram: 'Barbie: O Filme',
     currentProgramTime: '14:00 - 16:00',
@@ -327,11 +327,11 @@ export const INITIAL_CHANNELS: Channel[] = [
     name: 'HBO Signature HD',
     logo: './logos/hbo-signature.png',
     category: 'filmes',
-    streamUrl: STREAM_HBO_SIGNATURE_HD,
-    backupStreamUrl: STREAM_HBO_HD,
+    streamUrl: STREAM_HBO_HD,
+    backupStreamUrl: STREAM_HBO_SIGNATURE_HD,
     sources: [
-      { id: 1, name: 'Fonte 1', url: STREAM_HBO_SIGNATURE_HD, quality: 'HD' },
-      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+      { id: 1, name: 'Fonte 1 (Principal)', url: STREAM_HBO_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2 (Reserva)', url: STREAM_HBO_SIGNATURE_HD, quality: 'HD' }
     ],
     currentProgram: 'Chernobyl: Minisserie',
     currentProgramTime: '13:45 - 15:00',
@@ -349,11 +349,11 @@ export const INITIAL_CHANNELS: Channel[] = [
     name: 'HBO Xtreme HD',
     logo: './logos/hbo-xtreme.png',
     category: 'filmes',
-    streamUrl: STREAM_HBO_XTREME_HD,
-    backupStreamUrl: STREAM_HBO_HD,
+    streamUrl: STREAM_HBO_HD,
+    backupStreamUrl: STREAM_HBO_XTREME_HD,
     sources: [
-      { id: 1, name: 'Fonte 1', url: STREAM_HBO_XTREME_HD, quality: 'HD' },
-      { id: 2, name: 'Fonte 2', url: STREAM_HBO_HD, quality: 'HD' }
+      { id: 1, name: 'Fonte 1 (Principal)', url: STREAM_HBO_HD, quality: 'HD' },
+      { id: 2, name: 'Fonte 2 (Reserva)', url: STREAM_HBO_XTREME_HD, quality: 'HD' }
     ],
     currentProgram: 'Mad Max: Estrada da Furia',
     currentProgramTime: '14:00 - 16:00',
@@ -497,8 +497,8 @@ export const HERO_FEATURED: MediaItem = {
   director: 'Destin Daniel Cretton',
   writers: 'Erik Sommers, Chris McKenna',
   production: 'Marvel Studios',
-  streamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
-  backupStreamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
+  streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
+  backupStreamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
 };
 
 export const TRENDING_MOVIES: MediaItem[] = [
@@ -517,8 +517,8 @@ export const TRENDING_MOVIES: MediaItem[] = [
     director: 'Destin Daniel Cretton',
     writers: 'Erik Sommers, Chris McKenna',
     production: 'Marvel Studios',
-    streamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
-    backupStreamUrl: 'https://crimson-dawn-91cb.8ee7klupb4z1.workers.dev/t/1793909401.5539dcc315c969c0f2200ae5ee0eb0c75a2c652d8e7b3594345f7ccdd78c31c7/u/FonteMteus-AcessoFULL.VOD/e1.DtgdvAaQfM62-l2LM6K2Tr-TasgXj_6E9-qyzHxjDeqLCGIuGH3jOYB5H-rm9ldo5kWLi6Y4jtA5lThm3oeoRw',
+    streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
+    backupStreamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
   },
 ];
 
@@ -575,41 +575,41 @@ export const ANIMES_LIST: MediaItem[] = [
     production: 'Madhouse',
     seasons: 1,
     episodes: 37,
-    streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901082.3199889aa7dbc9690c3e2f8f9c0c259afb584f4ffa28b5a1e51269647f8346a3/u/LinhaZed099183u/e1.S0z4LUPEbRG8hMMdjPrOtRxgNeh7NTHD3nWm0kCYlv9evmyfoWPc6fMyfXTGvrvrtsRJsk20NtSJAqwO3ef2t9rXRs00kDbpbdxifEG8bHc',
+    streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
     episodeList: [
       {
         id: 'dn-ep-1',
         number: 1,
         title: 'Episodio 1',
-        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901082.3199889aa7dbc9690c3e2f8f9c0c259afb584f4ffa28b5a1e51269647f8346a3/u/LinhaZed099183u/e1.S0z4LUPEbRG8hMMdjPrOtRxgNeh7NTHD3nWm0kCYlv9evmyfoWPc6fMyfXTGvrvrtsRJsk20NtSJAqwO3ef2t9rXRs00kDbpbdxifEG8bHc',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
         duration: '22min',
       },
       {
         id: 'dn-ep-2',
         number: 2,
         title: 'Episodio 2',
-        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901195.c3b050b32a0cbcf20055d303cf812cdf58e01d8546e8b1cf2a5b16bc8d8e8f8f/u/LinhaZed099183u/e1.05-v55GoSBKxdLwKaG7SO2MnFyiCmr_azMGw06nuVp1rVluqYVW2tK77AptE38FIFNWJJir1P4doqc2_f8rzAXubIvPLwv0miHMTA2dGelg',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/b9f98cb30c22a9fe0bd8bca9/index.m3u8',
         duration: '22min',
       },
       {
         id: 'dn-ep-3',
         number: 3,
         title: 'Episodio 3',
-        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901208.452217341a9f11e42f9a671023124a80c37c56b36b84727dda974900644545db/u/LinhaZed099183u/e1.oyLrU7rDMffHr5ukaF3S1644bTodnw66UNdi2enCUGCdrgp6EFPbJdasdho7k8214Rw6e8yax4-4S6CdBBLcqDEzOTq42wPNrnWPwsNAcbM',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
         duration: '22min',
       },
       {
         id: 'dn-ep-4',
         number: 4,
         title: 'Episodio 4',
-        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901762.65613aee5944fcc85664b0ca469dba1a41a0046009340ce585c41dd338959987/u/LinhaZed099183u/e1.5R_TfqWRXJPbrn3he_cTFaLrOtNjskQm6XQv9ViCfiAJOZ0brEoVgEz-MUKPyhDTxwa98tVKPGPoH3SdVAghLZSo-xrsByx7-bnYT-y-qBk',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/b9f98cb30c22a9fe0bd8bca9/index.m3u8',
         duration: '22min',
       },
       {
         id: 'dn-ep-5',
         number: 5,
         title: 'Episodio 5',
-        streamUrl: 'https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901816.cd376a6d6ac05988da8aacd0c806c7d4fd3db51c59e00e0e17ca93628fcc140c/u/LinhaZed099183u/e1.yf4_c0_asxG7ALF37JLzzZSyhzbf3FGuZcQ-83oYqpYWhoZALMLcfWYfDkJZW3gyPgu8xlh7V-QVsn-BN7lhSbArH9qiCRVriv_ZrU4Kj_s',
+        streamUrl: 'https://comprarebom.xyz/cdn/down/d22596e4fa6968c7bb8ffba4/index.m3u8',
         duration: '22min',
       },
     ],
