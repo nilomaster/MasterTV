@@ -218,23 +218,23 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     }, 15000);
 
     if (isHlsStream) {
-      // High-performance low latency config for fast channel zapping and low memory devices
+      // Optimized resilient config for all Android devices (from high-end Tab A9 to budget Galaxy A12)
       const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
+        enableWorker: false,
+        lowLatencyMode: false,
         startFragPrefetch: true,
-        backBufferLength: 10,
-        maxBufferLength: 8,
-        maxMaxBufferLength: 15,
-        maxBufferSize: 30 * 1000 * 1000,
-        liveSyncDurationCount: 2,
-        liveMaxLatencyDurationCount: 5,
-        maxBufferHole: 0.5,
+        backBufferLength: 5,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 20,
+        maxBufferSize: 25 * 1000 * 1000,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6,
+        maxBufferHole: 0.8,
         highBufferWatchdogPeriod: 2,
-        nudgeOffset: 0.1,
-        nudgeMaxRetry: 5,
-        fragLoadingTimeOut: 15000,
-        manifestLoadingTimeOut: 15000,
+        nudgeOffset: 0.2,
+        nudgeMaxRetry: 6,
+        fragLoadingTimeOut: 18000,
+        manifestLoadingTimeOut: 18000,
         xhrSetup: (xhr) => {
           xhr.withCredentials = false;
         },

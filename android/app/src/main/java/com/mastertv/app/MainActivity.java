@@ -3,6 +3,7 @@ package com.mastertv.app;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -34,6 +35,9 @@ public class MainActivity extends BridgeActivity {
                 settings.setDomStorageEnabled(true);
                 settings.setDatabaseEnabled(true);
                 settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+                // Force hardware layer for smooth video compositing on budget chipsets
+                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
                 // Enable remote control focus for Android TV and TV Boxes
                 webView.setFocusable(true);
