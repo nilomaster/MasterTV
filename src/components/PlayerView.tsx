@@ -227,14 +227,14 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         maxBufferLength: 8,
         maxMaxBufferLength: 15,
         maxBufferSize: 30 * 1000 * 1000,
-        liveSyncDurationCount: 1,
-        liveMaxLatencyDurationCount: 3,
+        liveSyncDurationCount: 2,
+        liveMaxLatencyDurationCount: 5,
         maxBufferHole: 0.5,
-        highBufferWatchdogPeriod: 1,
+        highBufferWatchdogPeriod: 2,
         nudgeOffset: 0.1,
         nudgeMaxRetry: 5,
-        fragLoadingTimeOut: 12000,
-        manifestLoadingTimeOut: 12000,
+        fragLoadingTimeOut: 15000,
+        manifestLoadingTimeOut: 15000,
         xhrSetup: (xhr) => {
           xhr.withCredentials = false;
         },
@@ -269,14 +269,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         video.muted = isMuted;
         video.volume = isMuted ? 0 : volume;
         video.play().catch(() => {
-          // If browser policy prevents unmuted autoplay, start muted then restore audio
+          // If unmuted autoplay is rejected by mobile policy, play muted safely without stalling
           video.muted = true;
-          video.play().then(() => {
-            if (!isMuted) {
-              video.muted = false;
-              video.volume = volume;
-            }
-          }).catch(() => {
+          setIsMuted(true);
+          video.play().catch(() => {
             setIsAutoplayBlocked(true);
             setIsLoadingStream(false);
           });
@@ -334,14 +330,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         video.muted = isMuted;
         video.volume = isMuted ? 0 : volume;
         video.play().catch(() => {
-          // If browser policy prevents unmuted autoplay, start muted then restore audio
+          // If unmuted autoplay is rejected by mobile policy, play muted safely without stalling
           video.muted = true;
-          video.play().then(() => {
-            if (!isMuted) {
-              video.muted = false;
-              video.volume = volume;
-            }
-          }).catch(() => {
+          setIsMuted(true);
+          video.play().catch(() => {
             setIsAutoplayBlocked(true);
             setIsLoadingStream(false);
           });
@@ -765,10 +757,36 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           ref={videoRef}
           className={`w-full h-full object-${aspectRatio === 'cover' ? 'cover' : 'contain'} cursor-default`}
           playsInline
+          poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
           autoPlay
           muted={isMuted}
-          onClick={() => setShowControls((prev) => !prev)}
+          onClick={() => {
+            setShowControls((prev) => !prev);
+            // On user tap, if muted by mobile autoplay policy, unmute seamlessly
+            if (isMuted && videoRef.current) {
+              videoRef.current.muted = false;
+              videoRef.current.volume = volume;
+              setIsMuted(false);
+            }
+          }}
         />
+
+        {/* Small floating Unmute button on mobile if video started muted */}
+        {isMuted && !isLoadingStream && !streamError && !isAutoplayBlocked && (
+          <button
+            onClick={() => {
+              if (videoRef.current) {
+                videoRef.current.muted = false;
+                videoRef.current.volume = volume;
+                setIsMuted(false);
+              }
+            }}
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 border border-cyan-400/60 backdrop-blur-md text-cyan-300 text-xs font-semibold shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer animate-pulse"
+          >
+            <VolumeX className="w-3.5 h-3.5 text-red-400" />
+            <span>Toque para ativar o som</span>
+          </button>
+        )}
 
         {/* Big Tap to Play Button when mobile browser blocks autoplay */}
         {isAutoplayBlocked && (
@@ -776,7 +794,16 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             onClick={() => {
               setIsAutoplayBlocked(false);
               if (videoRef.current) {
-                videoRef.current.play().catch(() => {});
+                videoRef.current.muted = false;
+                videoRef.current.volume = volume;
+                setIsMuted(false);
+                videoRef.current.play().catch(() => {
+                  if (videoRef.current) {
+                    videoRef.current.muted = true;
+                    setIsMuted(true);
+                    videoRef.current.play().catch(() => {});
+                  }
+                });
               }
             }}
             className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm cursor-pointer"

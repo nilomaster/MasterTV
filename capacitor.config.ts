@@ -9,10 +9,16 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true,
+    allowNavigation: ['*'],
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: false,
+    },
   },
   android: {
     allowMixedContent: true,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,
     backgroundColor: '#0a0d14',
   },
 };

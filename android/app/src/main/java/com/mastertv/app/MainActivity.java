@@ -21,12 +21,16 @@ public class MainActivity extends BridgeActivity {
         // Keep screen active during TV playback
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // Enable WebView debugging for remote diagnostics
+        WebView.setWebContentsDebuggingEnabled(true);
+
         // Optimize WebView performance for video streaming and TV remote navigation
         try {
             WebView webView = this.bridge.getWebView();
             if (webView != null) {
                 WebSettings settings = webView.getSettings();
                 settings.setMediaPlaybackRequiresUserGesture(false);
+                settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
                 settings.setDomStorageEnabled(true);
                 settings.setDatabaseEnabled(true);
                 settings.setCacheMode(WebSettings.LOAD_DEFAULT);
