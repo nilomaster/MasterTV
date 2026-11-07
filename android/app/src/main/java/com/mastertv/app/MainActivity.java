@@ -49,12 +49,40 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        WebView webView = this.bridge.getWebView();
+        if (webView != null) {
+            // Check if React application can handle back action (exit cinema, close modals/drawers or return to catalog/home)
+            webView.evaluateJavascript(
+                "(function() { return (window.__mastertv_handle_back && window.__mastertv_handle_back()) ? 'HANDLED' : 'DEFAULT'; })();",
+                value -> {
+                    if (value == null || !value.contains("HANDLED")) {
+                        runOnUiThread(() -> {
+                            // If user is already on home with nothing open, smoothly send app to background
+                            moveTaskToBack(true);
+                        });
+                    }
+                }
+            );
+            return;
+        }
+        moveTaskToBack(true);
+    }
+
+    @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         // Ensure DPAD and OK events are passed into WebView
         WebView webView = this.bridge.getWebView();
         if (webView != null && !webView.hasFocus()) {
             webView.requestFocus();
         }
+
+        // Intercept back button from TV Box remote control or physical key
+        if (event.getAction() == KeyEvent.ACTION_UP && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            onBackPressed();
+            return true;
+        }
+
         return super.dispatchKeyEvent(event);
     }
 }

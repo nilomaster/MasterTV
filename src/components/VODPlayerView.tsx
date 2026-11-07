@@ -377,15 +377,50 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
   // Fullscreen toggle
   const toggleFullscreen = () => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-    }
+    setIsFullscreen((prev) => {
+      const next = !prev;
+      const container = containerRef.current;
+      if (next) {
+        if (container && !document.fullscreenElement && container.requestFullscreen) {
+          container.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      return next;
+    });
   };
+
+  // Sync native fullscreen exits
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Handle hardware and Android back button events
+  useEffect(() => {
+    const handleBackButton = () => {
+      if (isFullscreen) {
+        toggleFullscreen();
+        (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back = true;
+        return;
+      }
+      if (isEpisodeDrawerOpen) {
+        setIsEpisodeDrawerOpen(false);
+        (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back = true;
+        return;
+      }
+    };
+    window.addEventListener('mastertv_back_button', handleBackButton);
+    return () => window.removeEventListener('mastertv_back_button', handleBackButton);
+  }, [isFullscreen, isEpisodeDrawerOpen]);
 
   // Picture in picture toggle
   const togglePiP = () => {

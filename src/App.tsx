@@ -220,6 +220,62 @@ export const App: React.FC = () => {
     localStorage.setItem('mastertv_channels_v12', JSON.stringify(channels));
   }, [channels]);
 
+  // Global Android and TV Box Back Button handler
+  useEffect(() => {
+    (window as unknown as { __mastertv_handle_back?: () => boolean }).__mastertv_handle_back = () => {
+      // 1. Close open modals first
+      if (isPlaylistModalOpen) {
+        setIsPlaylistModalOpen(false);
+        return true;
+      }
+      if (isSettingsModalOpen) {
+        setIsSettingsModalOpen(false);
+        return true;
+      }
+      if (selectedMedia) {
+        setSelectedMedia(null);
+        return true;
+      }
+      if (selectedProgramItem) {
+        setSelectedProgramItem(null);
+        return true;
+      }
+
+      // 2. Dispatch event for PlayerView and VODPlayerView to exit cinema mode or close drawers
+      window.dispatchEvent(new CustomEvent('mastertv_back_button'));
+      const playerHandled = (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back;
+      if (playerHandled) {
+        (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back = false;
+        return true;
+      }
+
+      // 3. If in VOD Player, go back to VOD catalog
+      if (currentView === 'vod-player') {
+        handleViewChange('vod');
+        return true;
+      }
+
+      // 4. If on another view, return to Home
+      if (currentView !== 'home') {
+        handleViewChange('home');
+        return true;
+      }
+
+      // 5. Already on Home with nothing open: return false to let Android minimize the app
+      return false;
+    };
+
+    return () => {
+      delete (window as unknown as { __mastertv_handle_back?: () => boolean }).__mastertv_handle_back;
+    };
+  }, [
+    isPlaylistModalOpen,
+    isSettingsModalOpen,
+    selectedMedia,
+    selectedProgramItem,
+    currentView,
+  ]);
+
   // Toggle favorite channel
   const handleToggleFavorite = (channelId: string) => {
     setChannels((prev) =>

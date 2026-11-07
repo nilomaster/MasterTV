@@ -24,7 +24,8 @@ import {
   Radio,
   Sliders,
   ChevronDown,
-  Play
+  Play,
+  ArrowLeft
 } from 'lucide-react';
 import type { Channel, Category } from '../types/iptv';
 import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
@@ -444,24 +445,54 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   }, []);
 
   const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
+    setIsFullscreen((prev) => {
+      const next = !prev;
+      if (next) {
+        if (containerRef.current && !document.fullscreenElement && containerRef.current.requestFullscreen) {
+          containerRef.current.requestFullscreen().catch(() => {});
+        }
+      } else {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+      return next;
+    });
   }, []);
 
   // Sync fullscreen state when user exits via ESC or browser UI
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Handle hardware and Android back button events
+  useEffect(() => {
+    const handleBackButton = () => {
+      if (isFullscreen) {
+        toggleFullscreen();
+        (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back = true;
+        return;
+      }
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back = true;
+        return;
+      }
+      if (internalEPGOpen) {
+        setInternalEPGOpen(false);
+        (window as unknown as { __mastertv_player_handled_back?: boolean }).__mastertv_player_handled_back = true;
+        return;
+      }
+    };
+    window.addEventListener('mastertv_back_button', handleBackButton);
+    return () => window.removeEventListener('mastertv_back_button', handleBackButton);
+  }, [isFullscreen, isDrawerOpen, internalEPGOpen, toggleFullscreen]);
 
   // Filter channels based on search and category
   const filteredChannels = useMemo(() => {
@@ -882,80 +913,97 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         </div>
       )}
 
-      {/* MOBILE COMPACT OVERLAY ON VIDEO (When not in fullscreen) */}
-      {!isFullscreen && (
-        <div
-          className={`md:hidden absolute inset-0 flex flex-col justify-between p-2.5 bg-gradient-to-b from-black/80 via-transparent to-black/85 pointer-events-none transition-opacity duration-300 z-20 ${
-            isControlsVisible ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          {/* Top Row: Live badge, Source switch, Mute, Cinema Mode */}
-          <div className="flex items-center justify-between gap-2 pointer-events-auto">
-            <div className="flex items-center gap-1.5">
+      {/* MOBILE COMPACT OVERLAY ON VIDEO */}
+      <div
+        className={`md:hidden absolute inset-0 flex flex-col justify-between p-3 bg-gradient-to-b from-black/85 via-transparent to-black/90 pointer-events-none transition-opacity duration-300 z-20 ${
+          isControlsVisible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {/* Top Row: Live badge, Source switch, Mute, Cinema Mode */}
+        <div className="flex items-center justify-between gap-2 pointer-events-auto">
+          <div className="flex items-center gap-1.5">
+            {isFullscreen ? (
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-cyan-400/50 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 backdrop-blur-md cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                <span>Sair</span>
+              </button>
+            ) : (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md shadow-red-600/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
                 AO VIVO
               </span>
-              {channelSources.length > 1 && (
-                <button
-                  onClick={cycleSource}
-                  className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold border border-white/20 backdrop-blur-md cursor-pointer"
-                >
-                  Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5">
+            )}
+            {channelSources.length > 1 && (
               <button
-                onClick={toggleMute}
-                className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white border border-white/20 backdrop-blur-md cursor-pointer"
+                onClick={cycleSource}
+                className="px-2 py-1 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold border border-white/20 backdrop-blur-md cursor-pointer"
               >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-3.5 h-3.5 text-red-400" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
-                )}
+                Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}
               </button>
-              <button
-                onClick={toggleFullscreen}
-                title="Modo Cinema em Tela Cheia"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] shadow-lg shadow-cyan-500/30 backdrop-blur-md cursor-pointer"
-              >
-                <Maximize className="w-3.5 h-3.5" />
-                <span>Cinema</span>
-              </button>
-            </div>
+            )}
           </div>
 
-          {/* Bottom Row: Quick Prev/Next zapping & aspect ratio */}
-          <div className="flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => jumpChannels('prev')}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
-              >
-                <SkipBack className="w-3 h-3 text-cyan-400" />
-                <span className="text-[10px]">Anterior</span>
-              </button>
-              <button
-                onClick={() => jumpChannels('next')}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
-              >
-                <span className="text-[10px]">Próximo</span>
-                <SkipForward className="w-3 h-3 text-cyan-400" />
-              </button>
-            </div>
-
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setAspectRatio(aspectRatio === 'contain' ? 'cover' : 'contain')}
-              className="px-2 py-1 rounded-lg bg-black/70 text-slate-200 text-[10px] font-bold border border-white/15 backdrop-blur-md cursor-pointer"
+              onClick={toggleMute}
+              className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white border border-white/20 backdrop-blur-md cursor-pointer"
             >
-              {aspectRatio === 'contain' ? 'Ajustar' : 'Expandir'}
+              {isMuted || volume === 0 ? (
+                <VolumeX className="w-3.5 h-3.5 text-red-400" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+              )}
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Sair do Modo Cinema' : 'Modo Cinema em Tela Cheia'}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] shadow-lg shadow-cyan-500/30 backdrop-blur-md cursor-pointer"
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize className="w-3.5 h-3.5" />
+                  <span>Sair</span>
+                </>
+              ) : (
+                <>
+                  <Maximize className="w-3.5 h-3.5" />
+                  <span>Cinema</span>
+                </>
+              )}
             </button>
           </div>
         </div>
-      )}
+
+        {/* Bottom Row: Quick Prev/Next zapping & aspect ratio */}
+        <div className="flex items-center justify-between pointer-events-auto">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => jumpChannels('prev')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
+            >
+              <SkipBack className="w-3 h-3 text-cyan-400" />
+              <span className="text-[10px]">Anterior</span>
+            </button>
+            <button
+              onClick={() => jumpChannels('next')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
+            >
+              <span className="text-[10px]">Próximo</span>
+              <SkipForward className="w-3 h-3 text-cyan-400" />
+            </button>
+          </div>
+
+          <button
+            onClick={() => setAspectRatio(aspectRatio === 'contain' ? 'cover' : 'contain')}
+            className="px-2 py-1 rounded-lg bg-black/70 text-slate-200 text-[10px] font-bold border border-white/15 backdrop-blur-md cursor-pointer"
+          >
+            {aspectRatio === 'contain' ? 'Ajustar' : 'Expandir'}
+          </button>
+        </div>
+      </div>
 
       {/* TOP BAR OVERLAY - Anchored to top: 0 with seamless downward gradient */}
       <div
