@@ -61,11 +61,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
   const [volume, setVolume] = useState<number>(() => {
     const saved = localStorage.getItem('mastertv_volume');
-    return saved !== null ? parseFloat(saved) : 0.8;
+    return saved !== null ? parseFloat(saved) : 1.0;
   });
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    return localStorage.getItem('mastertv_muted') === 'true';
-  });
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   // Channel drawer is closed by default to avoid blocking the video stream on page load
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -84,12 +82,29 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   const [mobileTab, setMobileTab] = useState<'channels' | 'categories' | 'epg'>('channels');
   const [isAutoplayBlocked, setIsAutoplayBlocked] = useState<boolean>(false);
 
+  // TV Box Remote Control & D-Pad Navigation state
+  const [tvFocusedIndex, setTvFocusedIndex] = useState<number>(0);
+  const [osdChannel, setOsdChannel] = useState<Channel | null>(null);
+  const osdTimeoutRef = useRef<number | null>(null);
+  const digitBufferRef = useRef<string>('');
+  const digitTimerRef = useRef<number | null>(null);
+
   // Reset active source and errors whenever channel changes
   useEffect(() => {
     setActiveSource(1);
     setStreamError(null);
     setIsAutoplayBlocked(false);
   }, [currentChannel?.id]);
+
+  const showOSD = useCallback((ch: Channel) => {
+    setOsdChannel(ch);
+    if (osdTimeoutRef.current) {
+      window.clearTimeout(osdTimeoutRef.current);
+    }
+    osdTimeoutRef.current = window.setTimeout(() => {
+      setOsdChannel(null);
+    }, 3500);
+  }, []);
 
   const isEPGModalVisible = isEPGOpenProp !== undefined ? isEPGOpenProp : internalEPGOpen;
 
@@ -251,10 +266,17 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           ]);
         }
 
+        video.muted = isMuted;
+        video.volume = isMuted ? 0 : volume;
         video.play().catch(() => {
-          setIsMuted(true);
+          // If browser policy prevents unmuted autoplay, start muted then restore audio
           video.muted = true;
-          video.play().catch(() => {
+          video.play().then(() => {
+            if (!isMuted) {
+              video.muted = false;
+              video.volume = volume;
+            }
+          }).catch(() => {
             setIsAutoplayBlocked(true);
             setIsLoadingStream(false);
           });
@@ -309,10 +331,17 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
+        video.muted = isMuted;
+        video.volume = isMuted ? 0 : volume;
         video.play().catch(() => {
-          setIsMuted(true);
+          // If browser policy prevents unmuted autoplay, start muted then restore audio
           video.muted = true;
-          video.play().catch(() => {
+          video.play().then(() => {
+            if (!isMuted) {
+              video.muted = false;
+              video.volume = volume;
+            }
+          }).catch(() => {
             setIsAutoplayBlocked(true);
             setIsLoadingStream(false);
           });
@@ -440,25 +469,132 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Keyboard navigation for channels (Arrow Up and Arrow Down)
+  // Filter channels based on search and category
+  const filteredChannels = useMemo(() => {
+    return channels.filter((ch) => {
+      const matchesSearch =
+        ch.name.toLowerCase().includes(searchChannel.toLowerCase()) ||
+        ch.number.toString().includes(searchChannel) ||
+        (ch.currentProgram && ch.currentProgram.toLowerCase().includes(searchChannel.toLowerCase()));
+
+      const matchesCategory =
+        selectedCategory === 'todos'
+          ? true
+          : selectedCategory === 'favoritos'
+          ? ch.isFavorite
+          : ch.category.toLowerCase() === selectedCategory.toLowerCase();
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [channels, searchChannel, selectedCategory]);
+
+  // Keyboard and TV Box Remote Control navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (!currentChannel || channels.length === 0) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
-      const currentIndex = channels.findIndex((c) => c.id === currentChannel.id);
+      // Automatically restore unmuted audio on any remote control interaction
+      if (videoRef.current && videoRef.current.muted && !isMuted) {
+        videoRef.current.muted = false;
+        videoRef.current.volume = volume;
+      }
 
-      if (e.key === 'ArrowDown') {
+      const isNavigatingList = isDrawerOpen || mobileTab === 'channels';
+
+      // 1. Direct channel number input (0 - 9)
+      if (/^[0-9]$/.test(e.key)) {
+        digitBufferRef.current += e.key;
+        if (digitTimerRef.current) window.clearTimeout(digitTimerRef.current);
+        digitTimerRef.current = window.setTimeout(() => {
+          const targetNum = parseInt(digitBufferRef.current, 10);
+          digitBufferRef.current = '';
+          const found = channels.find((c) => c.number === targetNum);
+          if (found) {
+            onSelectChannel(found);
+            showOSD(found);
+          }
+        }, 1200);
+        return;
+      }
+
+      // 2. D-Pad Down / Next Channel / Page Down
+      if (e.key === 'ArrowDown' || e.key === 'ChannelDown' || e.key === 'PageDown') {
         e.preventDefault();
-        const nextIndex = (currentIndex + 1) % channels.length;
-        onSelectChannel(channels[nextIndex]);
-      } else if (e.key === 'ArrowUp') {
+        if (isNavigatingList && filteredChannels.length > 0) {
+          const nextIdx = (tvFocusedIndex + 1) % filteredChannels.length;
+          setTvFocusedIndex(nextIdx);
+          const el = document.getElementById(`channel-item-${filteredChannels[nextIdx]?.id}`);
+          el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else if (currentChannel && channels.length > 0) {
+          const currentIndex = channels.findIndex((c) => c.id === currentChannel.id);
+          const nextIndex = (currentIndex + 1) % channels.length;
+          const nextChan = channels[nextIndex];
+          onSelectChannel(nextChan);
+          showOSD(nextChan);
+        }
+      }
+
+      // 3. D-Pad Up / Previous Channel / Page Up
+      else if (e.key === 'ArrowUp' || e.key === 'ChannelUp' || e.key === 'PageUp') {
         e.preventDefault();
-        const prevIndex = (currentIndex - 1 + channels.length) % channels.length;
-        onSelectChannel(channels[prevIndex]);
-      } else if (e.key === 'm' || e.key === 'M') {
+        if (isNavigatingList && filteredChannels.length > 0) {
+          const prevIdx = (tvFocusedIndex - 1 + filteredChannels.length) % filteredChannels.length;
+          setTvFocusedIndex(prevIdx);
+          const el = document.getElementById(`channel-item-${filteredChannels[prevIdx]?.id}`);
+          el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else if (currentChannel && channels.length > 0) {
+          const currentIndex = channels.findIndex((c) => c.id === currentChannel.id);
+          const prevIndex = (currentIndex - 1 + channels.length) % channels.length;
+          const prevChan = channels[prevIndex];
+          onSelectChannel(prevChan);
+          showOSD(prevChan);
+        }
+      }
+
+      // 4. D-Pad Center / OK / Enter
+      else if (e.key === 'Enter' || e.key === 'Select' || e.keyCode === 13) {
+        e.preventDefault();
+        if (isNavigatingList && filteredChannels.length > 0) {
+          const chosen = filteredChannels[tvFocusedIndex];
+          if (chosen) {
+            onSelectChannel(chosen);
+            showOSD(chosen);
+            if (isDrawerOpen) setIsDrawerOpen(false);
+          }
+        } else {
+          // Toggle channel drawer in video mode
+          setIsDrawerOpen((prev) => !prev);
+          setShowControls(true);
+        }
+      }
+
+      // 5. D-Pad Left / Right (switch category or switch source)
+      else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (isNavigatingList) {
+          const catIdx = categories.findIndex((c) => c.id === selectedCategory);
+          if (catIdx > 0) {
+            setSelectedCategory(categories[catIdx - 1].id);
+          }
+        } else {
+          cycleSource();
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (isNavigatingList) {
+          const catIdx = categories.findIndex((c) => c.id === selectedCategory);
+          if (catIdx !== -1 && catIdx < categories.length - 1) {
+            setSelectedCategory(categories[catIdx + 1].id);
+          }
+        } else {
+          cycleSource();
+        }
+      }
+
+      // 6. Shortcuts and Back button
+      else if (e.key === 'm' || e.key === 'M' || e.key === 'AudioVolumeMute') {
         e.preventDefault();
         toggleMute();
       } else if (e.key === 'f' || e.key === 'F') {
@@ -467,12 +603,30 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         setIsDrawerOpen((prev) => !prev);
-      } else if (e.key === 'Escape' && isDrawerOpen) {
-        e.preventDefault();
-        setIsDrawerOpen(false);
+      } else if (e.key === 'Escape' || e.key === 'Back') {
+        if (isDrawerOpen) {
+          e.preventDefault();
+          setIsDrawerOpen(false);
+        }
       }
     },
-    [channels, currentChannel, onSelectChannel, toggleMute, toggleFullscreen, isDrawerOpen]
+    [
+      channels,
+      currentChannel,
+      filteredChannels,
+      tvFocusedIndex,
+      isDrawerOpen,
+      mobileTab,
+      categories,
+      selectedCategory,
+      onSelectChannel,
+      showOSD,
+      cycleSource,
+      toggleMute,
+      toggleFullscreen,
+      isMuted,
+      volume,
+    ]
   );
 
   useEffect(() => {
@@ -585,23 +739,6 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       now
     );
   }, [currentChannel, epgRevision]);
-
-  // Filter channels based on search and category
-  const filteredChannels = channels.filter((ch) => {
-    const matchesSearch =
-      ch.name.toLowerCase().includes(searchChannel.toLowerCase()) ||
-      ch.number.toString().includes(searchChannel) ||
-      (ch.currentProgram && ch.currentProgram.toLowerCase().includes(searchChannel.toLowerCase()));
-
-    const matchesCategory =
-      selectedCategory === 'todos'
-        ? true
-        : selectedCategory === 'favoritos'
-        ? ch.isFavorite
-        : ch.category.toLowerCase() === selectedCategory.toLowerCase();
-
-    return matchesSearch && matchesCategory;
-  });
 
   return (
     <div
@@ -923,10 +1060,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             ) : (
               filteredChannels.map((ch) => {
                 const isSelected = currentChannel?.id === ch.id;
+                const isTvFocused = filteredChannels[tvFocusedIndex]?.id === ch.id;
                 const chLive = getLiveEPGForChannel(ch.id);
                 return (
                   <div
                     key={ch.id}
+                    id={`channel-item-desk-${ch.id}`}
+                    tabIndex={0}
                     onClick={() => {
                       onSelectChannel(ch);
                       if (window.innerWidth < 768) {
@@ -941,9 +1081,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                         channel: ch,
                       });
                     }}
-                    className={`group relative flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all border-2 ${
+                    className={`group relative flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all border-2 outline-none ${
                       isSelected
                         ? 'bg-white/15 border-[#4fe3d0] shadow-[0_0_20px_rgba(79,227,208,0.25)]'
+                        : isTvFocused
+                        ? 'bg-white/20 border-cyan-400 ring-2 ring-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.4)] scale-[1.01]'
                         : 'bg-slate-900/30 border-transparent hover:bg-white/10 hover:border-white/10'
                     }`}
                   >
@@ -1232,6 +1374,50 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* TV OSD Channel Banner (TiviMate style when zapping with remote) */}
+      {osdChannel && (
+        <div className="absolute bottom-6 left-6 right-6 max-w-2xl mx-auto z-50 animate-in fade-in slide-in-from-bottom-4 duration-200 pointer-events-none">
+          <div className="bg-[#0b0e14]/95 backdrop-blur-2xl border-2 border-cyan-400 rounded-2xl p-3.5 sm:p-4 shadow-[0_12px_40px_rgba(0,240,255,0.35)] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-slate-950 border border-white/15 flex items-center justify-center p-1.5 shrink-0">
+                <img
+                  src={osdChannel.logo}
+                  alt={osdChannel.name}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-cyan-400 font-black text-xs sm:text-sm">
+                    CH {String(osdChannel.number).padStart(2, '0')}
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-white truncate">
+                    {osdChannel.name}
+                  </h3>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                    {osdChannel.quality || 'HD'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200 font-semibold truncate mt-0.5">
+                  {getLiveEPGForChannel(osdChannel.id).currentProgram || osdChannel.currentProgram || 'Ao Vivo'}
+                </p>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                  <span className="text-cyan-400 font-mono font-bold">
+                    {getLiveEPGForChannel(osdChannel.id).currentProgramTime || osdChannel.currentProgramTime || 'Agora'}
+                  </span>
+                  <span>· {getLiveEPGForChannel(osdChannel.id).durationText || 'Ao Vivo'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0 flex flex-col items-end">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-red-600 text-white animate-pulse">
+                AO VIVO
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* MOBILE APP INTERFACE (TiviMate / Smarters style) - Below Video */}
@@ -1391,14 +1577,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 ) : (
                   filteredChannels.map((ch) => {
                     const isSelected = currentChannel?.id === ch.id;
+                    const isTvFocused = filteredChannels[tvFocusedIndex]?.id === ch.id;
                     const chLive = getLiveEPGForChannel(ch.id);
                     return (
                       <div
                         key={ch.id}
+                        id={`channel-item-${ch.id}`}
+                        tabIndex={0}
                         onClick={() => onSelectChannel(ch)}
-                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border ${
+                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border outline-none ${
                           isSelected
-                            ? 'bg-cyan-500/10 border-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.2)]'
+                            ? 'bg-cyan-500/15 border-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.25)] ring-1 ring-cyan-400'
+                            : isTvFocused
+                            ? 'bg-white/20 border-cyan-300 ring-2 ring-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] scale-[1.01]'
                             : 'bg-slate-900/60 border-white/5 hover:bg-slate-800/80 hover:border-white/15'
                         }`}
                       >
