@@ -2,7 +2,7 @@
 // Strictly ASCII comments only
 
 import React, { useState, useMemo } from 'react';
-import { Film, Play, Star } from 'lucide-react';
+import { Film, Play, Star, Tv2, Sparkles, HeartHandshake } from 'lucide-react';
 import type { MediaItem } from '../types/iptv';
 import { AdminService } from '../services/adminService';
 
@@ -89,9 +89,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
       if (!item) return false;
       const itemType = String(item.type || 'movie');
       const matchesFilter =
-        activeFilter === 'all'
-          ? true
-          : activeFilter === 'movies'
+        activeFilter === 'movies' || activeFilter === 'all'
           ? itemType === 'movie'
           : activeFilter === 'series'
           ? itemType === 'series'
@@ -114,86 +112,96 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
     });
   }, [allItems, activeFilter, searchQuery]);
 
+  // Page title, icon and metadata based on active catalog page
+  const pageMeta = useMemo(() => {
+    switch (activeFilter) {
+      case 'series':
+        return {
+          title: 'Catálogo Série',
+          subtitle:
+            filteredItems.length === 1
+              ? '1 série disponível com reprodução em alta definição.'
+              : `${filteredItems.length} séries disponíveis com reprodução em alta definição.`,
+          icon: Tv2,
+          badge: 'Série',
+          badgeColor: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+        };
+      case 'animes':
+        return {
+          title: 'Catálogo Anime',
+          subtitle:
+            filteredItems.length === 1
+              ? '1 anime disponível com reprodução em alta definição.'
+              : `${filteredItems.length} animes disponíveis com reprodução em alta definição.`,
+          icon: Sparkles,
+          badge: 'Anime',
+          badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+        };
+      case 'doramas':
+        return {
+          title: 'Catálogo Série Dorama',
+          subtitle:
+            filteredItems.length === 1
+              ? '1 dorama disponível com reprodução em alta definição.'
+              : `${filteredItems.length} doramas disponíveis com reprodução em alta definição.`,
+          icon: HeartHandshake,
+          badge: 'Dorama',
+          badgeColor: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+        };
+      case 'movies':
+      case 'all':
+      default:
+        return {
+          title: 'Catálogo Filme',
+          subtitle:
+            filteredItems.length === 1
+              ? '1 filme disponível com reprodução em alta definição.'
+              : `${filteredItems.length} filmes disponíveis com reprodução em alta definição.`,
+          icon: Film,
+          badge: 'Filme',
+          badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+        };
+    }
+  }, [activeFilter, filteredItems.length]);
+
   return (
     <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-6 flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900/60 border border-white/10 glass-panel">
-        <div className="flex items-center gap-3">
-          <Film className="w-6 h-6 text-blue-400" />
-          <div>
-            <h1 className="text-xl font-extrabold text-white">Catálogo On Demand</h1>
-            <p className="text-xs text-slate-400">
-              Mais de {allItems.length} títulos disponíveis com reprodução em alta definição.
+      {/* Sleek Modern Header (No category pills, authentic brand styling) */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900/90 via-[#0d1424]/90 to-slate-900/90 border border-white/10 p-5 sm:p-6 backdrop-blur-xl shadow-xl shadow-black/40 flex items-center justify-between">
+        <div className="flex items-center gap-3.5 sm:gap-4 z-10">
+          <div className="w-12 h-12 rounded-xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-md shadow-blue-900/30 shrink-0">
+            <pageMeta.icon className="w-6 h-6" />
+          </div>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+                {pageMeta.title}
+              </h1>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${pageMeta.badgeColor}`}>
+                {pageMeta.badge}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 font-medium">
+              {pageMeta.subtitle}
             </p>
           </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'all'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            Todos
-          </button>
-          <button
-            onClick={() => setActiveFilter('movies')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'movies'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            Filmes
-          </button>
-          <button
-            onClick={() => setActiveFilter('series')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'series'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            Séries
-          </button>
-          <button
-            onClick={() => setActiveFilter('animes')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'animes'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            Animes
-          </button>
-          <button
-            onClick={() => setActiveFilter('doramas')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'doramas'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            Doramas
-          </button>
-        </div>
+        {/* Ambient subtle glow */}
+        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none" />
       </div>
 
       {/* Empty State or Grid */}
       {filteredItems.length === 0 ? (
         <div className="py-20 flex flex-col items-center justify-center text-center gap-3">
           <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500">
-            <Film className="w-8 h-8" />
+            <pageMeta.icon className="w-8 h-8" />
           </div>
-          <h3 className="text-base font-bold text-white">Nenhum titulo encontrado</h3>
+          <h3 className="text-base font-bold text-white">Nenhum título encontrado</h3>
           <p className="text-xs text-slate-400 max-w-sm">
             {searchQuery
-              ? 'Nenhum resultado corresponde a sua pesquisa.'
-              : 'Nenhum conteudo cadastrado nesta categoria. Adicione ou importe novos titulos pelo Painel Administrativo.'}
+              ? 'Nenhum resultado corresponde à sua pesquisa.'
+              : `Nenhum conteúdo cadastrado em ${pageMeta.title}. Adicione ou importe novos títulos pelo Painel Administrativo.`}
           </p>
         </div>
       ) : (

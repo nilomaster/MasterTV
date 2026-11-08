@@ -6,6 +6,7 @@ import {
   Film,
   Tv2,
   Sparkles,
+  HeartHandshake,
   ChevronRight,
   Play,
   Calendar,
@@ -37,11 +38,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const movies = dbContents.filter((c) => c && c.type === 'movie');
   const series = dbContents.filter((c) => c && c.type === 'series');
   const animes = dbContents.filter((c) => c && c.type === 'anime');
+  const doramas = dbContents.filter((c) => c && c.type === 'dorama');
 
   const livePosters = channels.slice(0, 4).map((c) => c.logo).filter(Boolean);
   const moviePosters = movies.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
   const seriesPosters = series.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
   const animePosters = animes.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
+  const doramaPosters = doramas.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
 
   // Dynamic category cards reflecting exclusively the synchronized database contents
   const cardData = [
@@ -95,6 +98,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
       onClick: () => onOpenVODCategory?.('animes'),
       posters: animePosters,
     },
+    {
+      id: 'doramas',
+      title: 'Doramas',
+      count: doramas.length === 1 ? '1 título' : `${doramas.length} títulos`,
+      accentColor: 'text-rose-400',
+      badgeBg: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
+      glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(244,63,94,0.2)]',
+      borderHover: 'group-hover:border-rose-500/50',
+      icon: HeartHandshake,
+      onClick: () => onOpenVODCategory?.('doramas'),
+      posters: doramaPosters,
+    },
   ];
 
   return (
@@ -115,8 +130,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </p>
       </div>
 
-      {/* Main 4 Navigation Cards (AO VIVO, FILMES, SERIES, ANIMES) */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Main Navigation Cards (AO VIVO, FILMES, SERIES, ANIMES, DORAMAS) */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
         {cardData.map((card) => {
           const Icon = card.icon;
           return (
