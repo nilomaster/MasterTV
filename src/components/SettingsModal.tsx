@@ -43,7 +43,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Header */}
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Sliders className="w-5 h-5 text-cyan-400" />
+            <Sliders className="w-5 h-5 text-blue-400" />
             <h2 className="text-base font-bold text-white">Configurações do MasterTV</h2>
           </div>
           <button
@@ -58,15 +58,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 flex flex-col gap-5 text-xs text-slate-300">
           {/* Active Client Account Info */}
           {clientSession && (
-            <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/30 flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900 border border-blue-500/30 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
                   <User className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-white text-sm">{clientSession.customerName}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
                       {clientSession.planDuration}
                     </span>
                   </div>
@@ -112,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               onClick={() => setHardwareAcceleration(!hardwareAcceleration)}
               className={`w-11 h-6 rounded-full transition-colors p-1 flex items-center ${
-                hardwareAcceleration ? 'bg-cyan-500 justify-end' : 'bg-slate-700 justify-start'
+                hardwareAcceleration ? 'bg-blue-600 justify-end' : 'bg-slate-700 justify-start'
               }`}
             >
               <div className="w-4 h-4 rounded-full bg-slate-950 shadow"></div>
@@ -129,7 +129,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               onClick={() => setLowLatency(!lowLatency)}
               className={`w-11 h-6 rounded-full transition-colors p-1 flex items-center ${
-                lowLatency ? 'bg-cyan-500 justify-end' : 'bg-slate-700 justify-start'
+                lowLatency ? 'bg-blue-600 justify-end' : 'bg-slate-700 justify-start'
               }`}
             >
               <div className="w-4 h-4 rounded-full bg-slate-950 shadow"></div>
@@ -147,7 +147,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <select
               value={bufferSize}
               onChange={(e) => setBufferSize(e.target.value)}
-              className="bg-slate-800 text-white font-semibold rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-cyan-400"
+              className="bg-slate-800 text-white font-semibold rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-blue-500"
             >
               <option value="15s">15 segundos</option>
               <option value="30s">30 segundos (Padrão)</option>
@@ -157,10 +157,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Painel Administrativo e Revenda */}
           {onOpenAdmin && (
-            <div className="p-3.5 rounded-xl bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/30 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900 border border-blue-500/30 flex items-center justify-between">
               <div>
                 <span className="font-bold text-white block text-xs">Painel Admin & Revendedores</span>
-                <span className="text-[11px] text-cyan-400">
+                <span className="text-[11px] text-blue-400">
                   Gerencie clientes IPTV, testes rápidos e revendas com créditos.
                 </span>
               </div>
@@ -169,7 +169,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClose();
                   onOpenAdmin();
                 }}
-                className="px-3.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs transition-all shadow-md shadow-cyan-400/20 cursor-pointer shrink-0 ml-2"
+                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-md shadow-blue-600/25 cursor-pointer shrink-0 ml-2"
               >
                 Abrir Painel
               </button>
@@ -203,7 +203,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all"
+            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-600/30 transition-all"
           >
             {savedSuccess ? 'Salvo!' : 'Salvar Alterações'}
           </button>

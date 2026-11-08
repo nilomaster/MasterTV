@@ -158,22 +158,70 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       hlsRef.current = null;
     }
 
-    const isDirectVideo =
-      effectiveStreamUrl.includes('.mp4') ||
-      effectiveStreamUrl.includes('.mkv') ||
-      effectiveStreamUrl.includes('workers.dev');
+    // Auto-upgrade insecure http to https when on secure origin to avoid mixed content blocking
+    let streamUrl = effectiveStreamUrl.trim();
+    if (streamUrl.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      streamUrl = streamUrl.replace(/^http:\/\//i, 'https://');
+    }
 
-    const isHls =
-      !isDirectVideo &&
-      Hls.isSupported() &&
-      (effectiveStreamUrl.includes('.m3u8') || effectiveStreamUrl.includes('.txt') || effectiveStreamUrl.includes('/api/proxy'));
+    const isHlsPlaylist = Boolean(
+      streamUrl.includes('.m3u8') ||
+      streamUrl.includes('/hls') ||
+      streamUrl.includes('.m3u') ||
+      streamUrl.includes('/api/proxy')
+    );
 
     let connectTimeout: number | null = window.setTimeout(() => {
       setIsLoadingStream(false);
-      setStreamError('Nao foi possivel carregar o video. Tente novamente.');
-    }, 12000);
+      setStreamError('Tempo limite excedido ao conectar a transmissao.');
+    }, 15000);
 
-    if (isHls) {
+    const setupNativePlayback = (fallbackToHlsIfFailed = true) => {
+      if (!video) return;
+      video.src = streamUrl;
+      setAvailableLevels([
+        { id: -1, name: 'Automatica' },
+        { id: 0, name: '1080p' },
+      ]);
+
+      const handleReady = () => {
+        if (connectTimeout) {
+          window.clearTimeout(connectTimeout);
+          connectTimeout = null;
+        }
+        setIsLoadingStream(false);
+        if (resumeTime > 0) {
+          video.currentTime = resumeTime;
+        }
+        video.play().catch(() => {
+          setIsPlaying(false);
+        });
+      };
+
+      video.onloadedmetadata = handleReady;
+      video.oncanplay = handleReady;
+      video.onerror = () => {
+        if (fallbackToHlsIfFailed && Hls.isSupported() && !isHlsPlaylist) {
+          // Attempt HLS fallback if native video fails
+          setupHlsPlayback(false);
+          return;
+        }
+
+        if (connectTimeout) {
+          window.clearTimeout(connectTimeout);
+          connectTimeout = null;
+        }
+        setIsLoadingStream(false);
+        if (activeSource === 1 && mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) {
+          setActiveSource(2);
+          return;
+        }
+        setStreamError('O link de transmissao esta inacessivel ou expirou no servidor de origem.');
+      };
+    };
+
+    const setupHlsPlayback = (fallbackToNativeIfFailed = true) => {
+      if (!video) return;
       const hls = new Hls({
         enableWorker: true,
         startFragPrefetch: true,
@@ -184,7 +232,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       });
 
       hlsRef.current = hls;
-      hls.loadSource(effectiveStreamUrl);
+      hls.loadSource(streamUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
@@ -194,7 +242,6 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         }
         setIsLoadingStream(false);
 
-        // Populate Saimo TV Quality options from stream levels
         if (data && data.levels && data.levels.length > 1) {
           const lvls = data.levels.map((lvl, index) => ({
             id: index,
@@ -220,56 +267,41 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (fallbackToNativeIfFailed && (data.details === 'manifestParsingError' || data.details === 'manifestLoadError')) {
+          // If HLS manifest fails, fallback immediately to direct native HTML5 video
+          hls.destroy();
+          hlsRef.current = null;
+          setupNativePlayback(false);
+          return;
+        }
+
         if (data.fatal) {
+          if (fallbackToNativeIfFailed) {
+            hls.destroy();
+            hlsRef.current = null;
+            setupNativePlayback(false);
+            return;
+          }
+
           if (connectTimeout) {
             window.clearTimeout(connectTimeout);
             connectTimeout = null;
           }
-          // Automatically try fallback source if available
           if (activeSource === 1 && (mediaItem?.backupStreamUrl || currentEpisode?.backupStreamUrl)) {
             setActiveSource(2);
             return;
           }
           setIsLoadingStream(false);
-          setStreamError('Erro ao carregar a transmissao deste titulo.');
+          setStreamError('Instabilidade ao reproduzir a transmissao deste titulo.');
           hls.destroy();
         }
       });
+    };
+
+    if (isHlsPlaylist && Hls.isSupported()) {
+      setupHlsPlayback(true);
     } else {
-      video.src = effectiveStreamUrl;
-      setAvailableLevels([
-        { id: -1, name: 'Automatica' },
-        { id: 0, name: '1080p' },
-      ]);
-
-      const handleReady = () => {
-        if (connectTimeout) {
-          window.clearTimeout(connectTimeout);
-          connectTimeout = null;
-        }
-        setIsLoadingStream(false);
-        if (resumeTime > 0) {
-          video.currentTime = resumeTime;
-        }
-        video.play().catch(() => {
-          setIsPlaying(false);
-        });
-      };
-
-      video.onloadedmetadata = handleReady;
-      video.oncanplay = handleReady;
-      video.onerror = () => {
-        if (connectTimeout) {
-          window.clearTimeout(connectTimeout);
-          connectTimeout = null;
-        }
-        setIsLoadingStream(false);
-        if (activeSource === 1 && mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) {
-          setActiveSource(2);
-          return;
-        }
-        setStreamError('Erro ao reproduzir o arquivo de video.');
-      };
+      setupNativePlayback(true);
     }
 
     return () => {
@@ -604,7 +636,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       {/* Loading Spinner */}
       {isLoadingStream && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-20 pointer-events-none">
-          <div className="w-16 h-16 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin mb-4 shadow-[0_0_20px_rgba(0,240,255,0.4)]" />
+          <div className="w-16 h-16 rounded-full border-4 border-blue-500/20 border-t-blue-500 animate-spin mb-4 shadow-md shadow-blue-900/30" />
           <p className="text-sm font-bold text-white tracking-wide">Carregando em alta definicao...</p>
           <span className="text-xs text-slate-400 mt-1">{title}</span>
         </div>
@@ -617,10 +649,16 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             <Tv className="w-8 h-8 text-red-400" />
           </div>
           <h3 className="text-lg font-bold text-white mb-1">{streamError}</h3>
-          <p className="text-xs text-slate-400 max-w-md mb-4">
-            Ocorreu uma instabilidade na reproducao deste titulo. Tente recarregar ou voltar para o catalogo.
+          <p className="text-xs text-slate-400 max-w-lg mb-2">
+            O servidor do link informado ({(() => {
+              try {
+                return new URL(effectiveStreamUrl).hostname;
+              } catch {
+                return 'origem';
+              }
+            })()}) retornou indisponibilidade. Se o link possui token com prazo de validade (anti-leech), ele precisa ser atualizado.
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-3">
             {Boolean(mediaItem.backupStreamUrl || currentEpisode?.backupStreamUrl) && (
               <button
                 onClick={() => {
@@ -628,7 +666,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                   setStreamError(null);
                   setIsLoadingStream(true);
                 }}
-                className="px-5 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-cyan-400/25 cursor-pointer"
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-blue-600/30 cursor-pointer"
               >
                 Alternar para Fonte {activeSource === 1 ? '2' : '1'}
               </button>
@@ -644,6 +682,14 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs transition-all cursor-pointer"
             >
               Tentar Novamente
+            </button>
+            <button
+              onClick={() => {
+                window.location.hash = '#admin';
+              }}
+              className="px-5 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+            >
+              Editar no Painel Admin
             </button>
             <button
               onClick={onBack}
@@ -690,7 +736,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
         {/* Right side resolution pill */}
         <div className="hidden sm:flex items-center gap-2 pointer-events-auto">
-          <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-white/10 text-cyan-300 border border-white/10 backdrop-blur-md shadow">
+          <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-white/10 text-blue-300 border border-white/10 backdrop-blur-md shadow">
             {currentLevelName === 'Automatica' ? '1080P Full HD' : currentLevelName.toUpperCase()}
           </span>
         </div>
@@ -717,22 +763,22 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               style={{ width: `${bufferedPercent}%` }}
             />
 
-            {/* Played Progress Bar (Purple Saimo TV Gradient) */}
+            {/* Played Progress Bar (Brand Blue) */}
             <div
-              className="absolute left-0 top-0 bottom-0 rounded-full bg-purple-600 transition-all pointer-events-none shadow-[0_0_10px_rgba(168,85,247,0.7)]"
+              className="absolute left-0 top-0 bottom-0 rounded-full bg-blue-600 transition-all pointer-events-none shadow-sm shadow-blue-600/50"
               style={{ width: `${progressPercent}%` }}
             />
 
-            {/* Saimo TV Purple Thumb Handle */}
+            {/* Brand Blue Thumb Handle */}
             <div
-              className="absolute -ml-2 w-4 h-4 rounded-full bg-purple-500 border-2 border-white shadow-[0_0_12px_rgba(168,85,247,0.9)] opacity-0 group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-110 pointer-events-none"
+              className="absolute -ml-2 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md shadow-blue-600/60 opacity-0 group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-110 pointer-events-none"
               style={{ left: `${progressPercent}%` }}
             />
 
             {/* Hover Time Tooltip */}
             {hoverTime !== null && (
               <div
-                className="absolute -top-8 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-900/95 text-purple-300 font-mono text-[11px] font-bold border border-purple-500/30 shadow-lg pointer-events-none whitespace-nowrap"
+                className="absolute -top-8 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-900/95 text-blue-300 font-mono text-[11px] font-bold border border-blue-500/30 shadow-lg pointer-events-none whitespace-nowrap"
                 style={{ left: `${hoverPosition}px` }}
               >
                 {formatTime(hoverTime)}
@@ -799,7 +845,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               </div>
 
               {/* Saimo TV Quality pill badge */}
-              <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 text-[10px] font-mono font-bold">
+              <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-mono font-bold">
                 {currentLevelName === 'Automatica' ? '1080P' : currentLevelName.toUpperCase()}
               </span>
             </div>
@@ -866,7 +912,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                 title="Configuracoes do Player"
                 className={`p-2 rounded-xl transition-all cursor-pointer ${
                   isSettingsOpen
-                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/40'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >

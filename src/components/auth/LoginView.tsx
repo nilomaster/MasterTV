@@ -4,7 +4,6 @@
 
 import React, { useState } from 'react';
 import {
-  Tv,
   User,
   Lock,
   Eye,
@@ -76,10 +75,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenAdmi
       {/* Top Header Brand */}
       <div className="w-full max-w-md pt-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 shadow-lg shadow-cyan-500/25">
-            <div className="w-full h-full bg-[#0a0d16] rounded-[10px] flex items-center justify-center">
-              <Tv className="w-5 h-5 text-cyan-400" />
-            </div>
+          <div className="w-11 h-11 rounded-2xl bg-[#0a0d16] border border-cyan-500/30 p-1 flex items-center justify-center shadow-lg shadow-cyan-500/25 overflow-hidden">
+            <img
+              src="./assets/img/icons/logo.png"
+              alt="MasterTV Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <h1 className="text-xl font-black text-white tracking-wider">
@@ -103,7 +104,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenAdmi
       {/* Main Login Card */}
       <div className="w-full max-w-md my-auto py-6 z-10">
         <div className="bg-[#0b0e14]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-cyan-950/30 relative">
-          <div className="mb-6">
+          <div className="mb-6 text-center sm:text-left flex flex-col items-center sm:items-start">
+            <div className="w-16 h-16 mb-3 rounded-2xl bg-[#07090e] border border-cyan-500/40 p-2 flex items-center justify-center shadow-xl shadow-cyan-500/20">
+              <img
+                src="./assets/img/icons/logo.png"
+                alt="MasterTV Logo"
+                className="w-full h-full object-contain"
+              />
+            </div>
             <h2 className="text-2xl font-black text-white tracking-tight">Entrar na sua conta</h2>
             <p className="text-xs text-slate-400 mt-1">
               Digite seu usuario e senha para acessar canais ao vivo, filmes e series.

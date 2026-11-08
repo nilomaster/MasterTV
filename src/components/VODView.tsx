@@ -1,4 +1,4 @@
-1// VOD Catalog view with categories, genres filter and search
+// VOD Catalog view with categories, genres filter and search
 // Strictly ASCII comments only
 
 import React, { useState, useMemo } from 'react';
@@ -119,7 +119,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900/60 border border-white/10 glass-panel">
         <div className="flex items-center gap-3">
-          <Film className="w-6 h-6 text-cyan-400" />
+          <Film className="w-6 h-6 text-blue-400" />
           <div>
             <h1 className="text-xl font-extrabold text-white">Catálogo On Demand</h1>
             <p className="text-xs text-slate-400">
@@ -134,7 +134,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
             onClick={() => setActiveFilter('all')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeFilter === 'all'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-800 text-slate-300 hover:text-white'
             }`}
           >
@@ -144,7 +144,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
             onClick={() => setActiveFilter('movies')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeFilter === 'movies'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-800 text-slate-300 hover:text-white'
             }`}
           >
@@ -154,7 +154,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
             onClick={() => setActiveFilter('series')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeFilter === 'series'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-800 text-slate-300 hover:text-white'
             }`}
           >
@@ -164,7 +164,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
             onClick={() => setActiveFilter('animes')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeFilter === 'animes'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-800 text-slate-300 hover:text-white'
             }`}
           >
@@ -174,7 +174,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
             onClick={() => setActiveFilter('doramas')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeFilter === 'doramas'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                 : 'bg-slate-800 text-slate-300 hover:text-white'
             }`}
           >
@@ -212,18 +212,18 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
                 onClick={() => onSelectMedia(item)}
                 className="group relative cursor-pointer flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-1.5"
               >
-                <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-cyan-400 group-hover:shadow-[0_0_15px_rgba(0,240,255,0.25)] transition-all">
+                <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-blue-500/60 group-hover:shadow-lg group-hover:shadow-blue-900/30 transition-all">
                   <img
-                    src={item.posterUrl || './favicon.svg'}
+                    src={item.posterUrl || './assets/img/icons/favicon.svg'}
                     alt={item.title || 'Capa'}
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = './favicon.svg';
+                      (e.target as HTMLImageElement).src = './assets/img/icons/favicon.svg';
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-10 h-10 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-400/50">
-                      <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/40">
+                      <Play className="w-5 h-5 fill-white ml-0.5" />
                     </div>
                   </div>
                   <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold text-amber-300 flex items-center gap-0.5">
@@ -233,7 +233,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-bold text-slate-200 group-hover:text-cyan-300 truncate">
+                  <h4 className="text-xs font-bold text-slate-200 group-hover:text-blue-300 truncate">
                     {item.title}
                   </h4>
                   <p className="text-[10px] text-slate-400">

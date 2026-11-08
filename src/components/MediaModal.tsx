@@ -91,7 +91,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const duration = mediaItem?.duration || '1h 50m';
   const contentRating = mediaItem?.contentRating || '12';
   const genres = mediaItem?.genres?.length ? mediaItem.genres : [programItem?.program.category || 'Geral'];
-  const poster = mediaItem?.posterUrl || programItem?.channel.logo || './favicon.svg';
+  const poster = mediaItem?.posterUrl || programItem?.channel.logo || './assets/img/icons/favicon.svg';
   const backdrop = mediaItem?.backdropUrl || mediaItem?.posterUrl || programItem?.channel.logo || '';
   const mainStreamUrl = mediaItem ? mediaItem.streamUrl : programItem?.channel.streamUrl || '';
 
@@ -181,9 +181,9 @@ export const MediaModal: React.FC<MediaModalProps> = ({
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
                   onClick={handlePlayCurrentSource}
-                  className="w-12 h-12 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/30 transform scale-90 group-hover:scale-100 transition-transform cursor-pointer"
+                  className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/40 transform scale-90 group-hover:scale-100 transition-transform cursor-pointer"
                 >
-                  <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
+                  <Play className="w-5 h-5 fill-white ml-0.5" />
                 </button>
               </div>
             </div>
@@ -191,7 +191,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
             {/* Right Column: Title, Metadata, Buttons and Synopsis */}
             <div className="flex-1 relative z-10 flex flex-col text-left">
               {/* Category Badge */}
-              <span className="text-[11px] font-black uppercase tracking-widest text-cyan-400 mb-1.5 block">
+              <span className="text-[11px] font-black uppercase tracking-widest text-blue-400 mb-1.5 block">
                 {categoryLabel}
               </span>
 
@@ -315,7 +315,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
             <div className="px-6 sm:px-8 pb-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Tv className="w-4 h-4 text-cyan-400" />
+                  <Tv className="w-4 h-4 text-blue-400" />
                   <h3 className="text-sm font-bold text-white">
                     Episódios ({mediaItem.episodeList.length} disponíveis)
                   </h3>
@@ -330,11 +330,11 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                     className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-white/5 transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-xs font-bold text-cyan-400">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-400">
                         {ep.number}
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                        <h4 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
                           {ep.title}
                         </h4>
                         {ep.duration && (
@@ -347,9 +347,9 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 
                     <button
                       onClick={() => handlePlayEpisode(ep)}
-                      className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/25 cursor-pointer"
                     >
-                      <Play className="w-3.5 h-3.5 fill-slate-950" />
+                      <Play className="w-3.5 h-3.5 fill-white" />
                       <span>Assistir</span>
                     </button>
                   </div>
@@ -371,7 +371,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                     className="flex flex-col items-center shrink-0 w-20 sm:w-22 text-center group"
                   >
                     {/* Circle Avatar */}
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-cyan-400/60 shadow-lg shadow-black/60 bg-slate-800 mb-1.5 transition-all group-hover:scale-105">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-blue-400/60 shadow-lg shadow-black/60 bg-slate-800 mb-1.5 transition-all group-hover:scale-105">
                       <img
                         src={actor.photoUrl}
                         alt={actor.name}
@@ -384,7 +384,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                       />
                     </div>
                     {/* Actor Name */}
-                    <span className="text-[11px] font-bold text-white line-clamp-1 group-hover:text-cyan-300 transition-colors">
+                    <span className="text-[11px] font-bold text-white line-clamp-1 group-hover:text-blue-300 transition-colors">
                       {actor.name}
                     </span>
                     {/* Character Name */}

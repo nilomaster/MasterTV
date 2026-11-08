@@ -28,3 +28,7 @@ userwidget/
 *.njsproj
 *.sln
 *.sw?
+
+# Builds and test folders
+builds/
+teeste lista m3u/

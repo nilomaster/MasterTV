@@ -50,9 +50,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
       title: 'Ao Vivo',
       count: liveCount === 1 ? '1 canal transmitindo' : `${liveCount} canais transmitindo`,
       accentColor: 'text-red-400',
-      badgeBg: 'bg-red-500/20 border-red-500/40 text-red-400',
-      glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(239,68,68,0.25)]',
-      borderHover: 'group-hover:border-red-500/60',
+      badgeBg: 'bg-red-500/15 border-red-500/30 text-red-400',
+      glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(239,68,68,0.2)]',
+      borderHover: 'group-hover:border-red-500/50',
       icon: Radio,
       isLiveBadge: true,
       onClick: () => onOpenPlayer(),
@@ -63,10 +63,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       id: 'movies',
       title: 'Filmes',
       count: movies.length === 1 ? '1 título' : `${movies.length} títulos`,
-      accentColor: 'text-cyan-300',
-      badgeBg: 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300',
-      glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(0,240,255,0.25)]',
-      borderHover: 'group-hover:border-cyan-400/60',
+      accentColor: 'text-blue-400',
+      badgeBg: 'bg-blue-500/15 border-blue-500/30 text-blue-300',
+      glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(37,99,235,0.2)]',
+      borderHover: 'group-hover:border-blue-500/50',
       icon: Film,
       onClick: () => onOpenVODCategory?.('movies'),
       posters: moviePosters,
@@ -75,10 +75,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       id: 'series',
       title: 'Séries',
       count: series.length === 1 ? '1 título' : `${series.length} títulos`,
-      accentColor: 'text-blue-400',
-      badgeBg: 'bg-blue-500/20 border-blue-400/40 text-blue-300',
-      glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(59,130,246,0.25)]',
-      borderHover: 'group-hover:border-blue-400/60',
+      accentColor: 'text-indigo-400',
+      badgeBg: 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300',
+      glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(99,102,241,0.2)]',
+      borderHover: 'group-hover:border-indigo-500/50',
       icon: Tv2,
       onClick: () => onOpenVODCategory?.('series'),
       posters: seriesPosters,
@@ -88,9 +88,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
       title: 'Animes',
       count: animes.length === 1 ? '1 título' : `${animes.length} títulos`,
       accentColor: 'text-amber-400',
-      badgeBg: 'bg-amber-500/20 border-amber-400/40 text-amber-300',
-      glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(245,158,11,0.25)]',
-      borderHover: 'group-hover:border-amber-400/60',
+      badgeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+      glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(245,158,11,0.2)]',
+      borderHover: 'group-hover:border-amber-500/50',
       icon: Sparkles,
       onClick: () => onOpenVODCategory?.('animes'),
       posters: animePosters,
@@ -102,8 +102,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Page Header / Welcome */}
       <div className="flex flex-col gap-2 max-w-3xl">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00F0FF]" />
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
+          <span className="w-2 h-2 rounded-full bg-blue-500 shadow-sm" />
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-400">
             Painel Principal
           </span>
         </div>
@@ -123,7 +123,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div
               key={card.id}
               onClick={card.onClick}
-              className={`group relative h-48 sm:h-56 rounded-2xl bg-[#0c111c] border border-white/10 ${card.borderHover} overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1.5 shadow-xl ${card.glowShadow} flex flex-col justify-end p-5 select-none`}
+              className={`group relative h-48 sm:h-56 rounded-2xl bg-[#0c1220] border border-white/10 ${card.borderHover} overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-lg ${card.glowShadow} flex flex-col justify-end p-5 select-none`}
             >
               {/* Card Background Collage */}
               {card.isLogoCollage ? (
@@ -161,12 +161,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               )}
 
               {/* Gradient Dark Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#080c14] via-[#080c14]/75 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#090d16] via-[#090d16]/80 to-transparent pointer-events-none" />
 
               {/* Live Badge for Ao Vivo */}
               {card.isLiveBadge && (
-                <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-red-600/40 backdrop-blur-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_#ffffff]" />
+                <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider shadow-md shadow-red-600/30 backdrop-blur-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
                   <span>Ao Vivo</span>
                 </div>
               )}
@@ -175,12 +175,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="relative z-10 flex items-center justify-between">
                 <div className="flex items-center gap-3.5">
                   <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${card.badgeBg} backdrop-blur-md shadow-lg group-hover:scale-110 transition-transform duration-300`}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${card.badgeBg} backdrop-blur-md shadow-md group-hover:scale-105 transition-transform duration-300`}
                   >
                     <Icon className="w-6 h-6" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-lg font-black text-white group-hover:text-cyan-300 transition-colors tracking-tight">
+                    <h3 className="text-lg font-black text-white group-hover:text-blue-300 transition-colors tracking-tight">
                       {card.title}
                     </h3>
                     <span className="text-xs text-slate-400 font-medium">
@@ -189,7 +189,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </div>
                 </div>
 
-                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:bg-cyan-500/20 group-hover:border-cyan-400/40 transition-all opacity-80 group-hover:opacity-100 group-hover:translate-x-1">
+                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:bg-blue-600 group-hover:border-blue-500 transition-all opacity-80 group-hover:opacity-100 group-hover:translate-x-1">
                   <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
@@ -199,10 +199,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* Beta Phase User Testing Card / Banner */}
-      <section className="relative rounded-3xl bg-gradient-to-br from-[#0c121e] via-[#0f182a] to-[#0a0e17] border border-cyan-500/25 p-6 sm:p-8 lg:p-10 shadow-2xl overflow-hidden">
+      <section className="relative rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0f172a] to-[#090d16] border border-blue-500/20 p-6 sm:p-8 lg:p-10 shadow-xl overflow-hidden">
         {/* Glow Effects */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-800/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col gap-6">
           {/* Badge & Title */}
@@ -217,8 +217,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400/80 bg-cyan-950/40 px-3 py-1 rounded-lg border border-cyan-500/20 w-fit">
-              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="flex items-center gap-2 text-xs font-mono text-blue-300 bg-blue-950/50 px-3 py-1 rounded-lg border border-blue-500/25 w-fit">
+              <Zap className="w-3.5 h-3.5 text-blue-400" />
               <span>Sistemas de Transmissão Ativos</span>
             </div>
           </div>
@@ -243,7 +243,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-white/5">
-              <Zap className="w-5 h-5 text-cyan-400 shrink-0" />
+              <Zap className="w-5 h-5 text-blue-400 shrink-0" />
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-white">Baixa Latência</span>
                 <span className="text-[11px] text-slate-400">Modo Zero Delay integrado</span>
@@ -259,7 +259,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-white/5">
-              <ShieldCheck className="w-5 h-5 text-purple-400 shrink-0" />
+              <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0" />
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-white">Redundância de Fonte</span>
                 <span className="text-[11px] text-slate-400">Fallback automático</span>
@@ -271,17 +271,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={onOpenPlayer}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/25 hover:shadow-cyan-400/40 hover:scale-105 active:scale-95"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-blue-600/30 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-95"
             >
-              <Play className="w-4 h-4 fill-slate-950" />
+              <Play className="w-4 h-4 fill-white text-white" />
               <span>Assistir TV Ao Vivo</span>
             </button>
 
             <button
               onClick={onOpenEPG}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white font-bold text-xs sm:text-sm border border-white/10 hover:border-cyan-400/40 transition-all backdrop-blur-md"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm border border-white/10 hover:border-blue-400/40 transition-all backdrop-blur-md"
             >
-              <Calendar className="w-4 h-4 text-cyan-400" />
+              <Calendar className="w-4 h-4 text-blue-400" />
               <span>Ver Guia de Programação (EPG)</span>
             </button>
           </div>

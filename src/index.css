@@ -5,7 +5,7 @@
     box-sizing: border-box;
   }
   body {
-    background-color: #07090e;
+    background-color: #070a10;
     color: #e2e8f0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     overflow-x: hidden;
@@ -26,41 +26,41 @@
 /* Custom scrollbar for IPTV vertical lists only */
 .custom-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(56, 189, 248, 0.4) transparent;
+  scrollbar-color: rgba(59, 130, 246, 0.4) transparent;
 }
 .custom-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .custom-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(10, 15, 26, 0.7);
 }
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(59, 130, 246, 0.35);
   border-radius: 4px;
 }
 .custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.6);
+  background: rgba(59, 130, 246, 0.6);
 }
 
-/* Glassmorphism helpers */
+/* Glassmorphism helpers matching MasterTV logo aesthetic */
 .glass-panel {
-  background: rgba(13, 17, 27, 0.75);
+  background: rgba(13, 19, 33, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-panel-hover:hover {
-  background: rgba(22, 28, 45, 0.85);
-  border-color: rgba(0, 240, 255, 0.3);
+  background: rgba(20, 29, 50, 0.85);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
-.neon-glow-cyan {
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.25);
+.brand-glow-blue {
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.25);
 }
 
-.neon-border-cyan {
-  border-color: #00F0FF;
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.35);
+.brand-border-blue {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
 }

@@ -1,0 +1,45 @@
+# Apache Security & Routing for MasterTV API
+# Strictly ASCII characters only
+
+# Disable directory listing
+<IfModule mod_autoindex.c>
+  Options -Indexes
+</IfModule>
+
+# Protect internal architecture directories and route endpoints
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Block direct access to internal non-route directories
+  RewriteRule ^(config|controllers|helpers)(/|$) - [F,L]
+
+  # Route legacy /api/*.php or /api/* to routes/*.php
+  RewriteRule ^auth(\.php)?$ routes/auth.php [L,QSA]
+  RewriteRule ^clients(\.php)?$ routes/clients.php [L,QSA]
+  RewriteRule ^content(\.php)?$ routes/content.php [L,QSA]
+  RewriteRule ^resellers(\.php)?$ routes/resellers.php [L,QSA]
+
+  # Route unknown endpoints to index.php front controller
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Block access to sensitive file extensions
+<FilesMatch "\.(sql|env|json|ini|log|git|md|bak|swp|sh|bat)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order Allow,Deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Security HTTP Headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
