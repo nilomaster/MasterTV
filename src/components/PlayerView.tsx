@@ -982,7 +982,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             {channelSources.length > 1 && (
               <button
                 onClick={cycleSource}
-                className="px-4 py-2 bg-[#4fe3d0] hover:bg-[#38d4c1] text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-[#4fe3d0]/20"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-blue-600/30 cursor-pointer"
               >
                 Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})
               </button>
@@ -1140,7 +1140,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             </h2>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-300">
-            <span className="text-[#4fe3d0] font-mono font-bold">
+            <span className="text-blue-400 font-mono font-bold">
               {currentLiveInfo?.currentProgramTime || currentChannel?.currentProgramTime || 'Ao Vivo'}
             </span>
             <span className="text-slate-400 font-medium">
@@ -1158,7 +1158,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         <div className="flex items-center gap-3 pointer-events-auto">
           <div className="hidden md:flex items-center gap-2 bg-[#0b0e14]/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/10 shadow-lg">
             <div className="flex flex-col items-end text-right">
-              <span className="text-[10px] uppercase font-bold text-[#4fe3d0] tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">
                 A Seguir {currentLiveInfo?.nextProgramTime ? `· ${currentLiveInfo.nextProgramTime}` : ''}
               </span>
               <span className="text-xs font-semibold text-slate-200">
@@ -1170,9 +1170,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           <button
             onClick={handleOpenEPG}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0b0e14]/80 hover:bg-[#8b5cf6] hover:text-white text-white border border-white/10 hover:border-[#8b5cf6] font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0b0e14]/80 hover:bg-blue-600 hover:text-white text-white border border-white/10 hover:border-blue-500 font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer"
           >
-            <Calendar className="w-4 h-4 text-[#8b5cf6] group-hover:text-white" />
+            <Calendar className="w-4 h-4 text-blue-400 group-hover:text-white" />
             <span>Guia</span>
           </button>
         </div>
@@ -1188,7 +1188,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             <div className="flex items-baseline gap-2.5">
               <h3 className="font-extrabold text-xl text-white tracking-tight">Canais</h3>
               <div className="flex items-center gap-1 font-mono">
-                <span className="text-base font-bold text-[#4fe3d0]">
+                <span className="text-base font-bold text-blue-400">
                   {currentChannel?.number ? String(currentChannel.number).padStart(2, '0') : '01'}
                 </span>
                 <span className="text-xs text-slate-400 font-semibold">
@@ -1214,7 +1214,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 placeholder="Buscar canal..."
                 value={searchChannel}
                 onChange={(e) => setSearchChannel(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white/10 border border-white/10 rounded-full text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#4fe3d0] focus:bg-white/15 transition-all"
+                className="w-full pl-9 pr-3 py-2 bg-white/10 border border-white/10 rounded-full text-xs text-white placeholder-white/40 focus:outline-none focus:border-blue-500 focus:bg-white/15 transition-all"
               />
               {searchChannel && (
                 <button
@@ -1320,7 +1320,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                           >
                             {ch.name}
                           </span>
-                          <span className="text-[9px] font-mono font-bold px-1 rounded bg-[#4fe3d0]/20 text-[#4fe3d0]">
+                          <span className="text-[9px] font-mono font-bold px-1 rounded bg-blue-500/20 text-blue-400">
                             {ch.quality || 'HD'}
                           </span>
                         </div>
@@ -1330,7 +1330,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                         {/* Real-time progress bar */}
                         <div className="w-full max-w-[150px] h-[3px] bg-white/10 rounded-full overflow-hidden mt-1">
                           <div
-                            className="h-full bg-[#4fe3d0] rounded-full transition-all duration-500"
+                            className="h-full bg-blue-500 rounded-full transition-all duration-500"
                             style={{ width: `${chLive.progressPercent}%` }}
                           ></div>
                         </div>
@@ -1374,7 +1374,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           onClick={(e) => e.stopPropagation()}
           className="fixed z-50 w-52 bg-[#12161e]/95 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 text-xs text-white animate-in fade-in zoom-in-95 duration-100"
         >
-          <div className="px-2.5 py-1 text-[10px] font-bold text-[#4fe3d0] uppercase tracking-wider border-b border-white/10">
+          <div className="px-2.5 py-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider border-b border-white/10">
             {contextMenu.channel.name}
           </div>
           <button
@@ -1436,7 +1436,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               title="Abrir lista de canais (C)"
               className={`p-1.5 sm:p-2 rounded-xl transition-all ${
                 isDrawerOpen
-                  ? 'bg-[#4fe3d0] text-slate-950 font-bold shadow-lg shadow-[#4fe3d0]/20'
+                  ? 'bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/30'
                   : 'bg-white/10 text-slate-300 hover:text-white hover:bg-white/15'
               }`}
             >
@@ -1511,7 +1511,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                className="w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="hidden sm:block w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
             </div>
           </div>
@@ -1537,7 +1537,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               title="Modo de Audio: Estereo Inteligente"
               className="hidden xl:flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-slate-300 text-[11px] font-mono border border-white/5"
             >
-              <Sliders className="w-3 h-3 text-[#4fe3d0]" />
+              <Sliders className="w-3 h-3 text-blue-400" />
               <span>Estereo</span>
             </div>
 

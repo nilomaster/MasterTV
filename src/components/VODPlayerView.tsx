@@ -397,14 +397,14 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     resetControlsTimer();
   };
 
-  // Timeline scrub handling
-  const seekToPosition = (e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+  // Timeline scrub handling (supports both Mouse and Touch)
+  const seekToPosition = (clientX: number) => {
     const bar = progressBarRef.current;
     const video = videoRef.current;
     if (!bar || !video || !duration) return;
 
     const rect = bar.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
 
@@ -415,10 +415,10 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
   const handleProgressBarMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setIsDraggingProgress(true);
-    seekToPosition(e);
+    seekToPosition(e.clientX);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      seekToPosition(moveEvent);
+      seekToPosition(moveEvent.clientX);
     };
 
     const handleMouseUp = () => {
@@ -429,6 +429,27 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleProgressBarTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!e.touches[0]) return;
+    setIsDraggingProgress(true);
+    seekToPosition(e.touches[0].clientX);
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      if (moveEvent.touches[0]) {
+        seekToPosition(moveEvent.touches[0].clientX);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      setIsDraggingProgress(false);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd);
   };
 
   const handleProgressBarMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -742,43 +763,58 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         </div>
       </div>
 
-      {/* BOTTOM VOD CONTROLS BAR (Saimo TV Full-Width Edge-to-Edge) */}
+      {/* BOTTOM VOD CONTROLS BAR (Mobile & Desktop Responsive) */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-30 transition-opacity duration-300 pb-3 sm:pb-4 pt-12 px-4 sm:px-6 bg-gradient-to-t from-black/95 via-black/80 to-transparent ${
+        className={`absolute bottom-0 left-0 right-0 z-30 transition-opacity duration-300 pb-3 sm:pb-4 pt-8 sm:pt-12 px-3 sm:px-6 bg-gradient-to-t from-black/95 via-black/80 to-transparent ${
           showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        <div className="w-full flex flex-col gap-2.5">
-          {/* 1. Saimo TV Full-width Progress Bar */}
+        <div className="w-full flex flex-col gap-2">
+          {/* 1. Mobile Time Indicators (Dedicated clean row above scrub bar for mobile) */}
+          <div className="flex sm:hidden items-center justify-between text-[11px] font-mono font-medium text-slate-300 px-1 select-none">
+            <span className="text-white font-bold">{formatTime(currentTime)}</span>
+            <div className="flex items-center gap-2">
+              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-mono font-bold">
+                {currentLevelName === 'Automatica' ? '1080P' : currentLevelName.toUpperCase()}
+              </span>
+              <span className="text-slate-400">{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* 2. Full-width Progress Bar (Supports Mouse & Touch Scrubbing) */}
           <div
             ref={progressBarRef}
             onMouseDown={handleProgressBarMouseDown}
+            onTouchStart={handleProgressBarTouchStart}
             onMouseMove={handleProgressBarMouseMove}
             onMouseLeave={handleProgressBarMouseLeave}
-            className="group relative w-full h-1.5 hover:h-2.5 transition-all cursor-pointer bg-white/20 rounded-full flex items-center"
+            className="group relative w-full h-1.5 sm:h-1.5 hover:h-2.5 active:h-2.5 py-1.5 -my-1.5 transition-all cursor-pointer flex items-center"
           >
-            {/* Buffered Bar */}
-            <div
-              className="absolute left-0 top-0 bottom-0 rounded-full bg-white/30 transition-all pointer-events-none"
-              style={{ width: `${bufferedPercent}%` }}
-            />
+            {/* Background track */}
+            <div className="relative w-full h-1.5 group-hover:h-2.5 rounded-full bg-white/20 overflow-hidden">
+              {/* Buffered Bar */}
+              <div
+                className="absolute left-0 top-0 bottom-0 rounded-full bg-white/30 transition-all pointer-events-none"
+                style={{ width: `${bufferedPercent}%` }}
+              />
 
-            {/* Played Progress Bar (Brand Blue) */}
-            <div
-              className="absolute left-0 top-0 bottom-0 rounded-full bg-blue-600 transition-all pointer-events-none shadow-sm shadow-blue-600/50"
-              style={{ width: `${progressPercent}%` }}
-            />
+              {/* Played Progress Bar (Brand Sapphire Blue) */}
+              <div
+                className="absolute left-0 top-0 bottom-0 rounded-full bg-blue-600 transition-all pointer-events-none shadow-sm shadow-blue-600/50"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
 
             {/* Brand Blue Thumb Handle */}
             <div
-              className="absolute -ml-2 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md shadow-blue-600/60 opacity-0 group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-110 pointer-events-none"
+              className="absolute -ml-2 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md shadow-blue-600/60 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity scale-90 group-hover:scale-110 pointer-events-none"
               style={{ left: `${progressPercent}%` }}
             />
 
-            {/* Hover Time Tooltip */}
+            {/* Hover Time Tooltip (Desktop) */}
             {hoverTime !== null && (
               <div
-                className="absolute -top-8 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-900/95 text-blue-300 font-mono text-[11px] font-bold border border-blue-500/30 shadow-lg pointer-events-none whitespace-nowrap"
+                className="hidden sm:block absolute -top-8 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-900/95 text-blue-300 font-mono text-[11px] font-bold border border-blue-500/30 shadow-lg pointer-events-none whitespace-nowrap"
                 style={{ left: `${hoverPosition}px` }}
               >
                 {formatTime(hoverTime)}
@@ -786,33 +822,34 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             )}
           </div>
 
-          {/* 2. Saimo TV Controls Row */}
-          <div className="flex items-center justify-between gap-2 pt-1">
-            {/* Left Controls: Skip -10s, Skip +10s, Volume, Time, Quality Badge */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              {/* Skip backward */}
+          {/* 3. Controls Row */}
+          <div className="relative flex items-center justify-between gap-1 sm:gap-2 pt-1">
+            {/* Left Controls: Rewind/Forward (Desktop), Volume, Time (Desktop), Quality (Desktop) */}
+            <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
+              {/* Skip backward (Desktop) */}
               <button
                 onClick={() => handleSkip(-skipSeconds)}
                 title={`Voltar ${skipSeconds} segundos`}
-                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                className="hidden sm:inline-flex p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
               >
                 <RotateCcw className="w-5 h-5" />
               </button>
 
-              {/* Skip forward */}
+              {/* Skip forward (Desktop) */}
               <button
                 onClick={() => handleSkip(skipSeconds)}
                 title={`Avancar ${skipSeconds} segundos`}
-                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                className="hidden sm:inline-flex p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
               >
                 <RotateCw className="w-5 h-5" />
               </button>
 
-              {/* Volume Slider */}
+              {/* Volume & Mute */}
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setIsMuted(!isMuted)}
-                  className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                  title={isMuted ? 'Ativar som' : 'Silenciar'}
+                  className="p-1.5 sm:p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX className="w-5 h-5 text-red-400" />
@@ -822,6 +859,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                     <Volume2 className="w-5 h-5 text-slate-200" />
                   )}
                 </button>
+                {/* Desktop Volume Slider */}
                 <input
                   type="range"
                   min="0"
@@ -833,29 +871,41 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                     setVolume(newVol);
                     setIsMuted(newVol === 0);
                   }}
-                  className="w-14 sm:w-20 h-1 accent-purple-500 bg-white/20 rounded-full cursor-pointer"
+                  className="hidden sm:block w-14 sm:w-20 h-1 accent-blue-500 bg-white/20 rounded-full cursor-pointer"
                 />
               </div>
 
-              {/* Time Display */}
-              <div className="text-xs font-mono font-medium text-slate-300 flex items-center gap-1.5 select-none">
+              {/* Time Display (Desktop only, mobile has dedicated row above) */}
+              <div className="hidden sm:flex text-xs font-mono font-medium text-slate-300 items-center gap-1.5 select-none">
                 <span className="text-white font-semibold">{formatTime(currentTime)}</span>
                 <span className="text-slate-500">/</span>
                 <span className="text-slate-400">{formatTime(duration)}</span>
               </div>
 
-              {/* Saimo TV Quality pill badge */}
+              {/* Quality badge (Desktop) */}
               <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-mono font-bold">
                 {currentLevelName === 'Automatica' ? '1080P' : currentLevelName.toUpperCase()}
               </span>
             </div>
 
-            {/* Center: Saimo TV Signature Big Circular Red Play/Pause Button */}
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+            {/* Center Playback Controls:
+                - Mobile: [Rewind 10s] [Big Play/Pause (Red)] [Forward 10s] in flex row
+                - Desktop: Absolutely centered Play/Pause button */}
+            <div className="flex sm:absolute sm:left-1/2 sm:-translate-x-1/2 items-center justify-center gap-2 sm:gap-0">
+              {/* Skip backward (Mobile only) */}
+              <button
+                onClick={() => handleSkip(-skipSeconds)}
+                title={`Voltar ${skipSeconds} segundos`}
+                className="flex sm:hidden p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 active:scale-90 transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+
+              {/* Central Red Play/Pause Button */}
               <button
                 onClick={togglePlay}
                 title={isPlaying ? 'Pausar (Espaco)' : 'Reproduzir (Espaco)'}
-                className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center shadow-[0_0_25px_rgba(239,68,68,0.6)] hover:scale-105 transition-all cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center shadow-[0_0_22px_rgba(239,68,68,0.55)] hover:scale-105 transition-all cursor-pointer"
               >
                 {isPlaying ? (
                   <Pause className="w-5 h-5 fill-white" />
@@ -863,16 +913,25 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                   <Play className="w-5 h-5 fill-white ml-0.5" />
                 )}
               </button>
+
+              {/* Skip forward (Mobile only) */}
+              <button
+                onClick={() => handleSkip(skipSeconds)}
+                title={`Avancar ${skipSeconds} segundos`}
+                className="flex sm:hidden p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 active:scale-90 transition-all cursor-pointer"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Right Controls: Episodes, Next Ep, PiP, Settings Gear, Fullscreen */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
               {/* Next Episode Quick Button */}
               {nextEpisode && onSelectEpisode && (
                 <button
                   onClick={() => onSelectEpisode(nextEpisode)}
                   title={`Proximo: Ep. ${nextEpisode.number} - ${nextEpisode.title}`}
-                  className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer"
+                  className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-bold transition-all cursor-pointer"
                 >
                   <span>Proximo Ep.</span>
                   <RotateCw className="w-3.5 h-3.5" />
@@ -883,9 +942,9 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               {hasEpisodes && (
                 <button
                   onClick={() => setIsEpisodeDrawerOpen(!isEpisodeDrawerOpen)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                     isEpisodeDrawerOpen
-                      ? 'bg-purple-600 text-white border-purple-500'
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
                       : 'bg-white/10 text-slate-200 border-white/10 hover:bg-white/15 hover:text-white'
                   }`}
                 >
@@ -898,19 +957,19 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <button
                 onClick={togglePiP}
                 title="Picture-in-Picture"
-                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                className="hidden sm:inline-flex p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
               >
                 <PictureInPicture className="w-5 h-5" />
               </button>
 
-              {/* Saimo TV Settings Button (Gear) */}
+              {/* Settings Button (Gear) */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsSettingsOpen(!isSettingsOpen);
                 }}
                 title="Configuracoes do Player"
-                className={`p-2 rounded-xl transition-all cursor-pointer ${
+                className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer ${
                   isSettingsOpen
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/40'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
@@ -937,11 +996,11 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         <div
           ref={settingsRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-16 right-3 sm:right-6 z-40 w-72 sm:w-80 bg-[#101422]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-[0_15px_50px_rgba(0,0,0,0.85)] text-white animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute bottom-16 right-3 sm:right-6 z-40 w-72 sm:w-80 max-w-[calc(100vw-24px)] bg-[#101422]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-[0_15px_50px_rgba(0,0,0,0.85)] text-white animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
           <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
             <span className="font-bold text-sm tracking-wide flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-purple-400" />
+              <Sliders className="w-4 h-4 text-blue-400" />
               Configuracoes do Player
             </span>
             <button
@@ -959,7 +1018,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={selectedLevel}
                 onChange={(e) => handleQualityChange(parseInt(e.target.value, 10))}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {availableLevels.map((lvl) => (
                   <option key={lvl.id} value={lvl.id}>
@@ -975,7 +1034,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={selectedSubtitle}
                 onChange={(e) => setSelectedSubtitle(e.target.value)}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="off">Desativado</option>
                 <option value="pt">Portugues (Brasil) 1</option>
@@ -989,7 +1048,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={subtitleSync}
                 onChange={(e) => setSubtitleSync(parseFloat(e.target.value))}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="-2">-2.0s</option>
                 <option value="-1">-1.0s</option>
@@ -1007,7 +1066,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={playbackSpeed}
                 onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="0.5">0.5x</option>
                 <option value="0.75">0.75x</option>
@@ -1024,7 +1083,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={skipSeconds}
                 onChange={(e) => setSkipSeconds(parseInt(e.target.value, 10))}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="5">5s</option>
                 <option value="10">10s</option>
@@ -1039,7 +1098,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={aspectRatio}
                 onChange={(e) => setAspectRatio(e.target.value as any)}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="contain">Auto</option>
                 <option value="16-9">16:9</option>
@@ -1054,7 +1113,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <select
                 value={superResolution ? 'on' : 'off'}
                 onChange={(e) => setSuperResolution(e.target.value === 'on')}
-                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                className="w-full bg-[#181f33] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="off">Desligado</option>
                 <option value="on">Ativado</option>
@@ -1068,7 +1127,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                 {brightness !== 100 && (
                   <button
                     onClick={() => setBrightness(100)}
-                    className="text-[10px] text-purple-400 hover:underline cursor-pointer"
+                    className="text-[10px] text-blue-400 hover:underline cursor-pointer"
                   >
                     Resetar
                   </button>
@@ -1080,7 +1139,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                 max="150"
                 value={brightness}
                 onChange={(e) => setBrightness(parseInt(e.target.value, 10))}
-                className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
             </div>
           </div>
@@ -1100,7 +1159,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <List className="w-5 h-5 text-purple-400" />
+                <List className="w-5 h-5 text-blue-400" />
                 <h3 className="text-base font-extrabold text-white">
                   Lista de Episodios ({mediaItem.episodeList.length})
                 </h3>
@@ -1134,7 +1193,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                     }}
                     className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                       isSelected
-                        ? 'bg-purple-600/20 border-purple-500 shadow-lg shadow-purple-500/20'
+                        ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/20'
                         : 'bg-slate-900/40 border-white/5 hover:bg-white/5 hover:border-white/15'
                     }`}
                   >
@@ -1143,7 +1202,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                         {ep.number}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-blue-300' : 'text-white'}`}>
                           {ep.title}
                         </span>
                         {ep.duration && (
@@ -1155,7 +1214,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                     </div>
 
                     {isSelected && (
-                      <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider shrink-0">
+                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider shrink-0">
                         Assistindo
                       </span>
                     )}
