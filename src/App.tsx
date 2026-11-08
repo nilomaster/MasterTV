@@ -4,10 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Channel, MediaItem, EpisodeItem } from './types/iptv';
 import {
-  INITIAL_CHANNELS,
   INITIAL_CATEGORIES,
-  HERO_FEATURED,
-  TRENDING_MOVIES,
 } from './services/mockData';
 import {
   enrichChannelsWithLiveEPG,
@@ -22,8 +19,79 @@ import { VODPlayerView } from './components/VODPlayerView';
 import { PlaylistModal } from './components/PlaylistModal';
 import { MediaModal } from './components/MediaModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { LoginView } from './components/auth/LoginView';
+import type { ClientSession } from './types/admin';
+import { AdminService } from './services/adminService';
 
-type ViewType = 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player';
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallbackTitle?: string;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('MasterTV Runtime Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col items-center justify-center p-6 text-center select-none font-sans">
+          <div className="max-w-md w-full bg-[#0b0e14] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col items-center gap-4 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-black text-xl">
+              !
+            </div>
+            <h2 className="text-lg font-black text-white">
+              {this.props.fallbackTitle || 'Ocorreu um imprevisto na visualizacao'}
+            </h2>
+            <p className="text-xs text-slate-400">
+              {this.state.error?.message || 'Os dados foram preservados com seguranca.'}
+            </p>
+            <div className="flex items-center gap-3 w-full mt-2">
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false });
+                  window.location.hash = '#/ao-vivo';
+                  window.location.reload();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/25 transition-all cursor-pointer"
+              >
+                Voltar ao Player
+              </button>
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false });
+                  window.location.reload();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 transition-all cursor-pointer"
+              >
+                Recarregar Pagina
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+type ViewType = 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin';
 
 const VIEW_HASH_MAP: Record<ViewType, string> = {
   home: '#/inicio',
@@ -33,10 +101,12 @@ const VIEW_HASH_MAP: Record<ViewType, string> = {
   favorites: '#/favoritos',
   radios: '#/radios',
   'vod-player': '#/assistir',
+  admin: '#/admin',
 };
 
 function getViewFromHash(): ViewType {
   const hash = window.location.hash.toLowerCase();
+  if (hash.includes('admin') || hash.includes('painel') || hash.includes('revenda')) return 'admin';
   if (hash.includes('assistir') || hash.includes('vod-player')) return 'vod-player';
   if (hash.includes('ao-vivo') || hash.includes('player')) return 'player';
   if (hash.includes('guia') || hash.includes('epg')) return 'epg';
@@ -54,7 +124,7 @@ function getViewFromHash(): ViewType {
   if (hash.includes('inicio') || hash === '#/' || hash === '#') return 'home';
 
   const saved = localStorage.getItem('mastertv_current_view') as ViewType | null;
-  if (saved && ['home', 'player', 'epg', 'vod', 'favorites', 'radios', 'vod-player'].includes(saved)) {
+  if (saved && ['home', 'player', 'epg', 'vod', 'favorites', 'radios', 'vod-player', 'admin'].includes(saved)) {
     return saved;
   }
   return 'home';
@@ -71,45 +141,70 @@ function getVodFilterFromHash(): 'all' | 'movies' | 'series' | 'animes' | 'doram
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>(() => getViewFromHash());
+  const [clientSession, setClientSession] = useState<ClientSession | null>(() =>
+    AdminService.getClientSession()
+  );
   const [isPlayerControlsVisible, setIsPlayerControlsVisible] = useState<boolean>(true);
   const [isNavbarHovered, setIsNavbarHovered] = useState<boolean>(false);
-  const [channels, setChannels] = useState<Channel[]>(() => {
-    const saved =
-      localStorage.getItem('mastertv_channels_v12') ||
-      localStorage.getItem('mastertv_channels_v11') ||
-      localStorage.getItem('mastertv_channels_v10');
-    if (saved) {
-      try {
-        const parsed: Channel[] = JSON.parse(saved);
-        const initialMap = new Map(INITIAL_CHANNELS.map((c) => [c.id, c]));
-        // Keep user favorites but sync updated streamUrl, sources and name from master catalog
-        const updated = parsed.map((c) => {
-          const init = initialMap.get(c.id);
-          if (init) {
-            return {
-              ...c,
-              name: init.name,
-              streamUrl: init.streamUrl,
-              backupStreamUrl: init.backupStreamUrl,
-              sources: init.sources,
-              quality: init.quality || c.quality,
-              logo: init.logo,
-            };
-          }
-          return c;
-        });
-        const existingIds = new Set(updated.map((c) => c.id));
-        const missing = INITIAL_CHANNELS.filter((c) => !existingIds.has(c.id));
-        if (missing.length > 0) {
-          return [...updated, ...missing];
-        }
-        return updated;
-      } catch {
-        // Fallback to initial
-      }
+
+  // Helper to retrieve custom channels registered via Admin Panel
+  const getCustomChannels = (): Channel[] => {
+    try {
+      const all = AdminService.getContents();
+      if (!Array.isArray(all)) return [];
+      return all
+        .filter((c) => c && c.type === 'channel')
+        .map((c, idx) => ({
+          id: String(c.id || `channel-${idx + 1}`),
+          epgId: c.epgId || c.title || undefined,
+          number: Number(c.channelNumber) || idx + 1,
+          name: String(c.title || 'Canal'),
+          logo: c.posterUrl || '',
+          category: c.channelCategory || 'aberta',
+          streamUrl: c.streamUrl || '',
+          backupStreamUrl: c.backupStreamUrl,
+          sources: c.sourcesList && c.sourcesList.length > 0 ? c.sourcesList.map((s) => ({
+            id: s.id,
+            name: s.name,
+            url: s.streamUrl,
+            quality: s.quality,
+          })) : undefined,
+          currentProgram: c.currentProgram || 'Transmissao ao Vivo',
+          currentProgramTime: 'Ao Vivo',
+          synopsis: c.description || 'Canal sincronizado no banco de dados MasterTV.',
+          isFavorite: false,
+        }));
+    } catch {
+      return [];
     }
-    return INITIAL_CHANNELS;
+  };
+
+  const [channels, setChannels] = useState<Channel[]>(() => {
+    // Purge old mock channel cache keys
+    ['mastertv_channels_v12', 'mastertv_channels_v11', 'mastertv_channels_v10', 'mastertv_channels_v6'].forEach(
+      (k) => localStorage.removeItem(k)
+    );
+    return getCustomChannels();
   });
+
+  // Automatically fetch synchronized remote contents from MySQL API on launch
+  useEffect(() => {
+    AdminService.fetchRemoteContents().then(() => {
+      const refreshed = getCustomChannels();
+      setChannels(refreshed);
+      setCurrentChannel((prev) => {
+        if (prev && refreshed.some((c) => c.id === prev.id)) return prev;
+        return refreshed[0] || null;
+      });
+    });
+
+    const handleCatalogUpdate = () => {
+      const custom = getCustomChannels();
+      setChannels(custom);
+    };
+    window.addEventListener('mastertv_catalog_updated', handleCatalogUpdate);
+    return () => window.removeEventListener('mastertv_catalog_updated', handleCatalogUpdate);
+  }, []);
 
   const handleViewChange = (
     view: ViewType,
@@ -157,19 +252,34 @@ export const App: React.FC = () => {
     // Initialize real-time online XMLTV EPG
     initOnlineEPG();
 
+    // Initial sync of remote contents from MySQL API (works for Web, Android TV and Tablet)
+    AdminService.fetchRemoteContents().catch(() => {});
+
     const handleEPGUpdated = () => {
       setCurrentTime(new Date());
     };
 
+    const handleFocus = () => {
+      AdminService.fetchRemoteContents().catch(() => {});
+    };
+
     window.addEventListener('mastertv_epg_updated', handleEPGUpdated);
+    window.addEventListener('focus', handleFocus);
 
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 30000);
 
+    // Sync remote catalog every 2 minutes in background
+    const catalogTimer = setInterval(() => {
+      AdminService.fetchRemoteContents().catch(() => {});
+    }, 120000);
+
     return () => {
       clearInterval(timer);
+      clearInterval(catalogTimer);
       window.removeEventListener('mastertv_epg_updated', handleEPGUpdated);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -179,12 +289,13 @@ export const App: React.FC = () => {
   }, [channels, currentTime]);
 
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(() => {
+    const custom = getCustomChannels();
     const savedChannelId = localStorage.getItem('mastertv_last_channel_id');
     if (savedChannelId) {
-      const found = INITIAL_CHANNELS.find((c) => c.id === savedChannelId);
+      const found = custom.find((c) => c.id === savedChannelId);
       if (found) return found;
     }
-    return INITIAL_CHANNELS[0]; // Globo SP default
+    return custom[0] || null;
   });
 
   const activeCurrentChannel = useMemo(() => {
@@ -255,13 +366,19 @@ export const App: React.FC = () => {
         return true;
       }
 
-      // 4. If on another view, return to Home
+      // 4. If in Admin Dashboard, go back to Player or Home
+      if (currentView === 'admin') {
+        handleViewChange('player');
+        return true;
+      }
+
+      // 5. If on another view, return to Home
       if (currentView !== 'home') {
         handleViewChange('home');
         return true;
       }
 
-      // 5. Already on Home with nothing open: return false to let Android minimize the app
+      // 6. Already on Home with nothing open: return false to let Android minimize the app
       return false;
     };
 
@@ -299,15 +416,16 @@ export const App: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
-    localStorage.removeItem('mastertv_channels_v6');
-    setChannels(INITIAL_CHANNELS);
-    setCurrentChannel(INITIAL_CHANNELS[0]);
+    const custom = getCustomChannels();
+    setChannels(custom);
+    setCurrentChannel(custom[0] || null);
   };
 
   const handleClearCache = () => {
     localStorage.clear();
-    setChannels(INITIAL_CHANNELS);
-    setCurrentChannel(INITIAL_CHANNELS[0]);
+    const custom = getCustomChannels();
+    setChannels(custom);
+    setCurrentChannel(custom[0] || null);
     setIsSettingsModalOpen(false);
   };
 
@@ -328,11 +446,42 @@ export const App: React.FC = () => {
     } catch {
       // Ignore parse error and fallback
     }
-    const defaultMedia = TRENDING_MOVIES[0] || HERO_FEATURED;
+    const allContents = AdminService.getContents();
+    const firstMovie = allContents.find((c) => c && (c.type === 'movie' || c.type === 'series'));
+    if (firstMovie) {
+      const mediaItem: MediaItem = {
+        id: firstMovie.id,
+        type: firstMovie.type === 'series' ? 'series' : 'movie',
+        title: firstMovie.title,
+        rating: firstMovie.rating,
+        year: firstMovie.year,
+        genres: firstMovie.genres,
+        posterUrl: firstMovie.posterUrl,
+        backdropUrl: firstMovie.backdropUrl || firstMovie.posterUrl,
+        streamUrl: firstMovie.streamUrl,
+        description: firstMovie.description,
+      };
+      return {
+        mediaItem,
+        streamUrl: firstMovie.streamUrl,
+        title: firstMovie.title,
+      };
+    }
     return {
-      mediaItem: defaultMedia,
-      streamUrl: defaultMedia.streamUrl,
-      title: defaultMedia.title,
+      mediaItem: {
+        id: '',
+        type: 'movie',
+        title: '',
+        rating: 0,
+        year: 2026,
+        genres: [],
+        posterUrl: '',
+        backdropUrl: '',
+        streamUrl: '',
+        description: '',
+      },
+      streamUrl: '',
+      title: '',
     };
   });
 
@@ -379,10 +528,29 @@ export const App: React.FC = () => {
 
   const favoritesCount = channels.filter((c) => c.isFavorite).length;
 
+  const handleLogout = () => {
+    AdminService.clearClientSession();
+    setClientSession(null);
+    handleViewChange('home');
+  };
+
+  // Client Authentication Guard: require login before accessing player and catalog
+  if (!clientSession && currentView !== 'admin') {
+    return (
+      <LoginView
+        onLoginSuccess={(session) => {
+          setClientSession(session);
+          handleViewChange('home');
+        }}
+        onOpenAdmin={() => handleViewChange('admin')}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col">
-      {/* Top Navigation Bar - Hidden during VOD Player playback for full immersion */}
-      {currentView !== 'vod-player' && (
+      {/* Top Navigation Bar - Hidden during VOD Player or Admin Dashboard for full immersion */}
+      {currentView !== 'vod-player' && currentView !== 'admin' && (
         <Navbar
           currentView={currentView}
           vodFilter={vodFilter}
@@ -398,12 +566,14 @@ export const App: React.FC = () => {
             setIsPlayerControlsVisible(true);
           }}
           onNavbarMouseLeave={() => setIsNavbarHovered(false)}
+          clientSession={clientSession}
+          onLogout={handleLogout}
         />
       )}
 
       {/* Main View Router */}
       <main className={`flex-1 flex flex-col ${
-        currentView === 'vod-player'
+        currentView === 'vod-player' || currentView === 'admin'
           ? 'pb-0 overflow-hidden'
           : currentView === 'player'
           ? 'h-[100dvh] overflow-hidden'
@@ -470,11 +640,13 @@ export const App: React.FC = () => {
         )}
 
         {currentView === 'vod' && (
-          <VODView
-            onSelectMedia={(item) => setSelectedMedia(item)}
-            searchQuery={searchQuery}
-            initialFilter={vodFilter}
-          />
+          <ErrorBoundary fallbackTitle="Catálogo On Demand">
+            <VODView
+              onSelectMedia={(item) => setSelectedMedia(item)}
+              searchQuery={searchQuery}
+              initialFilter={vodFilter}
+            />
+          </ErrorBoundary>
         )}
 
         {currentView === 'favorites' && (
@@ -525,6 +697,12 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {currentView === 'admin' && (
+          <ErrorBoundary fallbackTitle="Painel Administrativo MasterTV">
+            <AdminDashboard onBackToPlayer={() => handleViewChange('player')} />
+          </ErrorBoundary>
+        )}
       </main>
 
       {/* Modals */}
@@ -539,6 +717,9 @@ export const App: React.FC = () => {
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onClearCache={handleClearCache}
+        onOpenAdmin={() => handleViewChange('admin')}
+        clientSession={clientSession}
+        onLogout={handleLogout}
       />
 
       <MediaModal

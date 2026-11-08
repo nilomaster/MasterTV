@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" 
+        xmlns:tizen="http://tizen.org/ns/widgets" 
+        id="http://mastertvhd.online/MasterTV" 
+        version="1.0.0" 
+        viewmodes="fullscreen">
+
+    <access origin="*" subdomains="true"/>
+
+    <!-- Tizen Application Specification for Samsung Smart TV -->
+    <tizen:application id="V7gE5M3K8w.MasterTV" package="V7gE5M3K8w" required_version="2.3"/>
+
+    <!-- Main Entry Point -->
+    <content src="index.html"/>
+
+    <!-- Screen Size and Display Features -->
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+
+    <!-- App Metadata & Visual Assets -->
+    <icon src="icon.png"/>
+    <name>MasterTV-HD</name>
+    <description>MasterTV - Aplicativo de IPTV e VOD de alta performance para Smart TVs Samsung</description>
+    <author href="https://mastertvhd.online">MasterTV</author>
+
+    <!-- Platform Profile for Samsung Smart TVs -->
+    <tizen:profile name="tv-samsung"/>
+
+    <!-- Application Settings -->
+    <tizen:setting screen-orientation="landscape" 
+                   context-menu="enable" 
+                   background-support="disable" 
+                   encryption="disable" 
+                   install-location="auto" 
+                   hwkey-event="enable"/>
+
+    <!-- Privileges Required for Web Streaming and Remote Controls -->
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+
+</widget>

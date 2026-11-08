@@ -1395,7 +1395,7 @@ export function getLiveEPGForChannel(
 // Enrich channel objects with live real-time EPG data
 export function enrichChannelsWithLiveEPG(channels: Channel[], now: Date = new Date()): Channel[] {
   return channels.map((ch) => {
-    const live = getLiveEPGForChannel(ch.id, now);
+    const live = getLiveEPGForChannel(ch.epgId || ch.id, now);
     return {
       ...ch,
       currentProgram: live.currentProgram,

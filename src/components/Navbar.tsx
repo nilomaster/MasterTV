@@ -12,14 +12,16 @@ import {
   Heart,
   Settings,
   Menu,
-  X
+  X,
+  User,
 } from 'lucide-react';
+import type { ClientSession } from '../types/admin';
 
 interface NavbarProps {
-  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player';
+  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin';
   vodFilter?: 'all' | 'movies' | 'series' | 'animes' | 'doramas';
-  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player') => void;
-  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
+  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin') => void;
+  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenSettingsModal: () => void;
@@ -27,6 +29,8 @@ interface NavbarProps {
   isPlayerControlsVisible?: boolean;
   onNavbarMouseEnter?: () => void;
   onNavbarMouseLeave?: () => void;
+  clientSession?: ClientSession | null;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -41,6 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isPlayerControlsVisible = true,
   onNavbarMouseEnter,
   onNavbarMouseLeave,
+  clientSession,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState<boolean>(false);
@@ -211,6 +216,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Search className="w-4 h-4" />
             </button>
+
+            {/* Client Session Badge */}
+            {clientSession && (
+              <div
+                onClick={onOpenSettingsModal}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 hover:border-cyan-400 text-xs cursor-pointer transition-all shadow-sm"
+                title="Sua conta MasterTV (Clique para gerenciar)"
+              >
+                <div className="w-5 h-5 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="font-bold text-white text-[11px] leading-tight max-w-[110px] truncate">
+                    {clientSession.customerName}
+                  </span>
+                  <span className="text-[9px] text-cyan-400 font-mono font-semibold uppercase leading-tight">
+                    {clientSession.planDuration}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Settings Button */}
             <button

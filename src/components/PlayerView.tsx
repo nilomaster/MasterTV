@@ -85,6 +85,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
   // TV Box Remote Control & D-Pad Navigation state
   const [tvFocusedIndex, setTvFocusedIndex] = useState<number>(0);
+  const [isKeyboardNavActive, setIsKeyboardNavActive] = useState<boolean>(false);
   const [osdChannel, setOsdChannel] = useState<Channel | null>(null);
   const osdTimeoutRef = useRef<number | null>(null);
   const digitBufferRef = useRef<string>('');
@@ -140,8 +141,6 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     };
   }, []);
 
-  const currentChannelId = currentChannel?.id;
-
   // Resolve all available stream sources for the active channel
   const channelSources = useMemo(() => {
     if (!currentChannel) return [];
@@ -157,6 +156,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     return list;
   }, [currentChannel]);
 
+  const channelSourcesRef = useRef(channelSources);
+  channelSourcesRef.current = channelSources;
+
   const activeSourceObj = channelSources.find((s) => s.id === activeSource) || channelSources[0];
   const streamToPlay = activeSourceObj?.url || currentChannel?.streamUrl || '';
 
@@ -171,7 +173,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
   // Initialize and update HLS stream
   useEffect(() => {
-    if (!currentChannelId || !videoRef.current || !streamToPlay) return;
+    if (!videoRef.current || !streamToPlay) return;
 
     // Prevent destroying and reloading the stream on periodic EPG metadata updates
     if (lastLoadedStreamRef.current === streamToPlay && hlsRef.current) {
@@ -205,12 +207,58 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         streamToPlay.includes('stream') ||
         streamToPlay.includes('m3u8'));
 
+    // Resilient helper to start playback without triggering false autoplay blocks
+    const attemptPlayback = () => {
+      if (!videoRef.current) return;
+      const vid = videoRef.current;
+      vid.muted = isMuted;
+      vid.volume = isMuted ? 0 : volume;
+
+      const playPromise = vid.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsAutoplayBlocked(false);
+            setIsLoadingStream(false);
+          })
+          .catch((err: any) => {
+            // AbortError is normal during fast channel switching or initial buffering
+            if (err && err.name === 'AbortError') {
+              return;
+            }
+            // If browser autoplay policy denied unmuted audio, switch to muted autoplay immediately
+            vid.muted = true;
+            setIsMuted(true);
+            const retryPromise = vid.play();
+            if (retryPromise !== undefined) {
+              retryPromise
+                .then(() => {
+                  setIsAutoplayBlocked(false);
+                  setIsLoadingStream(false);
+                })
+                .catch((retryErr: any) => {
+                  if (retryErr && retryErr.name === 'AbortError') {
+                    return;
+                  }
+                  // Only show tap overlay on mobile touch screens if muted autoplay was strictly denied
+                  const isMobileTouch = 'ontouchstart' in window && window.innerWidth < 768;
+                  if (isMobileTouch) {
+                    setIsAutoplayBlocked(true);
+                  }
+                  setIsLoadingStream(false);
+                });
+            }
+          });
+      }
+    };
+
     // Safety timeout to avoid getting stuck indefinitely on Sintonizando
     let connectTimeout: number | null = window.setTimeout(() => {
       setActiveSource((prev) => {
-        const currentIdx = channelSources.findIndex((s) => s.id === prev);
-        if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
-          return channelSources[currentIdx + 1].id;
+        const sources = channelSourcesRef.current;
+        const currentIdx = sources.findIndex((s) => s.id === prev);
+        if (currentIdx !== -1 && currentIdx < sources.length - 1) {
+          return sources[currentIdx + 1].id;
         }
         setIsLoadingStream(false);
         setStreamError('Sinal temporariamente indisponivel nesta fonte');
@@ -219,7 +267,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     }, 15000);
 
     if (isHlsStream) {
-      // Optimized resilient config for all Android devices (from high-end Tab A9 to budget Galaxy A12)
+      // Optimized resilient config for all Android devices and desktop browsers
       const hls = new Hls({
         enableWorker: false,
         lowLatencyMode: false,
@@ -269,17 +317,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           setAvailableLevels([{ id: -1, name: 'Auto' }]);
         }
 
-        video.muted = isMuted;
-        video.volume = isMuted ? 0 : volume;
-        video.play().catch(() => {
-          // If unmuted autoplay is rejected by mobile policy, play muted safely without stalling
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch(() => {
-            setIsAutoplayBlocked(true);
-            setIsLoadingStream(false);
-          });
-        });
+        attemptPlayback();
       });
 
       let networkRetryCount = 0;
@@ -296,9 +334,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   connectTimeout = null;
                 }
                 setActiveSource((prev) => {
-                  const currentIdx = channelSources.findIndex((s) => s.id === prev);
-                  if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
-                    return channelSources[currentIdx + 1].id;
+                  const sources = channelSourcesRef.current;
+                  const currentIdx = sources.findIndex((s) => s.id === prev);
+                  if (currentIdx !== -1 && currentIdx < sources.length - 1) {
+                    return sources[currentIdx + 1].id;
                   }
                   setStreamError('Sinal temporariamente indisponivel nesta fonte');
                   setIsLoadingStream(false);
@@ -330,17 +369,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
-        video.muted = isMuted;
-        video.volume = isMuted ? 0 : volume;
-        video.play().catch(() => {
-          // If unmuted autoplay is rejected by mobile policy, play muted safely without stalling
-          video.muted = true;
-          setIsMuted(true);
-          video.play().catch(() => {
-            setIsAutoplayBlocked(true);
-            setIsLoadingStream(false);
-          });
-        });
+        attemptPlayback();
       };
       video.onloadedmetadata = handleReady;
       video.oncanplay = handleReady;
@@ -350,9 +379,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           connectTimeout = null;
         }
         setActiveSource((prev) => {
-          const currentIdx = channelSources.findIndex((s) => s.id === prev);
-          if (currentIdx !== -1 && currentIdx < channelSources.length - 1) {
-            return channelSources[currentIdx + 1].id;
+          const sources = channelSourcesRef.current;
+          const currentIdx = sources.findIndex((s) => s.id === prev);
+          if (currentIdx !== -1 && currentIdx < sources.length - 1) {
+            return sources[currentIdx + 1].id;
           }
           setIsLoadingStream(false);
           setStreamError('Transmissao temporariamente indisponivel nesta fonte');
@@ -369,10 +399,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
-        lastLoadedStreamRef.current = '';
       }
+      lastLoadedStreamRef.current = '';
     };
-  }, [currentChannelId, streamToPlay, zeroDelayActive, channelSources]);
+  }, [streamToPlay]);
 
   // Effective controls visibility takes navbar hover into account
   const isControlsVisible = showControls || isNavbarHovered;
@@ -382,8 +412,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     onControlsVisibilityChange?.(isControlsVisible);
   }, [isControlsVisible, onControlsVisibilityChange]);
 
-  // Handle auto-hide controls on mouse idle
-  const handleMouseMove = useCallback(() => {
+  // Handle auto-hide controls on mouse and touch activity
+  const resetControlsTimer = useCallback(() => {
+    setIsKeyboardNavActive(false);
     setShowControls(true);
     if (controlsTimeoutRef.current) {
       window.clearTimeout(controlsTimeoutRef.current);
@@ -394,21 +425,21 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       }
     }, 4500);
   }, [isDrawerOpen, isNavbarHovered]);
+
+  const handleMouseMove = useCallback(() => {
+    resetControlsTimer();
+  }, [resetControlsTimer]);
 
   const handleMouseEnter = useCallback(() => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) {
-      window.clearTimeout(controlsTimeoutRef.current);
-    }
-    controlsTimeoutRef.current = window.setTimeout(() => {
-      if (!isDrawerOpen && !isNavbarHovered) {
-        setShowControls(false);
-      }
-    }, 4500);
-  }, [isDrawerOpen, isNavbarHovered]);
+    resetControlsTimer();
+  }, [resetControlsTimer]);
 
-  // Hide controls smoothly when cursor leaves player area
+  // Hide controls smoothly when cursor leaves player area (desktop only)
   const handleMouseLeave = useCallback(() => {
+    // Ignore on touch devices to avoid synthetic touch flicker
+    if (typeof window !== 'undefined' && 'ontouchstart' in window && navigator.maxTouchPoints > 0) {
+      return;
+    }
     if (controlsTimeoutRef.current) {
       window.clearTimeout(controlsTimeoutRef.current);
     }
@@ -416,12 +447,29 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       if (!isDrawerOpen && !isNavbarHovered) {
         setShowControls(false);
       }
-    }, 350);
+    }, 2500);
   }, [isDrawerOpen, isNavbarHovered]);
 
-  // Global document mouseleave to immediately hide when leaving browser window
+  // Global mouse activity listener (desktop only) to restore controls when cursor moves
+  useEffect(() => {
+    const handleActivity = () => {
+      resetControlsTimer();
+    };
+
+    window.addEventListener('mousemove', handleActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+    };
+  }, [resetControlsTimer]);
+
+  // Global document mouseleave to immediately hide when leaving browser window (desktop only)
   useEffect(() => {
     const handleDocumentMouseLeave = (e: MouseEvent) => {
+      // Ignore on touch devices to avoid synthetic touch flicker
+      if (typeof window !== 'undefined' && 'ontouchstart' in window && navigator.maxTouchPoints > 0) {
+        return;
+      }
       if (!e.relatedTarget) {
         if (!isDrawerOpen && !isNavbarHovered) {
           setShowControls(false);
@@ -513,6 +561,16 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     });
   }, [channels, searchChannel, selectedCategory]);
 
+  // Keep TV remote focused index aligned with the active channel so index 0 is not falsely highlighted
+  useEffect(() => {
+    if (currentChannel && filteredChannels.length > 0) {
+      const idx = filteredChannels.findIndex((c) => c.id === currentChannel.id);
+      if (idx !== -1) {
+        setTvFocusedIndex(idx);
+      }
+    }
+  }, [currentChannel?.id, isDrawerOpen, filteredChannels]);
+
   // Keyboard and TV Box Remote Control navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -547,6 +605,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       // 2. D-Pad Down / Next Channel / Page Down
       if (e.key === 'ArrowDown' || e.key === 'ChannelDown' || e.key === 'PageDown') {
         e.preventDefault();
+        setIsKeyboardNavActive(true);
         if (isNavigatingList && filteredChannels.length > 0) {
           const nextIdx = (tvFocusedIndex + 1) % filteredChannels.length;
           setTvFocusedIndex(nextIdx);
@@ -564,6 +623,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       // 3. D-Pad Up / Previous Channel / Page Up
       else if (e.key === 'ArrowUp' || e.key === 'ChannelUp' || e.key === 'PageUp') {
         e.preventDefault();
+        setIsKeyboardNavActive(true);
         if (isNavigatingList && filteredChannels.length > 0) {
           const prevIdx = (tvFocusedIndex - 1 + filteredChannels.length) % filteredChannels.length;
           setTvFocusedIndex(prevIdx);
@@ -628,10 +688,26 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         setIsDrawerOpen((prev) => !prev);
-      } else if (e.key === 'Escape' || e.key === 'Back') {
+      } else if (e.key === 'Escape' || e.key === 'Back' || e.keyCode === 10009 || e.key === 'XF86Back') {
         if (isDrawerOpen) {
           e.preventDefault();
           setIsDrawerOpen(false);
+        }
+      } else if (e.key === 'ChannelUp' || e.keyCode === 427) {
+        e.preventDefault();
+        if (currentChannel) {
+          const curIdx = filteredChannels.findIndex((c) => c.id === currentChannel.id);
+          if (curIdx !== -1 && curIdx < filteredChannels.length - 1) {
+            onSelectChannel(filteredChannels[curIdx + 1]);
+          }
+        }
+      } else if (e.key === 'ChannelDown' || e.keyCode === 428) {
+        e.preventDefault();
+        if (currentChannel) {
+          const curIdx = filteredChannels.findIndex((c) => c.id === currentChannel.id);
+          if (curIdx > 0) {
+            onSelectChannel(filteredChannels[curIdx - 1]);
+          }
         }
       }
     },
@@ -794,8 +870,21 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
           autoPlay
           muted={isMuted}
-          onClick={() => {
-            setShowControls((prev) => !prev);
+        />
+
+        {/* Video Tap Overlay Surface - Clean tap to toggle controls */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowControls((prev) => {
+              const next = !prev;
+              if (next) {
+                resetControlsTimer();
+              } else if (controlsTimeoutRef.current) {
+                window.clearTimeout(controlsTimeoutRef.current);
+              }
+              return next;
+            });
             // On user tap, if muted by mobile autoplay policy, unmute seamlessly
             if (isMuted && videoRef.current) {
               videoRef.current.muted = false;
@@ -803,9 +892,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               setIsMuted(false);
             }
           }}
+          className="absolute inset-0 z-10 cursor-pointer"
         />
 
-        {/* Small floating Unmute button on mobile if video started muted */}
+        {/* Floating Unmute button if video started muted */}
         {isMuted && !isLoadingStream && !streamError && !isAutoplayBlocked && (
           <button
             onClick={() => {
@@ -815,14 +905,14 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 setIsMuted(false);
               }
             }}
-            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 border border-cyan-400/60 backdrop-blur-md text-cyan-300 text-xs font-semibold shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer animate-pulse"
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 hover:bg-slate-900 border border-cyan-400/60 backdrop-blur-md text-cyan-300 text-xs font-semibold shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer transition-colors"
           >
             <VolumeX className="w-3.5 h-3.5 text-red-400" />
-            <span>Toque para ativar o som</span>
+            <span>Clique ou toque para ativar o som</span>
           </button>
         )}
 
-        {/* Big Tap to Play Button when mobile browser blocks autoplay */}
+        {/* Play Button fallback when mobile touch browser requires user gesture */}
         {isAutoplayBlocked && (
           <button
             onClick={() => {
@@ -842,10 +932,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             }}
             className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm cursor-pointer"
           >
-            <div className="w-16 h-16 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.6)] animate-pulse mb-3">
+            <div className="w-16 h-16 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.6)] mb-3 transition-transform hover:scale-105">
               <Play className="w-8 h-8 fill-slate-950 ml-1" />
             </div>
-            <span className="text-white text-sm font-bold tracking-wide">Toque para Assistir</span>
+            <span className="text-white text-sm font-bold tracking-wide">Clique ou Toque para Assistir</span>
             <span className="text-cyan-400 text-xs font-semibold mt-1">{currentChannel?.name}</span>
           </button>
         )}
@@ -865,7 +955,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 <Tv className="w-8 h-8 text-[#00F0FF]" />
               )}
             </div>
-            <div className="absolute -inset-2 rounded-3xl border border-[#00F0FF]/30 animate-ping pointer-events-none"></div>
+            <div className="absolute -inset-2 rounded-3xl border border-[#00F0FF]/30 pointer-events-none"></div>
           </div>
           <h3 className="text-white text-base font-bold tracking-wide">
             Sintonizando {currentChannel?.name || 'Canal'}...
@@ -924,21 +1014,29 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           <div className="flex items-center gap-1.5">
             {isFullscreen ? (
               <button
-                onClick={toggleFullscreen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFullscreen();
+                  resetControlsTimer();
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-cyan-400/50 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 backdrop-blur-md cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4 text-cyan-400" />
                 <span>Sair</span>
               </button>
             ) : (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md shadow-red-600/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md shadow-red-600/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_#ffffff]"></span>
                 AO VIVO
               </span>
             )}
             {channelSources.length > 1 && (
               <button
-                onClick={cycleSource}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cycleSource();
+                  resetControlsTimer();
+                }}
                 className="px-2 py-1 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold border border-white/20 backdrop-blur-md cursor-pointer"
               >
                 Fonte {channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length}
@@ -948,7 +1046,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={toggleMute}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMute();
+                resetControlsTimer();
+              }}
               className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white border border-white/20 backdrop-blur-md cursor-pointer"
             >
               {isMuted || volume === 0 ? (
@@ -958,7 +1060,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               )}
             </button>
             <button
-              onClick={toggleFullscreen}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFullscreen();
+                resetControlsTimer();
+              }}
               title={isFullscreen ? 'Sair do Modo Cinema' : 'Modo Cinema em Tela Cheia'}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] shadow-lg shadow-cyan-500/30 backdrop-blur-md cursor-pointer"
             >
@@ -981,23 +1087,35 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         <div className="flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => jumpChannels('prev')}
+              onClick={(e) => {
+                e.stopPropagation();
+                jumpChannels('prev');
+                resetControlsTimer();
+              }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
             >
               <SkipBack className="w-3 h-3 text-cyan-400" />
               <span className="text-[10px]">Anterior</span>
             </button>
             <button
-              onClick={() => jumpChannels('next')}
+              onClick={(e) => {
+                e.stopPropagation();
+                jumpChannels('next');
+                resetControlsTimer();
+              }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
             >
-              <span className="text-[10px]">Próximo</span>
+              <span className="text-[10px]">Proximo</span>
               <SkipForward className="w-3 h-3 text-cyan-400" />
             </button>
           </div>
 
           <button
-            onClick={() => setAspectRatio(aspectRatio === 'contain' ? 'cover' : 'contain')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAspectRatio(aspectRatio === 'contain' ? 'cover' : 'contain');
+              resetControlsTimer();
+            }}
             className="px-2 py-1 rounded-lg bg-black/70 text-slate-200 text-[10px] font-bold border border-white/15 backdrop-blur-md cursor-pointer"
           >
             {aspectRatio === 'contain' ? 'Ajustar' : 'Expandir'}
@@ -1014,7 +1132,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         {/* Left: Current Program Info */}
         <div className="flex flex-col gap-1 max-w-2xl pointer-events-auto">
           <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-red-600 text-white animate-pulse shadow-md shadow-red-600/30">
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md shadow-red-600/30">
               AGORA
             </span>
             <h2 className="text-base sm:text-lg font-extrabold text-white tracking-tight drop-shadow-md">
@@ -1130,7 +1248,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
 
           {/* Channel items list */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 custom-scroll">
+          <div
+            onMouseMove={() => setIsKeyboardNavActive(false)}
+            className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 custom-scroll"
+          >
             {filteredChannels.length === 0 ? (
               <div className="text-center py-10 text-slate-500 text-xs">
                 Nenhum canal encontrado.
@@ -1138,7 +1259,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             ) : (
               filteredChannels.map((ch) => {
                 const isSelected = currentChannel?.id === ch.id;
-                const isTvFocused = filteredChannels[tvFocusedIndex]?.id === ch.id;
+                const isTvFocused = isKeyboardNavActive && filteredChannels[tvFocusedIndex]?.id === ch.id;
                 const chLive = getLiveEPGForChannel(ch.id);
                 return (
                   <div
@@ -1364,11 +1485,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             {/* Quick Live Jump button */}
             <button
               onClick={jumpToLiveEdge}
-              title="Sincronizar Ao Vivo com baixa latencia"
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all"
+              title="Sincronizar transmissao ao vivo"
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-200 border border-red-500/30 text-xs font-bold transition-all"
             >
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-              <span>-0.0s AO VIVO</span>
+              <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_#ef4444]"></span>
+              <span>AO VIVO</span>
             </button>
 
             {/* Volume slider */}
@@ -1489,7 +1610,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               </div>
             </div>
             <div className="shrink-0 flex flex-col items-end">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-red-600 text-white animate-pulse">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-red-600 text-white shadow-sm shadow-red-600/30">
                 AO VIVO
               </span>
             </div>
@@ -1655,7 +1776,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 ) : (
                   filteredChannels.map((ch) => {
                     const isSelected = currentChannel?.id === ch.id;
-                    const isTvFocused = filteredChannels[tvFocusedIndex]?.id === ch.id;
+                    const isTvFocused = isKeyboardNavActive && filteredChannels[tvFocusedIndex]?.id === ch.id;
                     const chLive = getLiveEPGForChannel(ch.id);
                     return (
                       <div
@@ -1708,7 +1829,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                               </span>
                               {isSelected && (
                                 <span className="flex items-center gap-1 text-[9px] font-black text-cyan-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_4px_#00F0FF]"></span>
                                   NO AR
                                 </span>
                               )}
@@ -1831,7 +1952,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                             {item.startTime} - {item.endTime}
                           </span>
                           {item.isLive && (
-                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-red-600 text-white animate-pulse">
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-red-600 text-white shadow-sm shadow-red-600/30">
                               NO AR AGORA
                             </span>
                           )}

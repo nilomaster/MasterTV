@@ -56,6 +56,21 @@ export interface EpisodeItem {
   duration?: string;
 }
 
+export interface CastMember {
+  id?: string;
+  name: string;
+  character?: string;
+  photoUrl?: string;
+}
+
+export interface MediaSourceOption {
+  id: number;
+  name: string;
+  type: string;
+  url: string;
+  quality?: string;
+}
+
 export interface MediaItem {
   id: string;
   title: string;
@@ -63,6 +78,7 @@ export interface MediaItem {
   type: 'movie' | 'series' | 'anime' | 'dorama' | 'live';
   year: number;
   rating: number;
+  duration?: string;
   contentRating?: string;
   genres: string[];
   posterUrl: string;
@@ -70,6 +86,8 @@ export interface MediaItem {
   description: string;
   streamUrl: string;
   backupStreamUrl?: string;
+  sources?: MediaSourceOption[];
+  cast?: CastMember[];
   director?: string;
   writers?: string;
   creator?: string;

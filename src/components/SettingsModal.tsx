@@ -2,18 +2,25 @@
 // Strictly ASCII comments only
 
 import React, { useState } from 'react';
-import { X, Sliders } from 'lucide-react';
+import { X, Sliders, User, LogOut, Calendar, ShieldCheck } from 'lucide-react';
+import type { ClientSession } from '../types/admin';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClearCache: () => void;
+  onOpenAdmin?: () => void;
+  clientSession?: ClientSession | null;
+  onLogout?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   onClearCache,
+  onOpenAdmin,
+  clientSession,
+  onLogout,
 }) => {
   const [hardwareAcceleration, setHardwareAcceleration] = useState<boolean>(true);
   const [lowLatency, setLowLatency] = useState<boolean>(true);
@@ -49,6 +56,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Content */}
         <div className="p-6 flex flex-col gap-5 text-xs text-slate-300">
+          {/* Active Client Account Info */}
+          {clientSession && (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">{clientSession.customerName}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      {clientSession.planDuration}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{clientSession.username}</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                      <span>
+                        Vence: {new Date(clientSession.expiresAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {onLogout && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onLogout();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Sair desta conta"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sair</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Toggles */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-white/5">
             <div>
@@ -102,6 +154,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <option value="60s">60 segundos</option>
             </select>
           </div>
+
+          {/* Painel Administrativo e Revenda */}
+          {onOpenAdmin && (
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/30 flex items-center justify-between">
+              <div>
+                <span className="font-bold text-white block text-xs">Painel Admin & Revendedores</span>
+                <span className="text-[11px] text-cyan-400">
+                  Gerencie clientes IPTV, testes rápidos e revendas com créditos.
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenAdmin();
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs transition-all shadow-md shadow-cyan-400/20 cursor-pointer shrink-0 ml-2"
+              >
+                Abrir Painel
+              </button>
+            </div>
+          )}
 
           {/* Cache reset */}
           <div className="p-3 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-between">
