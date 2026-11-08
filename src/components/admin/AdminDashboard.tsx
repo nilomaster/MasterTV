@@ -457,8 +457,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
       year: isChannel ? 2026 : (Number(formYear) || 2026),
       contentRating: isChannel ? 'Livre' : formContentRating.trim(),
       genres: isChannel ? [formChannelCategory.trim() || 'aberta'] : (genresList.length > 0 ? genresList : ['Geral']),
-      posterUrl: formPosterUrl.trim() || (isChannel ? './logos/globosp.png' : './covers/HomenAranhaUmNovoDia.webp'),
-      backdropUrl: formBackdropUrl.trim() || formPosterUrl.trim() || (isChannel ? './logos/globosp.png' : './covers/HomenAranhaUmNovoDia.webp'),
+      posterUrl: formPosterUrl.trim() || (isChannel ? './assets/img/logos/globosp.png' : './assets/img/covers/HomenAranhaUmNovoDia.webp'),
+      backdropUrl: formBackdropUrl.trim() || formPosterUrl.trim() || (isChannel ? './assets/img/logos/globosp.png' : './assets/img/covers/HomenAranhaUmNovoDia.webp'),
       streamUrl: primaryStreamUrl,
       backupStreamUrl: primaryBackupUrl,
       sourcesList: sourcesList,
@@ -1510,7 +1510,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                       {/* Poster / Thumbnail with fallback */}
                       <div className="w-24 h-36 rounded-xl bg-slate-950 border border-white/10 overflow-hidden shrink-0 relative shadow-inner">
                         <img
-                          src={item.posterUrl || './covers/default.webp'}
+                          src={item.posterUrl || './assets/img/covers/default.webp'}
                           alt={item.title}
                           className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
                           onError={(e) => {
@@ -2503,7 +2503,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                       </label>
                       <input
                         type="text"
-                        placeholder="./logos/globosp.png ou https://.../logo.png"
+                        placeholder="./assets/img/logos/globosp.png ou https://.../logo.png"
                         value={formPosterUrl}
                         onChange={(e) => setFormPosterUrl(e.target.value)}
                         className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-red-400"
@@ -2516,19 +2516,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                         </span>
                         <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
                           {[
-                            { name: 'Globo', path: './logos/globosp.png' },
-                            { name: 'SBT', path: './logos/sbt.png' },
-                            { name: 'Record', path: './logos/record.png' },
-                            { name: 'Band', path: './logos/band.png' },
-                            { name: 'Rede TV', path: './logos/redetv.png' },
-                            { name: 'Premiere', path: './logos/premiere.png' },
-                            { name: 'ESPN', path: './logos/espn.png' },
-                            { name: 'SporTV', path: './logos/sportv.png' },
-                            { name: 'HBO', path: './logos/hbo.png' },
-                            { name: 'TNT', path: './logos/tnt.png' },
-                            { name: 'Warner', path: './logos/warner.png' },
-                            { name: 'Telecine', path: './logos/telecine.png' },
-                            { name: 'CNN Brasil', path: './logos/cnnbrasil.png' },
+                            { name: 'Globo', path: './assets/img/logos/globosp.png' },
+                            { name: 'SBT', path: './assets/img/logos/sbt.png' },
+                            { name: 'Record', path: './assets/img/logos/record.png' },
+                            { name: 'Band', path: './assets/img/logos/band.png' },
+                            { name: 'Rede TV', path: './assets/img/logos/redetv.png' },
+                            { name: 'Premiere', path: './assets/img/logos/premiere.png' },
+                            { name: 'ESPN', path: './assets/img/logos/espn.png' },
+                            { name: 'SporTV', path: './assets/img/logos/sportv.png' },
+                            { name: 'HBO', path: './assets/img/logos/hbo.png' },
+                            { name: 'TNT', path: './assets/img/logos/tnt.png' },
+                            { name: 'Warner', path: './assets/img/logos/warner.png' },
+                            { name: 'Telecine', path: './assets/img/logos/telecine.png' },
+                            { name: 'CNN Brasil', path: './assets/img/logos/cnnbrasil.png' },
                           ].map((preset) => (
                             <button
                               key={preset.name}

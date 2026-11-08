@@ -905,7 +905,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 setIsMuted(false);
               }
             }}
-            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 hover:bg-slate-900 border border-cyan-400/60 backdrop-blur-md text-cyan-300 text-xs font-semibold shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer transition-colors"
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 hover:bg-slate-900 border border-blue-500/60 backdrop-blur-md text-blue-300 text-xs font-semibold shadow-md shadow-blue-900/20 cursor-pointer transition-colors"
           >
             <VolumeX className="w-3.5 h-3.5 text-red-400" />
             <span>Clique ou toque para ativar o som</span>
@@ -932,19 +932,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             }}
             className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/75 backdrop-blur-sm cursor-pointer"
           >
-            <div className="w-16 h-16 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.6)] mb-3 transition-transform hover:scale-105">
-              <Play className="w-8 h-8 fill-slate-950 ml-1" />
+            <div className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-600/40 mb-3 transition-transform hover:scale-105">
+              <Play className="w-8 h-8 fill-white ml-1" />
             </div>
             <span className="text-white text-sm font-bold tracking-wide">Clique ou Toque para Assistir</span>
-            <span className="text-cyan-400 text-xs font-semibold mt-1">{currentChannel?.name}</span>
+            <span className="text-blue-400 text-xs font-semibold mt-1">{currentChannel?.name}</span>
           </button>
         )}
 
-      {/* Loading Overlay - Splash Neon Effect matching Saimo TV */}
+      {/* Loading Overlay */}
       {isLoadingStream && (
         <div className="absolute inset-0 bg-[#07090e]/80 backdrop-blur-md flex flex-col items-center justify-center pointer-events-none z-10 animate-in fade-in duration-200">
           <div className="relative flex items-center justify-center mb-4">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#00F0FF]/20 to-[#8b5cf6]/20 border border-[#00F0FF]/40 p-3 shadow-[0_0_30px_rgba(0,240,255,0.35)] flex items-center justify-center">
+            <div className="w-20 h-20 rounded-2xl bg-blue-950/40 border border-blue-500/40 p-3 shadow-lg shadow-blue-900/30 flex items-center justify-center">
               {currentChannel?.logo ? (
                 <img
                   src={currentChannel.logo}
@@ -1019,14 +1019,14 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   toggleFullscreen();
                   resetControlsTimer();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-cyan-400/50 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 backdrop-blur-md cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-blue-500/50 text-white text-xs font-bold shadow-md shadow-blue-900/20 backdrop-blur-md cursor-pointer"
               >
-                <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                <ArrowLeft className="w-4 h-4 text-blue-400" />
                 <span>Sair</span>
               </button>
             ) : (
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-md shadow-red-600/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_#ffffff]"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white shadow-sm"></span>
                 AO VIVO
               </span>
             )}
@@ -1056,7 +1056,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               {isMuted || volume === 0 ? (
                 <VolumeX className="w-3.5 h-3.5 text-red-400" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                <Volume2 className="w-3.5 h-3.5 text-blue-400" />
               )}
             </button>
             <button
@@ -1066,7 +1066,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 resetControlsTimer();
               }}
               title={isFullscreen ? 'Sair do Modo Cinema' : 'Modo Cinema em Tela Cheia'}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] shadow-lg shadow-cyan-500/30 backdrop-blur-md cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] shadow-md shadow-blue-600/30 backdrop-blur-md cursor-pointer"
             >
               {isFullscreen ? (
                 <>
@@ -1094,7 +1094,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
             >
-              <SkipBack className="w-3 h-3 text-cyan-400" />
+              <SkipBack className="w-3 h-3 text-blue-400" />
               <span className="text-[10px]">Anterior</span>
             </button>
             <button
@@ -1106,7 +1106,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-slate-200 text-xs font-semibold border border-white/15 backdrop-blur-md cursor-pointer"
             >
               <span className="text-[10px]">Proximo</span>
-              <SkipForward className="w-3 h-3 text-cyan-400" />
+              <SkipForward className="w-3 h-3 text-blue-400" />
             </button>
           </div>
 
@@ -1282,9 +1282,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                     }}
                     className={`group relative flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all border-2 outline-none ${
                       isSelected
-                        ? 'bg-white/15 border-[#4fe3d0] shadow-[0_0_20px_rgba(79,227,208,0.25)]'
+                        ? 'bg-blue-600/20 border-blue-500 shadow-md shadow-blue-900/30'
                         : isTvFocused
-                        ? 'bg-white/20 border-cyan-400 ring-2 ring-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.4)] scale-[1.01]'
+                        ? 'bg-white/15 border-blue-400 ring-2 ring-blue-500 shadow-lg shadow-blue-900/40 scale-[1.01]'
                         : 'bg-slate-900/30 border-transparent hover:bg-white/10 hover:border-white/10'
                     }`}
                   >
@@ -1292,7 +1292,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                       {/* Channel Number */}
                       <span
                         className={`font-mono text-xs w-6 text-right shrink-0 ${
-                          isSelected ? 'text-[#4fe3d0] font-bold' : 'text-white/40 font-semibold'
+                          isSelected ? 'text-blue-400 font-bold' : 'text-white/40 font-semibold'
                         }`}
                       >
                         {String(ch.number).padStart(2, '0')}
@@ -1397,7 +1397,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               }}
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/10 text-left transition-colors"
             >
-              <Radio className="w-3.5 h-3.5 text-cyan-400" />
+              <Radio className="w-3.5 h-3.5 text-blue-400" />
               <span>Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})</span>
             </button>
           )}
@@ -1501,7 +1501,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-4 h-4 text-red-400" />
                 ) : (
-                  <Volume2 className="w-4 h-4 text-[#4fe3d0]" />
+                  <Volume2 className="w-4 h-4 text-blue-400" />
                 )}
               </button>
               <input
@@ -1511,7 +1511,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                className="w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#4fe3d0]"
+                className="w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
             </div>
           </div>
@@ -1524,7 +1524,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               title="Alternar Modo Zero Delay"
               className={`hidden lg:flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${
                 zeroDelayActive
-                  ? 'bg-[#4fe3d0]/15 border border-[#4fe3d0]/50 text-[#4fe3d0] shadow-[0_0_12px_rgba(79,227,208,0.25)]'
+                  ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 shadow-sm shadow-blue-900/30'
                   : 'bg-white/5 border border-white/10 text-slate-400'
               }`}
             >
@@ -1577,7 +1577,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       {/* TV OSD Channel Banner (TiviMate style when zapping with remote) */}
       {osdChannel && (
         <div className="absolute bottom-6 left-6 right-6 max-w-2xl mx-auto z-50 animate-in fade-in slide-in-from-bottom-4 duration-200 pointer-events-none">
-          <div className="bg-[#0b0e14]/95 backdrop-blur-2xl border-2 border-cyan-400 rounded-2xl p-3.5 sm:p-4 shadow-[0_12px_40px_rgba(0,240,255,0.35)] flex items-center justify-between gap-4">
+          <div className="bg-[#0b0e14]/95 backdrop-blur-2xl border border-blue-500/40 rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-blue-950/50 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-slate-950 border border-white/15 flex items-center justify-center p-1.5 shrink-0">
                 <img
@@ -1588,13 +1588,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-cyan-400 font-black text-xs sm:text-sm">
+                  <span className="font-mono text-blue-400 font-black text-xs sm:text-sm">
                     CH {String(osdChannel.number).padStart(2, '0')}
                   </span>
                   <h3 className="text-base sm:text-lg font-black text-white truncate">
                     {osdChannel.name}
                   </h3>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
                     {osdChannel.quality || 'HD'}
                   </span>
                 </div>
@@ -1602,7 +1602,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   {getLiveEPGForChannel(osdChannel.id).currentProgram || osdChannel.currentProgram || 'Ao Vivo'}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                  <span className="text-cyan-400 font-mono font-bold">
+                  <span className="text-blue-400 font-mono font-bold">
                     {getLiveEPGForChannel(osdChannel.id).currentProgramTime || osdChannel.currentProgramTime || 'Agora'}
                   </span>
                   <span>· {getLiveEPGForChannel(osdChannel.id).durationText || 'Ao Vivo'}</span>
@@ -1625,7 +1625,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           {/* Active Channel Strip Header */}
           <div className="shrink-0 p-3 bg-gradient-to-b from-[#0b0e14] to-[#07090e] border-b border-white/10 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative w-11 h-11 rounded-xl bg-slate-900 border border-cyan-500/30 p-1 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+              <div className="relative w-11 h-11 rounded-xl bg-slate-900 border border-blue-500/30 p-1 flex items-center justify-center shrink-0 shadow-md shadow-blue-950/30">
                 {currentChannel?.logo ? (
                   <img
                     src={currentChannel.logo}
@@ -1633,18 +1633,18 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                     className="w-full h-full object-contain"
                   />
                 ) : (
-                  <Tv className="w-6 h-6 text-cyan-400" />
+                  <Tv className="w-6 h-6 text-blue-400" />
                 )}
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono font-bold text-cyan-400">
+                  <span className="text-[10px] font-mono font-bold text-blue-400">
                     CH {currentChannel?.number ? String(currentChannel.number).padStart(2, '0') : '01'}
                   </span>
                   <h2 className="text-sm font-extrabold text-white truncate">
                     {currentChannel?.name || 'Canal'}
                   </h2>
-                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
                     {currentChannel?.quality || 'HD'}
                   </span>
                 </div>
@@ -1652,7 +1652,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   {currentLiveInfo?.currentProgram || currentChannel?.currentProgram || 'Programacao Ao Vivo'}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                  <span className="text-cyan-400 font-mono font-bold">
+                  <span className="text-blue-400 font-mono font-bold">
                     {currentLiveInfo?.currentProgramTime || currentChannel?.currentProgramTime || 'Agora'}
                   </span>
                   <span>· {currentLiveInfo?.durationText || 'Ao Vivo'}</span>
@@ -1679,7 +1679,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           {currentLiveInfo && (
             <div className="shrink-0 w-full h-1 bg-slate-900 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+                className="h-full bg-blue-500 transition-all duration-500"
                 style={{ width: `${currentLiveInfo.progressPercent}%` }}
               />
             </div>
@@ -1691,7 +1691,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               onClick={() => setMobileTab('channels')}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 mobileTab === 'channels'
-                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -1703,7 +1703,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               onClick={() => setMobileTab('categories')}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 mobileTab === 'categories'
-                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -1715,7 +1715,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               onClick={() => setMobileTab('epg')}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 mobileTab === 'epg'
-                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -1735,7 +1735,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   placeholder="Buscar canal ou programa..."
                   value={searchChannel}
                   onChange={(e) => setSearchChannel(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2.5 bg-slate-900/90 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-all"
+                  className="w-full pl-9 pr-9 py-2.5 bg-slate-900/90 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
                 />
                 {searchChannel && (
                   <button
@@ -1757,7 +1757,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                       onClick={() => setSelectedCategory(cat.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                         isCatActive
-                          ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-400/25'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
                           : 'bg-slate-900 border border-white/10 text-slate-300 hover:text-white'
                       }`}
                     >
@@ -1786,9 +1786,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                         onClick={() => onSelectChannel(ch)}
                         className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border outline-none ${
                           isSelected
-                            ? 'bg-cyan-500/15 border-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.25)] ring-1 ring-cyan-400'
+                            ? 'bg-blue-600/15 border-blue-500 shadow-md shadow-blue-900/30 ring-1 ring-blue-500'
                             : isTvFocused
-                            ? 'bg-white/20 border-cyan-300 ring-2 ring-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] scale-[1.01]'
+                            ? 'bg-white/15 border-blue-400 ring-2 ring-blue-500 shadow-lg shadow-blue-900/40 scale-[1.01]'
                             : 'bg-slate-900/60 border-white/5 hover:bg-slate-800/80 hover:border-white/15'
                         }`}
                       >
@@ -1796,7 +1796,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                           {/* Channel Number */}
                           <span
                             className={`font-mono text-xs w-6 text-right shrink-0 font-black ${
-                              isSelected ? 'text-cyan-400' : 'text-slate-500'
+                              isSelected ? 'text-blue-400' : 'text-slate-500'
                             }`}
                           >
                             {String(ch.number).padStart(2, '0')}
@@ -1819,17 +1819,17 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                             <div className="flex items-center gap-2">
                               <span
                                 className={`text-sm truncate font-bold ${
-                                  isSelected ? 'text-cyan-300' : 'text-white'
+                                  isSelected ? 'text-blue-300' : 'text-white'
                                 }`}
                               >
                                 {ch.name}
                               </span>
-                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-400">
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-400">
                                 {ch.quality || 'HD'}
                               </span>
                               {isSelected && (
-                                <span className="flex items-center gap-1 text-[9px] font-black text-cyan-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_4px_#00F0FF]"></span>
+                                <span className="flex items-center gap-1 text-[9px] font-black text-blue-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-sm"></span>
                                   NO AR
                                 </span>
                               )}
@@ -1840,7 +1840,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                             {/* Real-time progress bar */}
                             <div className="w-full max-w-[180px] h-[3px] bg-slate-800 rounded-full overflow-hidden mt-1.5">
                               <div
-                                className="h-full bg-cyan-400 rounded-full transition-all duration-500"
+                                className="h-full bg-blue-500 rounded-full transition-all duration-500"
                                 style={{ width: `${chLive.progressPercent}%` }}
                               />
                             </div>
@@ -1888,12 +1888,12 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                       setSelectedCategory(cat.id);
                       setMobileTab('channels');
                     }}
-                    className="flex flex-col items-start p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 hover:border-cyan-400/50 transition-all text-left cursor-pointer group shadow-lg"
+                    className="flex flex-col items-start p-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 hover:border-blue-500/50 transition-all text-left cursor-pointer group shadow-lg"
                   >
-                    <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-2 group-hover:scale-110 transition-transform">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-2 group-hover:scale-105 transition-transform">
                       <Tv className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-extrabold text-white group-hover:text-cyan-300 transition-colors">
+                    <span className="text-sm font-extrabold text-white group-hover:text-blue-300 transition-colors">
                       {cat.name}
                     </span>
                     <span className="text-[11px] text-slate-400 font-medium mt-0.5">
@@ -1919,7 +1919,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 </div>
                 <button
                   onClick={handleOpenEPG}
-                  className="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Grade Completa</span>
@@ -1938,7 +1938,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                       key={item.id}
                       className={`p-3 rounded-2xl border transition-all ${
                         item.isLive
-                          ? 'bg-cyan-500/10 border-cyan-400 shadow-[0_0_20px_rgba(0,240,255,0.15)]'
+                          ? 'bg-blue-600/15 border-blue-500 shadow-md shadow-blue-900/30'
                           : 'bg-slate-900/60 border-white/5'
                       }`}
                     >
@@ -1946,7 +1946,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                         <div className="flex items-center gap-2">
                           <span
                             className={`font-mono text-xs font-bold ${
-                              item.isLive ? 'text-cyan-400' : 'text-slate-400'
+                              item.isLive ? 'text-blue-400' : 'text-slate-400'
                             }`}
                           >
                             {item.startTime} - {item.endTime}
