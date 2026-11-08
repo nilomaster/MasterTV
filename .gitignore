@@ -8,9 +8,15 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+# Build artifacts
 dist
 dist-ssr
 *.local
+*.apk
+*.wgt
+*.zip
+tizen-build/
+userwidget/
 
 # Editor directories and files
 .vscode/*

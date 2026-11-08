@@ -63,3 +63,38 @@ Episódios37 episódios
 ( Episodio 5 ) https://solitary-canyon-7642.8ee7klupb4z1.workers.dev/t/1793901816.cd376a6d6ac05988da8aacd0c806c7d4fd3db51c59e00e0e17ca93628fcc140c/u/LinhaZed099183u/e1.yf4_c0_asxG7ALF37JLzzZSyhzbf3FGuZcQ-83oYqpYWhoZALMLcfWYfDkJZW3gyPgu8xlh7V-QVsn-BN7lhSbArH9qiCRVriv_ZrU4Kj_s
 
 Elenco
+
+
+FILME
+As Branquelas
+Estão disfarçadas.
+
+★ 7.0
+2004
+1h 54m
+12
+Comédia · Crime
+
+▶ Assistir
+♡ Favoritar
+O que acontece quando dois atrapalhados agentes do FBI se disfarçam de princesas mega-ricas para se infiltrarem na alta sociedade? O resultado é situações extremamente engraçadas e diversão total ao ver estes dois irmãos azarados transformando-se em duas senhoritas refinadas e com estilo!
+
+Direção
+Keenen Ivory Wayans
+Roteiro
+Keenen Ivory Wayans, Marlon Wayans
+Produção
+Revolution Studios
+
+Fonte 1 HD: https://cold-brook-ff63.gin4uxm3xv9o.workers.dev/t/1794111600.b465f381ffb7cd0387825add429d3e92aae5e07332c4975f18801af4ae4ebc02/u/LinhaZed099183u/e1.CLdAH0pbHCoByitfSrDJFaE79EZR8Prx0zbcc2pCxPHYhyEvNNSLwFOjdFxxaXaD
+Fonte 2 HD: https://cold-brook-ff63.gin4uxm3xv9o.workers.dev/t/1794111791.f62001a72e24c5d67f991c6b30b74fd513be50d2bcd21267f1fec4ceae093ccf/u/LinhaZed099183u/e1.0iNuiTsSOtz--4HsqN9mFKfda5wFny_19xxK54QJBW4ajkX72ZUe6sUfr1BAj2y0
+Legenda: https://subs5.strem.io/en/download/subencoding-stremio-utf8/src-api/file/109146
+
+Agora vamos implementar no paindel admin, uma função para eu adicionar filmes, series, canais ao vivo, animes etc..
+
+Adicionar nome do filme
+nota 
+duração
+adicionar banner
+adicionar todas as info seguindo nossa front end
+link do filme ou canal 

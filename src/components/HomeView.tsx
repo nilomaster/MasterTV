@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import type { Channel, MediaItem } from '../types/iptv';
+import { AdminService } from '../services/adminService';
 
 interface HomeViewProps {
   channels: Channel[];
@@ -31,14 +32,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenEPG,
   onOpenVODCategory,
 }) => {
-  const liveCount = channels.length || 18;
+  const liveCount = channels.length;
+  const dbContents = AdminService.getContents();
+  const movies = dbContents.filter((c) => c && c.type === 'movie');
+  const series = dbContents.filter((c) => c && c.type === 'series');
+  const animes = dbContents.filter((c) => c && c.type === 'anime');
 
-  // Curated poster collages for each category card matching the reference design
+  const livePosters = channels.slice(0, 4).map((c) => c.logo).filter(Boolean);
+  const moviePosters = movies.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
+  const seriesPosters = series.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
+  const animePosters = animes.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
+
+  // Dynamic category cards reflecting exclusively the synchronized database contents
   const cardData = [
     {
       id: 'live',
       title: 'Ao Vivo',
-      count: `${liveCount} canais transmitindo`,
+      count: liveCount === 1 ? '1 canal transmitindo' : `${liveCount} canais transmitindo`,
       accentColor: 'text-red-400',
       badgeBg: 'bg-red-500/20 border-red-500/40 text-red-400',
       glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(239,68,68,0.25)]',
@@ -46,55 +56,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
       icon: Radio,
       isLiveBadge: true,
       onClick: () => onOpenPlayer(),
-      posters: [
-        './logos/globosp.png',
-        './logos/premiere.png',
-        './logos/hbo.png',
-        './logos/espn.png',
-      ],
-      isLogoCollage: true,
+      posters: livePosters,
+      isLogoCollage: livePosters.length > 1,
     },
     {
       id: 'movies',
       title: 'Filmes',
-      count: '29.285 títulos',
+      count: movies.length === 1 ? '1 título' : `${movies.length} títulos`,
       accentColor: 'text-cyan-300',
       badgeBg: 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300',
       glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(0,240,255,0.25)]',
       borderHover: 'group-hover:border-cyan-400/60',
       icon: Film,
       onClick: () => onOpenVODCategory?.('movies'),
-      posters: [
-        './covers/HomenAranhaUmNovoDia.webp',
-      ],
+      posters: moviePosters,
     },
     {
       id: 'series',
       title: 'Séries',
-      count: '10.201 títulos',
+      count: series.length === 1 ? '1 título' : `${series.length} títulos`,
       accentColor: 'text-blue-400',
       badgeBg: 'bg-blue-500/20 border-blue-400/40 text-blue-300',
       glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(59,130,246,0.25)]',
       borderHover: 'group-hover:border-blue-400/60',
       icon: Tv2,
       onClick: () => onOpenVODCategory?.('series'),
-      posters: [
-        './covers/VisionQuest.webp',
-      ],
+      posters: seriesPosters,
     },
     {
       id: 'animes',
       title: 'Animes',
-      count: '426 títulos',
+      count: animes.length === 1 ? '1 título' : `${animes.length} títulos`,
       accentColor: 'text-amber-400',
       badgeBg: 'bg-amber-500/20 border-amber-400/40 text-amber-300',
       glowShadow: 'group-hover:shadow-[0_10px_30px_rgba(245,158,11,0.25)]',
       borderHover: 'group-hover:border-amber-400/60',
       icon: Sparkles,
       onClick: () => onOpenVODCategory?.('animes'),
-      posters: [
-        './covers/DeathNoteAnime.webp',
-      ],
+      posters: animePosters,
     },
   ];
 
@@ -167,7 +166,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {/* Live Badge for Ao Vivo */}
               {card.isLiveBadge && (
                 <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-red-600/40 backdrop-blur-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_#ffffff]" />
                   <span>Ao Vivo</span>
                 </div>
               )}
