@@ -5,6 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { Film, Play, Star, Tv2, Sparkles, HeartHandshake } from 'lucide-react';
 import type { MediaItem } from '../types/iptv';
 import { AdminService } from '../services/adminService';
+import { detectQualityFromUrl } from '../services/qualityDetector';
 
 interface VODViewProps {
   onSelectMedia: (item: MediaItem) => void;
@@ -213,6 +214,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
               ? String(item.genres)
               : 'Geral';
             const displayRating = Number(item.rating || 0).toFixed(1);
+            const qualityInfo = detectQualityFromUrl(item.streamUrl, item.title);
 
             return (
               <div
@@ -234,6 +236,12 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
                       <Play className="w-5 h-5 fill-white ml-0.5" />
                     </div>
                   </div>
+
+                  {/* Quality Badge from Source */}
+                  <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded backdrop-blur-md text-[9px] font-mono font-bold border shadow-sm ${qualityInfo.badgeBg} ${qualityInfo.borderBg}`}>
+                    {qualityInfo.short}
+                  </div>
+
                   <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold text-amber-300 flex items-center gap-0.5">
                     <Star className="w-2.5 h-2.5 fill-amber-300" />
                     {displayRating}

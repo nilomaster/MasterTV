@@ -2,7 +2,7 @@
 // Styled strictly identical to Saimo TV (edge-to-edge controls, center red play button, settings popover)
 // Strictly ASCII comments only as per project guidelines
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Hls from 'hls.js';
 import {
   Play,
@@ -23,6 +23,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import type { MediaItem, EpisodeItem } from '../types/iptv';
+import { getStreamQuality, detectQualityFromDimensions } from '../services/qualityDetector';
 
 interface VODPlayerViewProps {
   mediaItem: MediaItem;
@@ -84,7 +85,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
   const [hoverPosition, setHoverPosition] = useState<number>(0);
   const [isDraggingProgress, setIsDraggingProgress] = useState<boolean>(false);
   const [activeSource, setActiveSource] = useState<number>(1);
-
+  const [detectedDimensions, setDetectedDimensions] = useState<{ height: number; width?: number } | null>(null);
   const controlsTimeoutRef = useRef<number | null>(null);
 
   // Active stream URL based on selected source
@@ -92,6 +93,10 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     activeSource === 2 && (currentEpisode?.backupStreamUrl || mediaItem.backupStreamUrl)
       ? (currentEpisode?.backupStreamUrl || mediaItem.backupStreamUrl || streamUrl)
       : streamUrl;
+
+  useEffect(() => {
+    setDetectedDimensions(null);
+  }, [effectiveStreamUrl]);
 
   // Format seconds to HH:MM:SS or MM:SS
   const formatTime = (timeInSeconds: number): string => {
@@ -179,10 +184,6 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     const setupNativePlayback = (fallbackToHlsIfFailed = true) => {
       if (!video) return;
       video.src = streamUrl;
-      setAvailableLevels([
-        { id: -1, name: 'Automatica' },
-        { id: 0, name: '1080p' },
-      ]);
 
       const handleReady = () => {
         if (connectTimeout) {
@@ -190,6 +191,13 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
+        if (video.videoHeight > 0) {
+          setDetectedDimensions({ height: video.videoHeight, width: video.videoWidth });
+          setAvailableLevels([
+            { id: -1, name: 'Automatica' },
+            { id: 0, name: `${video.videoHeight}p` },
+          ]);
+        }
         if (resumeTime > 0) {
           video.currentTime = resumeTime;
         }
@@ -248,12 +256,18 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             name: lvl.height ? `${lvl.height}p` : `Nivel ${index + 1}`,
           }));
           setAvailableLevels([{ id: -1, name: 'Automatica' }, ...lvls]);
+          if (data.levels[0]?.height) {
+            setDetectedDimensions({ height: data.levels[0].height, width: data.levels[0].width });
+          }
         } else if (data && data.levels && data.levels.length === 1) {
           const h = data.levels[0].height;
           setAvailableLevels([
             { id: -1, name: 'Automatica' },
             { id: 0, name: h ? `${h}p` : '1080p' },
           ]);
+          if (h) {
+            setDetectedDimensions({ height: h, width: data.levels[0].width });
+          }
         } else {
           setAvailableLevels([{ id: -1, name: 'Automatica' }]);
         }
@@ -264,6 +278,13 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         video.play().catch(() => {
           setIsPlaying(false);
         });
+      });
+
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+        const lvl = hls.levels[data.level];
+        if (lvl && lvl.height) {
+          setDetectedDimensions({ height: lvl.height, width: lvl.width });
+        }
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -346,16 +367,26 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
+    const handleDimensions = () => {
+      if (video.videoHeight > 0) {
+        setDetectedDimensions({ height: video.videoHeight, width: video.videoWidth });
+      }
+    };
+
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('loadedmetadata', handleDimensions);
+    video.addEventListener('resize', handleDimensions);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('loadedmetadata', handleDimensions);
+      video.removeEventListener('resize', handleDimensions);
     };
   }, [isDraggingProgress]);
 
@@ -609,7 +640,19 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     }
   };
 
-  const currentLevelName = availableLevels.find((l) => l.id === selectedLevel)?.name || '1080p';
+  // Active stream quality resolved dynamically from video stream dimensions and source url
+  const activeQualityInfo = useMemo(() => {
+    if (selectedLevel !== -1) {
+      const chosen = availableLevels.find((l) => l.id === selectedLevel);
+      if (chosen && chosen.name) {
+        const parsedH = parseInt(chosen.name, 10);
+        if (!isNaN(parsedH) && parsedH > 0) {
+          return detectQualityFromDimensions(parsedH);
+        }
+      }
+    }
+    return getStreamQuality(effectiveStreamUrl, title, detectedDimensions || undefined);
+  }, [selectedLevel, availableLevels, effectiveStreamUrl, title, detectedDimensions]);
 
   return (
     <div
@@ -755,10 +798,10 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           </div>
         </div>
 
-        {/* Right side resolution pill */}
+        {/* Right side resolution pill (Dynamic based on source) */}
         <div className="hidden sm:flex items-center gap-2 pointer-events-auto">
-          <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-white/10 text-blue-300 border border-white/10 backdrop-blur-md shadow">
-            {currentLevelName === 'Automatica' ? '1080P Full HD' : currentLevelName.toUpperCase()}
+          <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold border backdrop-blur-md shadow ${activeQualityInfo.badgeBg} ${activeQualityInfo.borderBg}`}>
+            {activeQualityInfo.full}
           </span>
         </div>
       </div>
@@ -774,8 +817,8 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           <div className="flex sm:hidden items-center justify-between text-[11px] font-mono font-medium text-slate-300 px-1 select-none">
             <span className="text-white font-bold">{formatTime(currentTime)}</span>
             <div className="flex items-center gap-2">
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-mono font-bold">
-                {currentLevelName === 'Automatica' ? '1080P' : currentLevelName.toUpperCase()}
+              <span className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold ${activeQualityInfo.badgeBg} ${activeQualityInfo.borderBg}`}>
+                {activeQualityInfo.short}
               </span>
               <span className="text-slate-400">{formatTime(duration)}</span>
             </div>
@@ -882,9 +925,9 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                 <span className="text-slate-400">{formatTime(duration)}</span>
               </div>
 
-              {/* Quality badge (Desktop) */}
-              <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-mono font-bold">
-                {currentLevelName === 'Automatica' ? '1080P' : currentLevelName.toUpperCase()}
+              {/* Quality badge (Desktop, dynamic from source) */}
+              <span className={`hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${activeQualityInfo.badgeBg} ${activeQualityInfo.borderBg}`}>
+                {activeQualityInfo.short}
               </span>
             </div>
 

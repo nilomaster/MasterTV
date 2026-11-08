@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Play, Heart, Tv } from 'lucide-react';
 import type { MediaItem, Channel, EPGProgram, EpisodeItem, CastMember } from '../types/iptv';
+import { detectQualityFromUrl } from '../services/qualityDetector';
 
 interface MediaModalProps {
   mediaItem: MediaItem | null;
@@ -59,6 +60,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   onPlayMedia,
 }) => {
   const [isFavorited, setIsFavorited] = useState<boolean>(false);
+  const [selectedSource, setSelectedSource] = useState<number>(1);
+
+  // Reset selected source whenever media item changes
+  useEffect(() => {
+    setSelectedSource(1);
+  }, [mediaItem]);
 
   // Close modal on TV remote back button (Escape, Back, Tizen 10009)
   useEffect(() => {
@@ -95,6 +102,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const backdrop = mediaItem?.backdropUrl || mediaItem?.posterUrl || programItem?.channel.logo || '';
   const mainStreamUrl = mediaItem ? mediaItem.streamUrl : programItem?.channel.streamUrl || '';
 
+  // Quality detection based on source URL
+  const source1Quality = detectQualityFromUrl(mediaItem?.streamUrl || mainStreamUrl, title);
+  const source2Quality = mediaItem?.backupStreamUrl ? detectQualityFromUrl(mediaItem.backupStreamUrl, title) : null;
+  const activeQuality = selectedSource === 2 && source2Quality ? source2Quality : source1Quality;
+  const activeTargetUrl = selectedSource === 2 && mediaItem?.backupStreamUrl ? mediaItem.backupStreamUrl : (mediaItem?.streamUrl || mainStreamUrl);
+
   const hasEpisodes = Boolean(mediaItem?.episodeList && mediaItem.episodeList.length > 0);
 
   // Cast members resolution
@@ -113,7 +126,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   }
 
   const handlePlayCurrentSource = () => {
-    const targetUrl = mediaItem?.streamUrl || mainStreamUrl;
+    const targetUrl = activeTargetUrl;
     if (hasEpisodes && mediaItem?.episodeList && mediaItem.episodeList.length > 0) {
       onPlayMedia(targetUrl, `${title} - ${mediaItem.episodeList[0].title}`, mediaItem, mediaItem.episodeList[0]);
     } else {
@@ -207,11 +220,16 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 </p>
               )}
 
-              {/* Badges Row (Rating, Year, Duration, Age) */}
+              {/* Badges Row (Rating, Quality, Year, Duration, Age) */}
               <div className="flex flex-wrap items-center gap-2 mt-1 mb-2">
                 {/* Rating Badge */}
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-black/60 border border-amber-400/30 text-amber-300 text-xs font-bold shadow-sm">
                   ★ {rating}
+                </span>
+
+                {/* Detected Quality Badge from Source */}
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg border text-xs font-bold font-mono shadow-sm ${activeQuality.badgeBg} ${activeQuality.borderBg}`}>
+                  {activeQuality.full}
                 </span>
 
                 {/* Year Badge */}
@@ -242,6 +260,33 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                   </span>
                 )}
               </div>
+
+              {/* Multiple Sources Selector if backup exists */}
+              {Boolean(mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) && (
+                <div className="flex items-center gap-2 my-2">
+                  <span className="text-xs text-slate-400 font-semibold">Fonte:</span>
+                  <button
+                    onClick={() => setSelectedSource(1)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      selectedSource === 1
+                        ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Fonte 1 ({source1Quality.short})
+                  </button>
+                  <button
+                    onClick={() => setSelectedSource(2)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      selectedSource === 2
+                        ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Fonte 2 ({source2Quality?.short || 'HD'})
+                  </button>
+                </div>
+              )}
 
               {/* Genres Line */}
               <div className="text-xs font-medium text-slate-300 mb-4">
