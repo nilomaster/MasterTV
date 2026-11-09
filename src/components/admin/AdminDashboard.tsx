@@ -410,28 +410,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     const sourcesList = [
       {
         id: 1,
-        name: 'Fonte 1 HD',
+        name: '720P - HD',
         quality: 'HD' as const,
         streamUrl: formSource1HdUrl.trim(),
         backupStreamUrl: formSource1HdBackup.trim(),
       },
       {
         id: 2,
-        name: 'Fonte 2 HD',
+        name: '720P - HD (Alternativa)',
         quality: 'HD' as const,
         streamUrl: formSource2HdUrl.trim(),
         backupStreamUrl: formSource2HdBackup.trim(),
       },
       {
         id: 3,
-        name: 'Fonte 3 FHD',
+        name: '1080P - FHD',
         quality: 'FHD' as const,
         streamUrl: formSource3FhdUrl.trim(),
         backupStreamUrl: formSource3FhdBackup.trim(),
       },
       {
         id: 4,
-        name: 'Fonte 4 FHD',
+        name: '1080P - FHD (Alternativa)',
         quality: 'FHD' as const,
         streamUrl: formSource4FhdUrl.trim(),
         backupStreamUrl: formSource4FhdBackup.trim(),
@@ -2245,10 +2245,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                     <div className="flex flex-col gap-3 p-4 rounded-2xl bg-red-950/20 border border-red-500/20">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-red-300">
-                          Links do Canal (Fontes Principais e Alternativas)
+                          Links de Transmissao do Canal (HD e FHD)
                         </span>
                         <span className="text-xs text-slate-400">
-                          Configure as fontes de transmissao (.m3u8 / .mp4) e links de backup para redundancia automatica caso a principal caia.
+                          Configure os links de transmissao (.m3u8 / .mp4) e links de backup para redundancia automatica caso a principal caia.
                         </span>
                       </div>
 
@@ -2258,7 +2258,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                              Fonte 1 (HD)
+                              720P - HD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
                               Principal HD
@@ -2270,7 +2270,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte1.m3u8"
+                              placeholder="https://exemplo.com/canal-720p.m3u8"
                               value={formSource1HdUrl}
                               onChange={(e) => {
                                 setFormSource1HdUrl(e.target.value);
@@ -2301,7 +2301,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-                              Fonte 2 (HD)
+                              720P - HD (Alternativa)
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">
                               Alternativa HD
@@ -2313,7 +2313,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte2.m3u8"
+                              placeholder="https://exemplo.com/canal-720p-alt.m3u8"
                               value={formSource2HdUrl}
                               onChange={(e) => setFormSource2HdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-orange-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2338,7 +2338,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                              Fonte 3 (FHD)
+                              1080P - FHD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                               1080p FHD
@@ -2350,7 +2350,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte3-fhd.m3u8"
+                              placeholder="https://exemplo.com/canal-1080p.m3u8"
                               value={formSource3FhdUrl}
                               onChange={(e) => setFormSource3FhdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-emerald-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2375,7 +2375,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                              Fonte 4 (FHD)
+                              1080P - FHD (Alternativa)
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                               1080p FHD
@@ -2387,7 +2387,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte4-fhd.m3u8"
+                              placeholder="https://exemplo.com/canal-1080p-alt.m3u8"
                               value={formSource4FhdUrl}
                               onChange={(e) => setFormSource4FhdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-purple-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2717,10 +2717,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                     <div className="flex flex-col gap-3 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-cyan-300">
-                          Fontes de Transmissao e Backup (HD e FHD)
+                          Opcoes de Reproducao e Qualidade (HD e FHD)
                         </span>
                         <span className="text-xs text-slate-400">
-                          Configure as fontes principais de reproducao e seus respectivos links de backup caso o sinal principal caia.
+                          Configure os links de reproducao em 720P e 1080P e seus respectivos links de backup para redundancia automatica.
                         </span>
                       </div>
 
@@ -2730,7 +2730,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                              Fonte 1 (HD)
+                              720P - HD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                               Principal HD
@@ -2742,7 +2742,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte1-hd.m3u8 ou .mp4"
+                              placeholder="https://exemplo.com/video-720p.m3u8 ou .mp4"
                               value={formSource1HdUrl}
                               onChange={(e) => {
                                 setFormSource1HdUrl(e.target.value);
@@ -2757,7 +2757,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte1-hd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-720p-backup.m3u8"
                               value={formSource1HdBackup}
                               onChange={(e) => {
                                 setFormSource1HdBackup(e.target.value);
@@ -2773,7 +2773,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-                              Fonte 2 (HD)
+                              720P - HD (Alternativa)
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
                               Alternativa HD
@@ -2785,7 +2785,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte2-hd.m3u8"
+                              placeholder="https://exemplo.com/video-720p-alt.m3u8"
                               value={formSource2HdUrl}
                               onChange={(e) => setFormSource2HdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-sky-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2797,7 +2797,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte2-hd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-720p-alt-backup.m3u8"
                               value={formSource2HdBackup}
                               onChange={(e) => setFormSource2HdBackup(e.target.value)}
                               className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-sky-400"
@@ -2810,7 +2810,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                              Fonte 3 (FHD)
+                              1080P - FHD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                               1080p FHD
@@ -2822,7 +2822,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte3-fhd.m3u8"
+                              placeholder="https://exemplo.com/video-1080p.m3u8"
                               value={formSource3FhdUrl}
                               onChange={(e) => setFormSource3FhdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-emerald-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2834,7 +2834,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte3-fhd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-1080p-backup.m3u8"
                               value={formSource3FhdBackup}
                               onChange={(e) => setFormSource3FhdBackup(e.target.value)}
                               className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-400"
@@ -2846,10 +2846,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                         <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-900/80 border border-white/10">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                              Fonte 4 (FHD)
+                              <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+                              1080P - FHD (Alternativa)
                             </span>
-                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
                               1080p FHD
                             </span>
                           </div>
@@ -2859,10 +2859,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte4-fhd.m3u8"
+                              placeholder="https://exemplo.com/video-1080p-alt.m3u8"
                               value={formSource4FhdUrl}
                               onChange={(e) => setFormSource4FhdUrl(e.target.value)}
-                              className="bg-slate-950 border border-white/10 focus:border-purple-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
+                              className="bg-slate-950 border border-white/10 focus:border-violet-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
@@ -2871,10 +2871,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte4-fhd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-1080p-alt-backup.m3u8"
                               value={formSource4FhdBackup}
                               onChange={(e) => setFormSource4FhdBackup(e.target.value)}
-                              className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-purple-400"
+                              className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-violet-400"
                             />
                           </div>
                         </div>
