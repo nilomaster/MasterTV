@@ -144,15 +144,15 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     return `${pad(minutes)}:${pad(seconds)}`;
   };
 
-  // Helper to format clean quality label (e.g. 720 HD, 1080 FHD)
+  // Helper to format clean quality label (e.g. 720P - HD, 1080P - FHD) strictly eliminating "Fonte 1, 2, 3"
   const formatSourceLabel = (src?: typeof availableSources[0]) => {
     if (!src) return 'Outra Opcao';
     const q = (src.quality || src.name || '').toUpperCase();
-    if (q.includes('4K') || q.includes('2160') || q.includes('UHD')) return '4K UHD';
-    if (q.includes('2K') || q.includes('1440') || q.includes('QHD')) return '2K QHD';
-    if (q.includes('1080') || q.includes('FHD')) return '1080 FHD';
-    if (q.includes('720') || q.includes('HD')) return '720 HD';
-    if (q.includes('480') || q.includes('SD')) return '480 SD';
+    if (q.includes('4K') || q.includes('2160') || q.includes('UHD')) return '4K - UHD';
+    if (q.includes('2K') || q.includes('1440') || q.includes('QHD')) return '2K - QHD';
+    if (q.includes('1080') || q.includes('FHD') || q.includes('FULL HD')) return '1080P - FHD';
+    if (q.includes('720') || q.includes('HD')) return '720P - HD';
+    if (q.includes('480') || q.includes('SD')) return '480P - SD';
     return src.name || 'Outra Opcao';
   };
 
