@@ -144,6 +144,18 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     return `${pad(minutes)}:${pad(seconds)}`;
   };
 
+  // Helper to format clean quality label (e.g. 720 HD, 1080 FHD)
+  const formatSourceLabel = (src?: typeof availableSources[0]) => {
+    if (!src) return 'Outra Opcao';
+    const q = (src.quality || src.name || '').toUpperCase();
+    if (q.includes('4K') || q.includes('2160') || q.includes('UHD')) return '4K UHD';
+    if (q.includes('2K') || q.includes('1440') || q.includes('QHD')) return '2K QHD';
+    if (q.includes('1080') || q.includes('FHD')) return '1080 FHD';
+    if (q.includes('720') || q.includes('HD')) return '720 HD';
+    if (q.includes('480') || q.includes('SD')) return '480 SD';
+    return src.name || 'Outra Opcao';
+  };
+
   // Reset controls timer
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
@@ -768,7 +780,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
                 }}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-blue-600/30 cursor-pointer"
               >
-                Alternar para {availableSources[(activeSourceIdx + 1) % availableSources.length]?.name || 'Outra Fonte'}
+                Alternar para {formatSourceLabel(availableSources[(activeSourceIdx + 1) % availableSources.length])}
               </button>
             )}
             <button

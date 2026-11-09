@@ -144,6 +144,41 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const activeQuality = activeSource?.qualityInfo || detectQualityFromUrl(mediaItem?.streamUrl || mainStreamUrl, title);
   const activeTargetUrl = activeSource?.streamUrl || mediaItem?.streamUrl || mainStreamUrl;
 
+  // Helper to format clean quality label (e.g. 720 HD, 1080 FHD) instead of technical source names
+  const getSourceDisplayLabel = (
+    src: typeof resolvedSources[0],
+    allSources: typeof resolvedSources
+  ): string => {
+    let label = '720 HD';
+    const q = (src.quality || src.qualityInfo.short || '').toUpperCase();
+    if (q.includes('4K') || q.includes('2160') || q.includes('UHD')) {
+      label = '4K UHD';
+    } else if (q.includes('2K') || q.includes('1440') || q.includes('QHD')) {
+      label = '2K QHD';
+    } else if (q.includes('1080') || q.includes('FHD') || q.includes('FULL HD')) {
+      label = '1080 FHD';
+    } else if (q.includes('720') || q.includes('HD')) {
+      label = '720 HD';
+    } else if (q.includes('480') || q.includes('SD')) {
+      label = '480 SD';
+    }
+
+    const matching = allSources.filter((s) => {
+      const sq = (s.quality || s.qualityInfo.short || '').toUpperCase();
+      if (label === '1080 FHD') return sq.includes('1080') || sq.includes('FHD') || sq.includes('FULL HD');
+      if (label === '720 HD') return sq.includes('720') || (sq.includes('HD') && !sq.includes('FHD'));
+      if (label === '4K UHD') return sq.includes('4K') || sq.includes('2160') || sq.includes('UHD');
+      return false;
+    });
+
+    if (matching.length > 1) {
+      const idx = matching.indexOf(src);
+      return `${label} (${idx >= 0 ? idx + 1 : 1})`;
+    }
+
+    return label;
+  };
+
   const hasEpisodes = Boolean(mediaItem?.episodeList && mediaItem.episodeList.length > 0);
 
   // Cast members resolution
@@ -297,12 +332,13 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 )}
               </div>
 
-              {/* Multiple Sources Selector */}
+              {/* Multiple Quality Sources Selector */}
               {resolvedSources.length > 1 && (
                 <div className="flex flex-wrap items-center gap-2 my-2">
-                  <span className="text-xs text-slate-400 font-semibold">Fonte:</span>
+                  <span className="text-xs text-slate-400 font-semibold">Qualidade:</span>
                   {resolvedSources.map((src, idx) => {
                     const isSelected = selectedSourceIdx === idx;
+                    const displayLabel = getSourceDisplayLabel(src, resolvedSources);
                     return (
                       <button
                         key={src.id || idx}
@@ -313,7 +349,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                             : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        {src.name} ({src.qualityInfo.short})
+                        {displayLabel}
                       </button>
                     );
                   })}
