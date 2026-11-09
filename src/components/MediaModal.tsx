@@ -2,7 +2,7 @@
 // Features horizontal backdrop header, vertical poster, rating badges, sources selector and cast list
 // All comments strictly follow ASCII rules
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Play, Heart, Tv } from 'lucide-react';
 import type { MediaItem, Channel, EPGProgram, EpisodeItem, CastMember } from '../types/iptv';
 import { detectQualityFromUrl } from '../services/qualityDetector';
@@ -60,11 +60,11 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   onPlayMedia,
 }) => {
   const [isFavorited, setIsFavorited] = useState<boolean>(false);
-  const [selectedSource, setSelectedSource] = useState<number>(1);
+  const [selectedSourceIdx, setSelectedSourceIdx] = useState<number>(0);
 
   // Reset selected source whenever media item changes
   useEffect(() => {
-    setSelectedSource(1);
+    setSelectedSourceIdx(0);
   }, [mediaItem]);
 
   // Close modal on TV remote back button (Escape, Back, Tizen 10009)
@@ -88,8 +88,6 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || (!mediaItem && !programItem)) return null;
-
   const title = mediaItem ? mediaItem.title : programItem?.program.title || 'Titulo';
   const tagline = mediaItem?.tagline;
   const description = mediaItem ? mediaItem.description : programItem?.program.description || 'Sem descricao disponivel.';
@@ -102,11 +100,49 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const backdrop = mediaItem?.backdropUrl || mediaItem?.posterUrl || programItem?.channel.logo || '';
   const mainStreamUrl = mediaItem ? mediaItem.streamUrl : programItem?.channel.streamUrl || '';
 
-  // Quality detection based on source URL
-  const source1Quality = detectQualityFromUrl(mediaItem?.streamUrl || mainStreamUrl, title);
-  const source2Quality = mediaItem?.backupStreamUrl ? detectQualityFromUrl(mediaItem.backupStreamUrl, title) : null;
-  const activeQuality = selectedSource === 2 && source2Quality ? source2Quality : source1Quality;
-  const activeTargetUrl = selectedSource === 2 && mediaItem?.backupStreamUrl ? mediaItem.backupStreamUrl : (mediaItem?.streamUrl || mainStreamUrl);
+  // Resolved sources list supporting multiple sources with their respective qualities
+  const resolvedSources = useMemo(() => {
+    if (mediaItem?.sources && mediaItem.sources.length > 0) {
+      return mediaItem.sources.map((s, idx) => {
+        const sUrl = s.streamUrl || s.url || '';
+        const qInfo = detectQualityFromUrl(sUrl, s.name, s.quality);
+        return {
+          id: s.id ?? idx + 1,
+          name: s.name || `Fonte ${idx + 1}`,
+          streamUrl: sUrl,
+          quality: s.quality,
+          qualityInfo: qInfo,
+        };
+      });
+    }
+    const list = [];
+    const s1Url = mediaItem?.streamUrl || mainStreamUrl;
+    if (s1Url) {
+      list.push({
+        id: 1,
+        name: 'Fonte 1',
+        streamUrl: s1Url,
+        quality: undefined,
+        qualityInfo: detectQualityFromUrl(s1Url, title),
+      });
+    }
+    if (mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) {
+      list.push({
+        id: 2,
+        name: 'Fonte 2',
+        streamUrl: mediaItem.backupStreamUrl,
+        quality: undefined,
+        qualityInfo: detectQualityFromUrl(mediaItem.backupStreamUrl, title),
+      });
+    }
+    return list;
+  }, [mediaItem, mainStreamUrl, title]);
+
+  if (!isOpen || (!mediaItem && !programItem)) return null;
+
+  const activeSource = resolvedSources[selectedSourceIdx] || resolvedSources[0];
+  const activeQuality = activeSource?.qualityInfo || detectQualityFromUrl(mediaItem?.streamUrl || mainStreamUrl, title);
+  const activeTargetUrl = activeSource?.streamUrl || mediaItem?.streamUrl || mainStreamUrl;
 
   const hasEpisodes = Boolean(mediaItem?.episodeList && mediaItem.episodeList.length > 0);
 
@@ -261,30 +297,26 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 )}
               </div>
 
-              {/* Multiple Sources Selector if backup exists */}
-              {Boolean(mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) && (
-                <div className="flex items-center gap-2 my-2">
+              {/* Multiple Sources Selector */}
+              {resolvedSources.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2 my-2">
                   <span className="text-xs text-slate-400 font-semibold">Fonte:</span>
-                  <button
-                    onClick={() => setSelectedSource(1)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                      selectedSource === 1
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-                    }`}
-                  >
-                    Fonte 1 ({source1Quality.short})
-                  </button>
-                  <button
-                    onClick={() => setSelectedSource(2)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                      selectedSource === 2
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-                    }`}
-                  >
-                    Fonte 2 ({source2Quality?.short || 'HD'})
-                  </button>
+                  {resolvedSources.map((src, idx) => {
+                    const isSelected = selectedSourceIdx === idx;
+                    return (
+                      <button
+                        key={src.id || idx}
+                        onClick={() => setSelectedSourceIdx(idx)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                            : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        {src.name} ({src.qualityInfo.short})
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

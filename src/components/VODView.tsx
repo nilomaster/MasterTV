@@ -57,6 +57,18 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
           description: String(c.description || ''),
           streamUrl: String(c.streamUrl || ''),
           backupStreamUrl: c.backupStreamUrl ? String(c.backupStreamUrl) : undefined,
+          sources: Array.isArray((c as any).sourcesList) && (c as any).sourcesList.length > 0
+            ? (c as any).sourcesList.map((s: any, idx: number) => ({
+                id: Number(s.id) || idx + 1,
+                name: String(s.name || `Fonte ${idx + 1}`),
+                quality: s.quality ? String(s.quality) : undefined,
+                streamUrl: String(s.streamUrl || s.url || ''),
+                url: String(s.streamUrl || s.url || ''),
+                backupStreamUrl: s.backupStreamUrl ? String(s.backupStreamUrl) : undefined,
+              }))
+            : Array.isArray((c as any).sources) && (c as any).sources.length > 0
+            ? (c as any).sources
+            : undefined,
           director: c.director ? String(c.director) : undefined,
           writers: c.writers ? String(c.writers) : undefined,
           production: c.production ? String(c.production) : undefined,
@@ -214,7 +226,12 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
               ? String(item.genres)
               : 'Geral';
             const displayRating = Number(item.rating || 0).toFixed(1);
-            const qualityInfo = detectQualityFromUrl(item.streamUrl, item.title);
+            const primarySource = item.sources && item.sources.length > 0 ? item.sources[0] : null;
+            const qualityInfo = detectQualityFromUrl(
+              primarySource?.streamUrl || primarySource?.url || item.streamUrl,
+              primarySource?.name || item.title,
+              primarySource?.quality
+            );
 
             return (
               <div

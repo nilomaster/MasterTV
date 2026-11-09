@@ -84,15 +84,46 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
   const [isDraggingProgress, setIsDraggingProgress] = useState<boolean>(false);
-  const [activeSource, setActiveSource] = useState<number>(1);
   const [detectedDimensions, setDetectedDimensions] = useState<{ height: number; width?: number } | null>(null);
   const controlsTimeoutRef = useRef<number | null>(null);
 
-  // Active stream URL based on selected source
-  const effectiveStreamUrl =
-    activeSource === 2 && (currentEpisode?.backupStreamUrl || mediaItem.backupStreamUrl)
-      ? (currentEpisode?.backupStreamUrl || mediaItem.backupStreamUrl || streamUrl)
-      : streamUrl;
+  // Available sources list
+  const availableSources = useMemo(() => {
+    if (mediaItem?.sources && mediaItem.sources.length > 0) {
+      return mediaItem.sources.map((s, idx) => ({
+        id: s.id ?? idx + 1,
+        name: s.name || `Fonte ${idx + 1}`,
+        streamUrl: s.streamUrl || s.url || '',
+        backupStreamUrl: s.backupStreamUrl,
+        quality: s.quality,
+      }));
+    }
+    const list = [{ id: 1, name: 'Fonte 1', streamUrl, backupStreamUrl: undefined, quality: undefined }];
+    const backup = currentEpisode?.backupStreamUrl || mediaItem?.backupStreamUrl;
+    if (backup && backup !== streamUrl) {
+      list.push({
+        id: 2,
+        name: 'Fonte 2',
+        streamUrl: backup,
+        backupStreamUrl: undefined,
+        quality: undefined,
+      });
+    }
+    return list;
+  }, [mediaItem, currentEpisode, streamUrl]);
+
+  const [activeSourceIdx, setActiveSourceIdx] = useState<number>(() => {
+    const foundIdx = availableSources.findIndex((s) => s.streamUrl === streamUrl);
+    return foundIdx >= 0 ? foundIdx : 0;
+  });
+
+  useEffect(() => {
+    const foundIdx = availableSources.findIndex((s) => s.streamUrl === streamUrl);
+    setActiveSourceIdx(foundIdx >= 0 ? foundIdx : 0);
+  }, [streamUrl, availableSources]);
+
+  const activeSourceItem = availableSources[activeSourceIdx] || availableSources[0];
+  const effectiveStreamUrl = activeSourceItem?.streamUrl || streamUrl;
 
   useEffect(() => {
     setDetectedDimensions(null);
@@ -220,8 +251,8 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
           connectTimeout = null;
         }
         setIsLoadingStream(false);
-        if (activeSource === 1 && mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) {
-          setActiveSource(2);
+        if (activeSourceIdx < availableSources.length - 1) {
+          setActiveSourceIdx((prev) => prev + 1);
           return;
         }
         setStreamError('O link de transmissao esta inacessivel ou expirou no servidor de origem.');
@@ -308,8 +339,8 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             window.clearTimeout(connectTimeout);
             connectTimeout = null;
           }
-          if (activeSource === 1 && (mediaItem?.backupStreamUrl || currentEpisode?.backupStreamUrl)) {
-            setActiveSource(2);
+          if (activeSourceIdx < availableSources.length - 1) {
+            setActiveSourceIdx((prev) => prev + 1);
             return;
           }
           setIsLoadingStream(false);
@@ -651,8 +682,13 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
         }
       }
     }
-    return getStreamQuality(effectiveStreamUrl, title, detectedDimensions || undefined);
-  }, [selectedLevel, availableLevels, effectiveStreamUrl, title, detectedDimensions]);
+    return getStreamQuality(
+      effectiveStreamUrl,
+      activeSourceItem?.name || title,
+      detectedDimensions || undefined,
+      activeSourceItem?.quality
+    );
+  }, [selectedLevel, availableLevels, effectiveStreamUrl, title, detectedDimensions, activeSourceItem]);
 
   return (
     <div
@@ -723,16 +759,16 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
             })()}) retornou indisponibilidade. Se o link possui token com prazo de validade (anti-leech), ele precisa ser atualizado.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-3">
-            {Boolean(mediaItem.backupStreamUrl || currentEpisode?.backupStreamUrl) && (
+            {availableSources.length > 1 && (
               <button
                 onClick={() => {
-                  setActiveSource((s) => (s === 1 ? 2 : 1));
+                  setActiveSourceIdx((prev) => (prev + 1) % availableSources.length);
                   setStreamError(null);
                   setIsLoadingStream(true);
                 }}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-blue-600/30 cursor-pointer"
               >
-                Alternar para Fonte {activeSource === 1 ? '2' : '1'}
+                Alternar para {availableSources[(activeSourceIdx + 1) % availableSources.length]?.name || 'Outra Fonte'}
               </button>
             )}
             <button
