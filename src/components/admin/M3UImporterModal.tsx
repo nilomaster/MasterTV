@@ -74,12 +74,19 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
       }
 
       setParsedData(result);
-      // Select all categories by default
-      const allCats = new Set(result.categories.map((c) => c.name));
-      setSelectedCategories(allCats);
-      // Select all items by default
-      const allIds = new Set(result.items.map((i) => i.id));
-      setSelectedItemIds(allIds);
+      if (result.totalCount > 3000) {
+        // Pre-select live channels by default for mega playlists (200k+ items)
+        const liveCats = new Set(result.categories.filter((c) => c.type === 'channel').map((c) => c.name));
+        setSelectedCategories(liveCats.size > 0 ? liveCats : new Set([result.categories[0]?.name]));
+        const liveItemIds = new Set(result.items.filter((i) => i.type === 'channel').map((i) => i.id));
+        setSelectedItemIds(liveItemIds.size > 0 ? liveItemIds : new Set(result.items.slice(0, 2000).map((i) => i.id)));
+        setTypeFilter('channel');
+      } else {
+        const allCats = new Set(result.categories.map((c) => c.name));
+        setSelectedCategories(allCats);
+        const allIds = new Set(result.items.map((i) => i.id));
+        setSelectedItemIds(allIds);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao processar lista M3U.');
     } finally {
@@ -103,10 +110,19 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         throw new Error('Nenhum canal ou video encontrado na lista informada.');
       }
       setParsedData(result);
-      const allCats = new Set(result.categories.map((c) => c.name));
-      setSelectedCategories(allCats);
-      const allIds = new Set(result.items.map((i) => i.id));
-      setSelectedItemIds(allIds);
+      if (result.totalCount > 3000) {
+        // Pre-select live channels by default for mega playlists (200k+ items)
+        const liveCats = new Set(result.categories.filter((c) => c.type === 'channel').map((c) => c.name));
+        setSelectedCategories(liveCats.size > 0 ? liveCats : new Set([result.categories[0]?.name]));
+        const liveItemIds = new Set(result.items.filter((i) => i.type === 'channel').map((i) => i.id));
+        setSelectedItemIds(liveItemIds.size > 0 ? liveItemIds : new Set(result.items.slice(0, 2000).map((i) => i.id)));
+        setTypeFilter('channel');
+      } else {
+        const allCats = new Set(result.categories.map((c) => c.name));
+        setSelectedCategories(allCats);
+        const allIds = new Set(result.items.map((i) => i.id));
+        setSelectedItemIds(allIds);
+      }
     } catch (err: any) {
       setErrorMsg(
         err.message ||
@@ -245,67 +261,75 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
     setIsImporting(true);
     setImportProgress(0);
+    setErrorMsg(null);
+    setImportSuccessMsg(null);
 
-    const existingContents = AdminService.getContents();
-    const newAdminItems: AdminContentItem[] = [];
-    let importedCount = 0;
+    try {
+      const existingContents = AdminService.getContents();
+      const newAdminItems: AdminContentItem[] = [];
+      let importedCount = 0;
 
-    for (let i = 0; i < itemsToImport.length; i++) {
-      const item = itemsToImport[i];
-      const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
+      for (let i = 0; i < itemsToImport.length; i++) {
+        const item = itemsToImport[i];
+        const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
+        const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
 
-      // Convert ParsedPlaylistItem to AdminContentItem
-      const adminItem: AdminContentItem = {
-        id: `${item.type}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
-        type: item.type,
-        title: item.cleanTitle || item.title,
-        tagline: item.type === 'channel' ? 'Transmissao Ao Vivo' : '',
-        rating: item.type === 'channel' ? 9.0 : 8.0,
-        duration: item.type === 'channel' ? 'Ao Vivo' : item.type === 'movie' ? '1h 50m' : '1 Temporada',
-        year: item.year || 2026,
-        contentRating: '14',
-        genres: [item.groupTitle || 'Geral'],
-        posterUrl: item.logo || '',
-        backdropUrl: item.logo || '',
-        streamUrl: item.streamUrl,
-        backupStreamUrl: '',
-        sourcesList: [
-          {
-            id: 1,
-            name: `Fonte 1 (${sourceQuality})`,
-            quality: sourceQuality,
-            streamUrl: item.streamUrl,
-            backupStreamUrl: '',
-          },
-        ],
-        description:
-          item.type === 'channel'
-            ? `Transmissao ao vivo do canal ${item.cleanTitle || item.title}.`
-            : `Assista ${item.cleanTitle || item.title} em alta definicao no MasterTV.`,
-        director: '',
-        writers: '',
-        production: 'MasterTV',
-        channelNumber: item.type === 'channel' ? existingContents.length + newAdminItems.length + 1 : undefined,
-      };
+        // Convert ParsedPlaylistItem to AdminContentItem
+        const adminItem: AdminContentItem = {
+          id: `${item.type}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+          type: item.type,
+          title: item.cleanTitle || item.title,
+          tagline: item.type === 'channel' ? 'Transmissao Ao Vivo' : '',
+          rating: item.type === 'channel' ? 9.0 : 8.0,
+          duration: item.type === 'channel' ? 'Ao Vivo' : item.type === 'movie' ? '1h 50m' : '1 Temporada',
+          year: item.year || 2026,
+          contentRating: '14',
+          genres: [item.groupTitle || 'Geral'],
+          posterUrl: item.logo || '',
+          backdropUrl: item.logo || '',
+          streamUrl: item.streamUrl,
+          backupStreamUrl: '',
+          sourcesList: [
+            {
+              id: 1,
+              name: cleanQualityLabel,
+              quality: sourceQuality,
+              streamUrl: item.streamUrl,
+              backupStreamUrl: '',
+            },
+          ],
+          description:
+            item.type === 'channel'
+              ? `Transmissao ao vivo do canal ${item.cleanTitle || item.title}.`
+              : `Assista ${item.cleanTitle || item.title} em alta definicao no MasterTV.`,
+          director: '',
+          writers: '',
+          production: 'MasterTV',
+          channelNumber: item.type === 'channel' ? existingContents.length + newAdminItems.length + 1 : undefined,
+        };
 
-      newAdminItems.push(adminItem);
-      importedCount++;
+        newAdminItems.push(adminItem);
+        importedCount++;
 
-      // Update progress every 50 items
-      if (i % 50 === 0 || i === itemsToImport.length - 1) {
-        setImportProgress(Math.round(((i + 1) / itemsToImport.length) * 100));
-        // Small yield to keep UI responsive
-        await new Promise((r) => setTimeout(r, 0));
+        // Update progress every 200 items for faster processing
+        if (i % 200 === 0 || i === itemsToImport.length - 1) {
+          setImportProgress(Math.round(((i + 1) / itemsToImport.length) * 100));
+          // Small yield to keep UI responsive
+          await new Promise((r) => setTimeout(r, 0));
+        }
       }
+
+      // Merge and save to storage and dispatch event
+      const mergedList = [...newAdminItems, ...existingContents];
+      AdminService.saveContentsLocally(mergedList);
+
+      setImportSuccessMsg(`Sucesso! ${importedCount} conteudos foram importados para o catalogo do MasterTV.`);
+      onImportSuccess(importedCount);
+    } catch (err: any) {
+      setErrorMsg(`Erro ao importar catalogo: ${err?.message || 'Memoria insuficiente do navegador para o volume selecionado.'}`);
+    } finally {
+      setIsImporting(false);
     }
-
-    // Merge and save to storage and dispatch event
-    const mergedList = [...newAdminItems, ...existingContents];
-    AdminService.saveContentsLocally(mergedList);
-
-    setIsImporting(false);
-    setImportSuccessMsg(`Sucesso! ${importedCount} conteudos foram importados para o catalogo do MasterTV.`);
-    onImportSuccess(importedCount);
   };
 
   if (!isOpen) return null;

@@ -709,10 +709,24 @@ export class AdminService {
     }
   }
 
-  // Save contents to localStorage and dispatch update event
+  // Save contents to localStorage and dispatch update event with quota protection
   static saveContentsLocally(contents: AdminContentItem[]) {
     const safeArray = Array.isArray(contents) ? contents.filter(Boolean) : [];
-    localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(safeArray));
+    try {
+      localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(safeArray));
+    } catch (err) {
+      // LocalStorage limit is 5MB in browsers. Protect against QuotaExceededError
+      let limit = Math.min(safeArray.length, 3000);
+      let saved = false;
+      while (limit > 100 && !saved) {
+        try {
+          localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(safeArray.slice(0, limit)));
+          saved = true;
+        } catch {
+          limit = Math.floor(limit * 0.7);
+        }
+      }
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('mastertv_catalog_updated'));
     }
