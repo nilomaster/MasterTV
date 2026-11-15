@@ -30,6 +30,17 @@ import {
 import { AdminService } from '../../services/adminService';
 import type { AdminContentItem } from '../../types/admin';
 
+// Helper to generate deterministic content ID from type, title, and stream URL
+function getDeterministicContentId(type: string, title: string, streamUrl: string): string {
+  let hash = 0;
+  const str = `${type}_${title.toLowerCase().trim()}_${streamUrl.trim()}`;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return `${type}_${Math.abs(hash).toString(36)}`;
+}
+
 interface M3UImporterModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -57,6 +68,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [shouldClearBeforeImport, setShouldClearBeforeImport] = useState<boolean>(true);
 
   // Import execution state
   const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -276,6 +288,56 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     });
   };
 
+  // Count selected items by type
+  const selectedCounts = useMemo(() => {
+    let channels = 0;
+    let movies = 0;
+    let series = 0;
+    if (!parsedData) return { channels, movies, series };
+    for (let i = 0; i < parsedData.items.length; i++) {
+      const it = parsedData.items[i];
+      if (selectedItemIds.has(it.id)) {
+        if (it.type === 'channel') channels++;
+        else if (it.type === 'movie') movies++;
+        else if (it.type === 'series') series++;
+      }
+    }
+    return { channels, movies, series };
+  }, [parsedData, selectedItemIds]);
+
+  // Mass toggle entire category type (channels, movies, or series)
+  const toggleTypeSelection = (type: 'channel' | 'movie' | 'series') => {
+    if (!parsedData) return;
+    const items = parsedData[type === 'channel' ? 'channels' : type === 'movie' ? 'movies' : 'series'];
+    const cats = parsedData.categories.filter((c) => c.type === type).map((c) => c.name);
+    const count = type === 'channel' ? selectedCounts.channels : type === 'movie' ? selectedCounts.movies : selectedCounts.series;
+    const isSelected = count > 0;
+
+    if (isSelected) {
+      setSelectedCategories((prev) => {
+        const next = new Set(prev);
+        cats.forEach((c) => next.delete(c));
+        return next;
+      });
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        items.forEach((i) => next.delete(i.id));
+        return next;
+      });
+    } else {
+      setSelectedCategories((prev) => {
+        const next = new Set(prev);
+        cats.forEach((c) => next.add(c));
+        return next;
+      });
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        items.forEach((i) => next.add(i.id));
+        return next;
+      });
+    }
+  };
+
   // Filtered items based on active type filter, selected categories, and search query
   const displayedItems = useMemo(() => {
     if (!parsedData) return [];
@@ -321,13 +383,17 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
     setIsImporting(true);
     setImportProgress(0);
-    setImportProgressText('Preparando itens para o catalogo...');
+    setImportProgressText(shouldClearBeforeImport ? 'Limpando catalogo antigo no banco de dados...' : 'Preparando itens para o catalogo...');
     setErrorMsg(null);
     setImportSuccessMsg(null);
     setIsImportCompleted(false);
 
     try {
-      const existingContents = AdminService.getContents();
+      if (shouldClearBeforeImport) {
+        await AdminService.clearRemoteContents();
+      }
+
+      const existingContents = shouldClearBeforeImport ? [] : AdminService.getContents();
       const newAdminItems: AdminContentItem[] = [];
       let importedCount = 0;
 
@@ -336,9 +402,9 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
         const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
 
-        // Convert ParsedPlaylistItem to AdminContentItem
+        // Convert ParsedPlaylistItem to AdminContentItem with deterministic ID
         const adminItem: AdminContentItem = {
-          id: `${item.type}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+          id: getDeterministicContentId(item.type, item.cleanTitle || item.title, item.streamUrl),
           type: item.type,
           title: item.cleanTitle || item.title,
           tagline: item.type === 'channel' ? 'Transmissao Ao Vivo' : '',
@@ -605,40 +671,103 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
           {/* STEP 2: PARSED PLAYLIST DASHBOARD & SELECTOR */}
           {parsedData && (
             <div className="space-y-5 animate-in fade-in duration-200">
-              {/* Summary Metric Badges */}
+              {/* Summary Metric Badges with One-Click Quick Selectors */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase">Total Encontrado</p>
-                    <p className="text-xl sm:text-2xl font-black text-white">{parsedData.totalCount}</p>
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase">Total na Lista</p>
+                      <p className="text-xl sm:text-2xl font-black text-white">{parsedData.totalCount}</p>
+                    </div>
+                    <Sparkles className="w-6 h-6 text-cyan-400 opacity-60" />
                   </div>
-                  <Sparkles className="w-6 h-6 text-cyan-400 opacity-60" />
+                  <span className="text-[11px] text-slate-400 mt-2 font-medium">
+                    {selectedItemIds.size} selecionados no total
+                  </span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold text-red-300 uppercase">Canais Ao Vivo</p>
-                    <p className="text-xl sm:text-2xl font-black text-red-400">{parsedData.channels.length}</p>
+                <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                  selectedCounts.channels > 0 ? 'bg-red-500/15 border-red-500/40 shadow-lg shadow-red-950/30' : 'bg-red-500/5 border-red-500/10'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-red-300 uppercase">Canais Ao Vivo</p>
+                      <p className="text-xl sm:text-2xl font-black text-red-400">{parsedData.channels.length}</p>
+                    </div>
+                    <Tv className="w-6 h-6 text-red-400 opacity-60" />
                   </div>
-                  <Tv className="w-6 h-6 text-red-400 opacity-60" />
+                  <button
+                    onClick={() => toggleTypeSelection('channel')}
+                    className={`mt-2.5 py-1 px-2.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
+                      selectedCounts.channels > 0
+                        ? 'bg-red-500 text-white shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 text-red-300 border border-red-500/20'
+                    }`}
+                  >
+                    {selectedCounts.channels > 0 ? `✓ ${selectedCounts.channels} Marcados (Desmarcar)` : '+ Marcar Todos os Canais'}
+                  </button>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold text-cyan-300 uppercase">Filmes (VOD)</p>
-                    <p className="text-xl sm:text-2xl font-black text-cyan-400">{parsedData.movies.length}</p>
+                <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                  selectedCounts.movies > 0 ? 'bg-cyan-500/15 border-cyan-500/40 shadow-lg shadow-cyan-950/30' : 'bg-cyan-500/5 border-cyan-500/10'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-cyan-300 uppercase">Filmes (VOD)</p>
+                      <p className="text-xl sm:text-2xl font-black text-cyan-400">{parsedData.movies.length}</p>
+                    </div>
+                    <Film className="w-6 h-6 text-cyan-400 opacity-60" />
                   </div>
-                  <Film className="w-6 h-6 text-cyan-400 opacity-60" />
+                  <button
+                    onClick={() => toggleTypeSelection('movie')}
+                    className={`mt-2.5 py-1 px-2.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
+                      selectedCounts.movies > 0
+                        ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 text-cyan-300 border border-cyan-500/20'
+                    }`}
+                  >
+                    {selectedCounts.movies > 0 ? `✓ ${selectedCounts.movies} Marcados (Desmarcar)` : '+ Marcar Todos os Filmes'}
+                  </button>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold text-purple-300 uppercase">Series (VOD)</p>
-                    <p className="text-xl sm:text-2xl font-black text-purple-400">{parsedData.series.length}</p>
+                <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                  selectedCounts.series > 0 ? 'bg-purple-500/15 border-purple-500/40 shadow-lg shadow-purple-950/30' : 'bg-purple-500/5 border-purple-500/10'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-purple-300 uppercase">Series (VOD)</p>
+                      <p className="text-xl sm:text-2xl font-black text-purple-400">{parsedData.series.length}</p>
+                    </div>
+                    <Clapperboard className="w-6 h-6 text-purple-400 opacity-60" />
                   </div>
-                  <Clapperboard className="w-6 h-6 text-purple-400 opacity-60" />
+                  <button
+                    onClick={() => toggleTypeSelection('series')}
+                    className={`mt-2.5 py-1 px-2.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
+                      selectedCounts.series > 0
+                        ? 'bg-purple-500 text-white shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 text-purple-300 border border-purple-500/20'
+                    }`}
+                  >
+                    {selectedCounts.series > 0 ? `✓ ${selectedCounts.series} Marcados (Desmarcar)` : '+ Marcar Todas as Series'}
+                  </button>
                 </div>
               </div>
+
+              {/* Option to Replace / Clear Database Before Import */}
+              <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={shouldClearBeforeImport}
+                  onChange={(e) => setShouldClearBeforeImport(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-500 focus:ring-0 bg-[#07090e] border-white/20 cursor-pointer"
+                />
+                <div>
+                  <span className="font-bold">Substituir catalogo existente (Limpar banco MySQL antes de salvar):</span>
+                  <p className="text-[11px] text-amber-300/80">
+                    Evita duplicidades. O sistema apaga a lista anterior e salva exatamente os canais, filmes e series selecionados acima.
+                  </p>
+                </div>
+              </label>
 
               {/* Action Buttons to Switch / Reload List */}
               <div className="flex items-center justify-between">
@@ -880,8 +1009,17 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
             <span className="text-xs text-slate-400">
               {parsedData ? (
                 <>
-                  Selecionados para importacao:{' '}
+                  Selecionados para salvar:{' '}
                   <strong className="text-cyan-400 font-black text-sm">{selectedItemIds.size} itens</strong>
+                  {(selectedCounts.channels > 0 || selectedCounts.movies > 0 || selectedCounts.series > 0) && (
+                    <span className="text-slate-400 ml-1.5 font-medium">
+                      ({selectedCounts.channels > 0 && <span className="text-red-400 font-bold">{selectedCounts.channels} canais</span>}
+                      {selectedCounts.channels > 0 && (selectedCounts.movies > 0 || selectedCounts.series > 0) && ', '}
+                      {selectedCounts.movies > 0 && <span className="text-cyan-400 font-bold">{selectedCounts.movies} filmes</span>}
+                      {selectedCounts.movies > 0 && selectedCounts.series > 0 && ', '}
+                      {selectedCounts.series > 0 && <span className="text-purple-400 font-bold">{selectedCounts.series} series</span>})
+                    </span>
+                  )}
                 </>
               ) : (
                 'Carregue uma lista para iniciar a selecao'

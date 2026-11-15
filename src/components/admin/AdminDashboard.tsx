@@ -504,6 +504,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   const [isSyncingDatabase, setIsSyncingDatabase] = useState<boolean>(false);
   const [syncProgress, setSyncProgress] = useState<number>(0);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isClearingCatalog, setIsClearingCatalog] = useState<boolean>(false);
 
   const handleSaveAllToRemoteDatabase = async () => {
     if (!Array.isArray(contents) || contents.length === 0) {
@@ -524,6 +525,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     } finally {
       setIsSyncingDatabase(false);
       setSyncProgress(0);
+      setTimeout(() => setSyncFeedback(null), 6000);
+    }
+  };
+
+  // Clear all contents from MySQL database and local cache to start fresh
+  const handleClearAllContents = async () => {
+    if (!confirm('ATENCAO: Deseja realmente excluir TODOS os conteudos do catalogo (canais, filmes e series) do banco de dados MySQL para comecar do zero?')) {
+      return;
+    }
+    try {
+      setIsClearingCatalog(true);
+      const res = await AdminService.clearRemoteContents();
+      if (res.success) {
+        setContents([]);
+        setSyncFeedback('Catalogo apagado com sucesso. O banco de dados esta pronto para receber uma nova lista!');
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      alert(`Erro ao limpar catalogo: ${err?.message || 'Falha de conexao.'}`);
+    } finally {
+      setIsClearingCatalog(false);
       setTimeout(() => setSyncFeedback(null), 6000);
     }
   };
@@ -1412,6 +1435,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                 >
                   <Download className="w-4 h-4 text-cyan-400" />
                   <span>Importar M3U</span>
+                </button>
+
+                <button
+                  onClick={handleClearAllContents}
+                  disabled={isClearingCatalog || !contents || contents.length === 0}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  title="Apagar todos os conteudos do banco de dados para recomecar do zero com uma nova lista limpa"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                  <span>{isClearingCatalog ? 'Limpando...' : 'Limpar Catalogo'}</span>
                 </button>
 
                 <button

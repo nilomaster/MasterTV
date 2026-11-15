@@ -1025,5 +1025,48 @@ export class AdminService {
       message: `${totalSaved} itens salvos com sucesso no banco de dados MySQL.`,
     };
   }
+
+  // Clear all contents from MySQL database and local storage
+  static async clearRemoteContents(type?: string): Promise<{ success: boolean; message: string }> {
+    const apiBase = this.getApiBaseUrl();
+    const primaryUrl = `${apiBase}/content.php`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php';
+    const payload = { action: 'clear_all', type: type || '' };
+
+    try {
+      let res: Response;
+      try {
+        res = await fetch(primaryUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (type) {
+          const current = this.getContents();
+          this.saveContentsLocally(current.filter((c) => c.type !== type));
+        } else {
+          this.saveContentsLocally([]);
+        }
+        return { success: true, message: data.message || 'Catalogo limpo com sucesso!' };
+      }
+      return { success: false, message: 'Falha ao limpar catalogo.' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Erro de conexao ao limpar catalogo.' };
+    }
+  }
 }
 

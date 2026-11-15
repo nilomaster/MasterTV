@@ -122,6 +122,22 @@ class ContentController {
             }
         }
 
+        if ($action === 'clear_all') {
+            $type = trim($data['type'] ?? '');
+            try {
+                if (!empty($type) && in_array($type, ['channel', 'movie', 'series', 'anime', 'dorama'])) {
+                    $stmt = $this->pdo->prepare("DELETE FROM `contents` WHERE `type` = :type");
+                    $stmt->execute([':type' => $type]);
+                    sendResponse(['success' => true, 'message' => "Todos os conteudos do tipo '{$type}' foram excluidos com sucesso."]);
+                } else {
+                    $this->pdo->exec("TRUNCATE TABLE `contents`");
+                    sendResponse(['success' => true, 'message' => 'Todo o catalogo do banco de dados foi limpo com sucesso.']);
+                }
+            } catch (Exception $e) {
+                sendResponse(['success' => false, 'message' => 'Erro ao limpar catalogo no MySQL: ' . $e->getMessage()], 500);
+            }
+        }
+
         if ($action === 'bulk_import') {
             $items = $data['items'] ?? [];
             if (!is_array($items) || empty($items)) {
