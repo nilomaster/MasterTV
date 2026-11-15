@@ -2,6 +2,7 @@
 // Strictly ASCII comments only as per project guidelines
 
 import type { Channel } from '../types/iptv';
+import { AdminService } from './adminService';
 
 export interface M3UParseResult {
   channels: Channel[];
@@ -271,23 +272,75 @@ export async function fetchAndParseM3U(url: string): Promise<M3UParseResult> {
 export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> {
   let content = '';
 
-  // 1. Try direct fetch
+  // 1. Try our dedicated MasterTV IPTV backend proxy first (handles IPTV User-Agent, mixed content, and 30MB+ playlists)
   try {
-    const response = await fetch(url);
-    if (response.ok) {
-      content = await response.text();
+    const apiBase = AdminService.getApiBaseUrl();
+    const proxyCandidates = [
+      `${apiBase}/m3u_proxy.php?url=${encodeURIComponent(url)}`,
+      `https://mastertvhd.online/api/m3u_proxy.php?url=${encodeURIComponent(url)}`,
+      `https://mastertvhd.online/api/content.php?action=fetch_m3u&url=${encodeURIComponent(url)}`,
+      `https://mastertvhd.online/api/routes/m3u_proxy.php?url=${encodeURIComponent(url)}`,
+    ];
+
+    for (const pUrl of proxyCandidates) {
+      try {
+        const res = await fetch(pUrl);
+        if (res.ok) {
+          const text = await res.text();
+          if (text && text.includes('#EXTINF')) {
+            content = text;
+            break;
+          }
+        }
+      } catch {
+        // Continue to next candidate
+      }
     }
   } catch {
-    // Continue to proxy fallback
+    // Continue to next fallbacks
   }
 
-  // 2. If direct fetch fails (likely CORS restriction), try public CORS proxies
+  // 2. Try direct fetch
+  if (!content) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.includes('#EXTINF')) {
+          content = text;
+        }
+      }
+    } catch {
+      // Continue to proxy fallback
+    }
+  }
+
+  // 3. Try Cloudflare Worker proxy if available
+  if (!content) {
+    try {
+      const workerProxy = `https://saimo-tv.pages.dev/api/proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(workerProxy);
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.includes('#EXTINF')) {
+          content = text;
+        }
+      }
+    } catch {
+      // Continue
+    }
+  }
+
+  // 4. If direct fetch fails, try public CORS proxies
   if (!content) {
     try {
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
       const proxyRes = await fetch(proxyUrl);
       if (proxyRes.ok) {
-        content = await proxyRes.text();
+        const text = await proxyRes.text();
+        if (text && text.includes('#EXTINF')) {
+          content = text;
+        }
       }
     } catch {
       // Continue to next fallback
@@ -299,7 +352,10 @@ export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> 
       const codetabsUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
       const ctRes = await fetch(codetabsUrl);
       if (ctRes.ok) {
-        content = await ctRes.text();
+        const text = await ctRes.text();
+        if (text && text.includes('#EXTINF')) {
+          content = text;
+        }
       }
     } catch {
       // Failed all
@@ -307,7 +363,7 @@ export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> 
   }
 
   if (!content) {
-    throw new Error('Nao foi possivel baixar a lista M3U diretamente devido a bloqueio de CORS do servidor de origem. Por favor, baixe o arquivo .m3u no seu computador e use o botao "Carregar Arquivo .M3U" no importador!');
+    throw new Error('Nao foi possivel baixar a lista M3U diretamente. O servidor de origem exige conexao de IPTV ou bloqueou o acesso.');
   }
 
   return parseAdvancedM3U(content);

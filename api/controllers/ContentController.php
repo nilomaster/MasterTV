@@ -58,6 +58,11 @@ class ContentController {
 
         $method = $_SERVER['REQUEST_METHOD'];
 
+        if (isset($_GET['action']) && $_GET['action'] === 'fetch_m3u') {
+            require_once __DIR__ . '/../m3u_proxy.php';
+            exit;
+        }
+
         switch ($method) {
             case 'GET':
                 $this->listContents();
