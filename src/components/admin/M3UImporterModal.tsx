@@ -164,30 +164,49 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     reader.readAsText(file);
   };
 
+  // Map of category name to item IDs for instant O(1) toggling without scanning 250k items
+  const categoryItemIdsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!parsedData) return map;
+    for (let i = 0; i < parsedData.items.length; i++) {
+      const item = parsedData.items[i];
+      const cat = item.groupTitle || 'Geral';
+      const arr = map.get(cat);
+      if (arr) {
+        arr.push(item.id);
+      } else {
+        map.set(cat, [item.id]);
+      }
+    }
+    return map;
+  }, [parsedData]);
+
+  // Categories filtered by the currently active typeFilter
+  const displayedCategories = useMemo(() => {
+    if (!parsedData) return [];
+    if (typeFilter === 'all') return parsedData.categories;
+    return parsedData.categories.filter((cat) => cat.type === typeFilter);
+  }, [parsedData, typeFilter]);
+
   // Toggle category in filter
   const toggleCategory = (catName: string) => {
     setSelectedCategories((prev) => {
       const next = new Set(prev);
       const isCurrentlySelected = next.has(catName);
+      const ids = categoryItemIdsMap.get(catName) || [];
 
       if (isCurrentlySelected) {
         next.delete(catName);
-        // Unselect items belonging to this category
         setSelectedItemIds((itemPrev) => {
           const itemNext = new Set(itemPrev);
-          parsedData?.items
-            .filter((i) => i.groupTitle === catName)
-            .forEach((i) => itemNext.delete(i.id));
+          for (let i = 0; i < ids.length; i++) itemNext.delete(ids[i]);
           return itemNext;
         });
       } else {
         next.add(catName);
-        // Select items belonging to this category
         setSelectedItemIds((itemPrev) => {
           const itemNext = new Set(itemPrev);
-          parsedData?.items
-            .filter((i) => i.groupTitle === catName)
-            .forEach((i) => itemNext.add(i.id));
+          for (let i = 0; i < ids.length; i++) itemNext.add(ids[i]);
           return itemNext;
         });
       }
@@ -195,16 +214,53 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     });
   };
 
+  // Select all categories and items of the current active type (or all if typeFilter is 'all')
   const handleSelectAllCategories = () => {
     if (!parsedData) return;
-    const all = new Set(parsedData.categories.map((c) => c.name));
-    setSelectedCategories(all);
-    setSelectedItemIds(new Set(parsedData.items.map((i) => i.id)));
+    if (typeFilter === 'all') {
+      const all = new Set(parsedData.categories.map((c) => c.name));
+      setSelectedCategories(all);
+      setSelectedItemIds(new Set(parsedData.items.map((i) => i.id)));
+      return;
+    }
+    const catsForType = displayedCategories.map((c) => c.name);
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      catsForType.forEach((c) => next.add(c));
+      return next;
+    });
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      for (let i = 0; i < catsForType.length; i++) {
+        const ids = categoryItemIdsMap.get(catsForType[i]) || [];
+        for (let j = 0; j < ids.length; j++) next.add(ids[j]);
+      }
+      return next;
+    });
   };
 
+  // Deselect all categories and items of the current active type
   const handleDeselectAllCategories = () => {
-    setSelectedCategories(new Set());
-    setSelectedItemIds(new Set());
+    if (!parsedData) return;
+    if (typeFilter === 'all') {
+      setSelectedCategories(new Set());
+      setSelectedItemIds(new Set());
+      return;
+    }
+    const catsForType = displayedCategories.map((c) => c.name);
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      catsForType.forEach((c) => next.delete(c));
+      return next;
+    });
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      for (let i = 0; i < catsForType.length; i++) {
+        const ids = categoryItemIdsMap.get(catsForType[i]) || [];
+        for (let j = 0; j < ids.length; j++) next.delete(ids[j]);
+      }
+      return next;
+    });
   };
 
   // Toggle individual item
@@ -642,7 +698,14 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-cyan-400" />
                     <span className="text-xs font-bold text-white">
-                      Categorias da Lista ({selectedCategories.size} de {parsedData.categories.length} ativas):
+                      {typeFilter === 'movie'
+                        ? 'Categorias de Filmes'
+                        : typeFilter === 'series'
+                        ? 'Categorias de Series'
+                        : typeFilter === 'channel'
+                        ? 'Categorias de Canais Ao Vivo'
+                        : 'Todas as Categorias'}{' '}
+                      ({displayedCategories.filter((c) => selectedCategories.has(c.name)).length} de {displayedCategories.length} ativas):
                     </span>
                   </div>
 
@@ -651,20 +714,20 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                       onClick={handleSelectAllCategories}
                       className="text-[11px] font-bold text-cyan-400 hover:underline cursor-pointer"
                     >
-                      Marcar Todas
+                      Marcar Todas ({typeFilter === 'movie' ? 'Filmes' : typeFilter === 'series' ? 'Series' : typeFilter === 'channel' ? 'Canais' : 'Tudo'})
                     </button>
                     <span className="text-slate-600">|</span>
                     <button
                       onClick={handleDeselectAllCategories}
                       className="text-[11px] font-bold text-slate-400 hover:underline cursor-pointer"
                     >
-                      Desmarcar Todas
+                      Desmarcar
                     </button>
                   </div>
                 </div>
 
                 <div className="max-h-36 overflow-y-auto pr-1 flex flex-wrap gap-1.5 scrollbar-thin">
-                  {parsedData.categories.map((cat) => {
+                  {displayedCategories.map((cat) => {
                     const isSelected = selectedCategories.has(cat.name);
                     return (
                       <button
