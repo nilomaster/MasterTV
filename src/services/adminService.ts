@@ -928,5 +928,76 @@ export class AdminService {
 
     return { success: true, message: 'Conteudo excluido com sucesso!' };
   }
+
+  // Bulk import items into MySQL database in batches
+  static async saveBatchRemoteContents(
+    items: AdminContentItem[],
+    onProgress?: (percent: number) => void
+  ): Promise<{ success: boolean; totalSaved: number; message: string }> {
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: true, totalSaved: 0, message: 'Nenhum item para salvar.' };
+    }
+
+    const apiBase = this.getApiBaseUrl();
+    const primaryUrl = `${apiBase}/content.php`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php';
+    const batchSize = 400;
+    let totalSaved = 0;
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      const slice = items.slice(i, i + batchSize);
+      const payload = {
+        action: 'bulk_import',
+        items: slice,
+      };
+
+      try {
+        let res: Response;
+        try {
+          res = await fetch(primaryUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch (err) {
+          if (primaryUrl !== fallbackUrl) {
+            res = await fetch(fallbackUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          } else {
+            throw err;
+          }
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data && data.success) {
+            totalSaved += data.count || slice.length;
+          }
+        }
+      } catch (err) {
+        // Continue to next batch
+      }
+
+      if (onProgress) {
+        onProgress(Math.round(((i + slice.length) / items.length) * 100));
+      }
+    }
+
+    // Refresh remote contents cache
+    try {
+      await this.fetchRemoteContents();
+    } catch {
+      // Ignore
+    }
+
+    return {
+      success: totalSaved > 0,
+      totalSaved,
+      message: `${totalSaved} itens salvos com sucesso no banco de dados MySQL.`,
+    };
+  }
 }
 

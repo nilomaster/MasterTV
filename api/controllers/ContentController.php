@@ -122,6 +122,102 @@ class ContentController {
             }
         }
 
+        if ($action === 'bulk_import') {
+            $items = $data['items'] ?? [];
+            if (!is_array($items) || empty($items)) {
+                sendResponse(['success' => false, 'message' => 'Nenhum item informado para importacao em lote.'], 400);
+            }
+
+            try {
+                @set_time_limit(300);
+                $this->pdo->beginTransaction();
+                $stmt = $this->pdo->prepare("INSERT INTO `contents` (
+                    `id`, `type`, `title`, `tagline`, `rating`, `duration`, `year`, `content_rating`,
+                    `genres`, `poster_url`, `backdrop_url`, `stream_url`, `backup_stream_url`,
+                    `description`, `director`, `writers`, `production`, `channel_number`,
+                    `channel_category`, `current_program`, `epg_id`, `seasons`, `episodes`,
+                    `episodes_json`, `sources_json`, `cast_json`, `status`
+                ) VALUES (
+                    :id, :type, :title, :tagline, :rating, :duration, :year, :content_rating,
+                    :genres, :poster_url, :backdrop_url, :stream_url, :backup_stream_url,
+                    :description, :director, :writers, :production, :channel_number,
+                    :channel_category, :current_program, :epg_id, :seasons, :episodes,
+                    :episodes_json, :sources_json, :cast_json, :status
+                ) ON DUPLICATE KEY UPDATE
+                    `type` = VALUES(`type`),
+                    `title` = VALUES(`title`),
+                    `rating` = VALUES(`rating`),
+                    `duration` = VALUES(`duration`),
+                    `year` = VALUES(`year`),
+                    `genres` = VALUES(`genres`),
+                    `poster_url` = VALUES(`poster_url`),
+                    `backdrop_url` = VALUES(`backdrop_url`),
+                    `stream_url` = VALUES(`stream_url`),
+                    `backup_stream_url` = VALUES(`backup_stream_url`),
+                    `channel_number` = VALUES(`channel_number`),
+                    `channel_category` = VALUES(`channel_category`),
+                    `epg_id` = VALUES(`epg_id`),
+                    `sources_json` = VALUES(`sources_json`),
+                    `status` = 'active',
+                    `updated_at` = CURRENT_TIMESTAMP");
+
+                $inserted = 0;
+                foreach ($items as $item) {
+                    $id = trim($item['id'] ?? '');
+                    if (empty($id)) {
+                        $id = 'item_' . time() . '_' . bin2hex(random_bytes(3));
+                    }
+                    $type = in_array($item['type'] ?? '', ['movie', 'series', 'channel', 'anime', 'dorama']) ? $item['type'] : 'channel';
+                    $title = trim($item['title'] ?? 'Item');
+                    $streamUrl = trim($item['stream_url'] ?? $item['streamUrl'] ?? '');
+                    if (empty($streamUrl)) continue;
+
+                    $genres = is_array($item['genres'] ?? null) ? implode(', ', $item['genres']) : ($item['genres'] ?? 'Geral');
+                    $sourcesJson = isset($item['sources_list']) ? json_encode($item['sources_list'], JSON_UNESCAPED_UNICODE) : (isset($item['sourcesList']) ? json_encode($item['sourcesList'], JSON_UNESCAPED_UNICODE) : null);
+                    $episodesJson = isset($item['episodes_list']) ? json_encode($item['episodes_list'], JSON_UNESCAPED_UNICODE) : null;
+                    $castJson = isset($item['cast']) ? json_encode($item['cast'], JSON_UNESCAPED_UNICODE) : null;
+
+                    $stmt->execute([
+                        ':id' => $id,
+                        ':type' => $type,
+                        ':title' => $title,
+                        ':tagline' => $item['tagline'] ?? '',
+                        ':rating' => (float)($item['rating'] ?? 8.0),
+                        ':duration' => $item['duration'] ?? '',
+                        ':year' => (int)($item['year'] ?? 2026),
+                        ':content_rating' => $item['content_rating'] ?? $item['contentRating'] ?? '14',
+                        ':genres' => $genres,
+                        ':poster_url' => $item['poster_url'] ?? $item['posterUrl'] ?? '',
+                        ':backdrop_url' => $item['backdrop_url'] ?? $item['backdropUrl'] ?? '',
+                        ':stream_url' => $streamUrl,
+                        ':backup_stream_url' => $item['backup_stream_url'] ?? $item['backupStreamUrl'] ?? '',
+                        ':description' => $item['description'] ?? '',
+                        ':director' => $item['director'] ?? '',
+                        ':writers' => $item['writers'] ?? '',
+                        ':production' => $item['production'] ?? '',
+                        ':channel_number' => (int)($item['channel_number'] ?? $item['channelNumber'] ?? ($inserted + 1)),
+                        ':channel_category' => $item['channel_category'] ?? $item['channelCategory'] ?? 'aberta',
+                        ':current_program' => $item['current_program'] ?? $item['currentProgram'] ?? '',
+                        ':epg_id' => $item['epg_id'] ?? $item['epgId'] ?? '',
+                        ':seasons' => (int)($item['seasons'] ?? 1),
+                        ':episodes' => (int)($item['episodes'] ?? 1),
+                        ':episodes_json' => $episodesJson,
+                        ':sources_json' => $sourcesJson,
+                        ':cast_json' => $castJson,
+                        ':status' => 'active',
+                    ]);
+                    $inserted++;
+                }
+                $this->pdo->commit();
+                sendResponse(['success' => true, 'message' => "{$inserted} itens importados com sucesso para o banco de dados.", 'count' => $inserted]);
+            } catch (Exception $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                sendResponse(['success' => false, 'message' => 'Erro na importacao em lote no MySQL: ' . $e->getMessage()], 500);
+            }
+        }
+
         // Create or update content
         $id = trim($data['id'] ?? '');
         if (empty($id)) {

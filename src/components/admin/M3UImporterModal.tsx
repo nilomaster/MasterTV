@@ -323,7 +323,12 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
       const mergedList = [...newAdminItems, ...existingContents];
       AdminService.saveContentsLocally(mergedList);
 
-      setImportSuccessMsg(`Sucesso! ${importedCount} conteudos foram importados para o catalogo do MasterTV.`);
+      // Persist to remote MySQL database in batches
+      await AdminService.saveBatchRemoteContents(newAdminItems, (pct) => {
+        setImportProgress(pct);
+      });
+
+      setImportSuccessMsg(`Sucesso! ${importedCount} conteudos foram salvos no banco de dados e adicionados ao catalogo.`);
       onImportSuccess(importedCount);
     } catch (err: any) {
       setErrorMsg(`Erro ao importar catalogo: ${err?.message || 'Memoria insuficiente do navegador para o volume selecionado.'}`);
