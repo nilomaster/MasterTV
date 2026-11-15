@@ -932,7 +932,7 @@ export class AdminService {
   // Bulk import items into MySQL database in batches
   static async saveBatchRemoteContents(
     items: AdminContentItem[],
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number, currentBatch: number, totalBatches: number) => void
   ): Promise<{ success: boolean; totalSaved: number; message: string }> {
     if (!Array.isArray(items) || items.length === 0) {
       return { success: true, totalSaved: 0, message: 'Nenhum item para salvar.' };
@@ -941,49 +941,71 @@ export class AdminService {
     const apiBase = this.getApiBaseUrl();
     const primaryUrl = `${apiBase}/content.php`;
     const fallbackUrl = 'https://mastertvhd.online/api/content.php';
-    const batchSize = 400;
+    const batchSize = 50;
+    const totalBatches = Math.ceil(items.length / batchSize);
     let totalSaved = 0;
+    let lastError = '';
 
-    for (let i = 0; i < items.length; i += batchSize) {
-      const slice = items.slice(i, i + batchSize);
+    for (let b = 0; b < totalBatches; b++) {
+      const slice = items.slice(b * batchSize, (b + 1) * batchSize);
       const payload = {
         action: 'bulk_import',
         items: slice,
       };
 
-      try {
-        let res: Response;
+      let success = false;
+      let attempts = 0;
+
+      while (!success && attempts < 2) {
+        attempts++;
         try {
-          res = await fetch(primaryUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        } catch (err) {
-          if (primaryUrl !== fallbackUrl) {
-            res = await fetch(fallbackUrl, {
+          let res: Response;
+          try {
+            res = await fetch(primaryUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
-          } else {
-            throw err;
+          } catch (err) {
+            if (primaryUrl !== fallbackUrl) {
+              res = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+            } else {
+              throw err;
+            }
           }
+
+          if (res && res.ok) {
+            const data = await res.json();
+            if (data && data.success) {
+              totalSaved += data.count || slice.length;
+              success = true;
+            } else {
+              lastError = data?.message || 'Erro ao processar lote no MySQL.';
+            }
+          } else {
+            lastError = `Servidor retornou status ${res?.status || 'desconhecido'}`;
+          }
+        } catch (err: any) {
+          lastError = err?.message || 'Falha de conexao com a API.';
         }
 
-        if (res && res.ok) {
-          const data = await res.json();
-          if (data && data.success) {
-            totalSaved += data.count || slice.length;
-          }
+        if (!success && attempts < 2) {
+          // Wait 200ms before retry
+          await new Promise((r) => setTimeout(r, 200));
         }
-      } catch (err) {
-        // Continue to next batch
       }
 
       if (onProgress) {
-        onProgress(Math.round(((i + slice.length) / items.length) * 100));
+        const pct = Math.round(((b + 1) / totalBatches) * 100);
+        onProgress(pct, b + 1, totalBatches);
       }
+
+      // Small delay between batches to prevent server overload
+      await new Promise((r) => setTimeout(r, 40));
     }
 
     // Refresh remote contents cache
@@ -991,6 +1013,10 @@ export class AdminService {
       await this.fetchRemoteContents();
     } catch {
       // Ignore
+    }
+
+    if (totalSaved === 0 && items.length > 0) {
+      throw new Error(lastError || 'Nenhum conteudo pode ser salvo no banco de dados MySQL.');
     }
 
     return {

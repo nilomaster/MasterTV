@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   Filter,
   Sparkles,
+  Database,
+  Check,
 } from 'lucide-react';
 import {
   parseAdvancedM3U,
@@ -59,7 +61,9 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
   // Import execution state
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<number>(0);
+  const [importProgressText, setImportProgressText] = useState<string>('');
   const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+  const [isImportCompleted, setIsImportCompleted] = useState<boolean>(false);
 
   // Handler to parse from raw text content
   const handleProcessText = (content: string) => {
@@ -261,8 +265,10 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
     setIsImporting(true);
     setImportProgress(0);
+    setImportProgressText('Preparando itens para o catalogo...');
     setErrorMsg(null);
     setImportSuccessMsg(null);
+    setIsImportCompleted(false);
 
     try {
       const existingContents = AdminService.getContents();
@@ -313,25 +319,34 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
         // Update progress every 200 items for faster processing
         if (i % 200 === 0 || i === itemsToImport.length - 1) {
-          setImportProgress(Math.round(((i + 1) / itemsToImport.length) * 100));
+          const prepPct = Math.round(((i + 1) / itemsToImport.length) * 100);
+          setImportProgress(prepPct);
+          setImportProgressText(`Preparando catalogo (${i + 1}/${itemsToImport.length})...`);
           // Small yield to keep UI responsive
           await new Promise((r) => setTimeout(r, 0));
         }
       }
 
-      // Merge and save to storage and dispatch event
+      // Merge and save to local storage as quick cache
       const mergedList = [...newAdminItems, ...existingContents];
       AdminService.saveContentsLocally(mergedList);
 
-      // Persist to remote MySQL database in batches
-      await AdminService.saveBatchRemoteContents(newAdminItems, (pct) => {
+      // Persist to remote MySQL database in safe batches of 50
+      setImportProgressText('Iniciando gravacao no banco de dados MySQL...');
+      const saveResult = await AdminService.saveBatchRemoteContents(newAdminItems, (pct, currentBatch, totalBatches) => {
         setImportProgress(pct);
+        setImportProgressText(`Gravando no MySQL: lote ${currentBatch} de ${totalBatches} (${pct}%)...`);
       });
 
-      setImportSuccessMsg(`Sucesso! ${importedCount} conteudos foram salvos no banco de dados e adicionados ao catalogo.`);
-      onImportSuccess(importedCount);
+      if (!saveResult.success || saveResult.totalSaved === 0) {
+        throw new Error(saveResult.message || 'Falha ao salvar no banco de dados MySQL.');
+      }
+
+      setIsImportCompleted(true);
+      setImportSuccessMsg(`Sucesso! ${saveResult.totalSaved} conteudos foram salvos permanentemente no banco de dados MySQL.`);
+      onImportSuccess(saveResult.totalSaved);
     } catch (err: any) {
-      setErrorMsg(`Erro ao importar catalogo: ${err?.message || 'Memoria insuficiente do navegador para o volume selecionado.'}`);
+      setErrorMsg(`Erro ao salvar no banco de dados: ${err?.message || 'Falha de conexao com a hospedagem.'}`);
     } finally {
       setIsImporting(false);
     }
@@ -517,9 +532,17 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
           {/* SUCCESS ALERT */}
           {importSuccessMsg && (
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-300 text-xs animate-in fade-in">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
-              <p className="font-bold">{importSuccessMsg}</p>
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-emerald-300 text-xs animate-in fade-in shadow-lg shadow-emerald-950/40">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
+                <p className="font-bold">{importSuccessMsg}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all cursor-pointer whitespace-nowrap shadow-md shadow-emerald-500/20"
+              >
+                Concluir e Ver no Catalogo
+              </button>
             </div>
           )}
 
@@ -813,19 +836,28 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
             {parsedData && (
               <button
-                onClick={handleExecuteImport}
-                disabled={isImporting || selectedItemIds.size === 0}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-cyan-500/25 transition-all cursor-pointer"
+                onClick={isImportCompleted ? onClose : handleExecuteImport}
+                disabled={isImporting || (!isImportCompleted && selectedItemIds.size === 0)}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs sm:text-sm shadow-xl transition-all cursor-pointer disabled:opacity-50 ${
+                  isImportCompleted
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-500/25'
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-cyan-500/25'
+                }`}
               >
                 {isImporting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                    <span>Importando... ({importProgress}%)</span>
+                    <span>{importProgressText || `Salvando no Banco MySQL... (${importProgress}%)`}</span>
+                  </>
+                ) : isImportCompleted ? (
+                  <>
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Concluir e Ir para o Catalogo</span>
                   </>
                 ) : (
                   <>
-                    <Download className="w-4 h-4 stroke-[3]" />
-                    <span>Importar {selectedItemIds.size} Itens para o Catalogo</span>
+                    <Database className="w-4 h-4 stroke-[2.5]" />
+                    <span>Salvar {selectedItemIds.size} Itens no Banco de Dados</span>
                   </>
                 )}
               </button>

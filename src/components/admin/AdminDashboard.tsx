@@ -32,7 +32,8 @@ import {
   Edit,
   Tag,
   AlertCircle,
-  Download
+  Download,
+  Database
 } from 'lucide-react';
 import type {
   ClientLine,
@@ -496,6 +497,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
       await AdminService.deleteContent(item.id);
       const updated = await AdminService.fetchRemoteContents();
       setContents(updated);
+    }
+  };
+
+  // Save all local contents to remote MySQL database
+  const [isSyncingDatabase, setIsSyncingDatabase] = useState<boolean>(false);
+  const [syncProgress, setSyncProgress] = useState<number>(0);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  const handleSaveAllToRemoteDatabase = async () => {
+    if (!Array.isArray(contents) || contents.length === 0) {
+      alert('Nenhum conteudo disponivel para salvar no banco de dados.');
+      return;
+    }
+    try {
+      setIsSyncingDatabase(true);
+      setSyncFeedback(null);
+      const res = await AdminService.saveBatchRemoteContents(contents, (pct) => {
+        setSyncProgress(pct);
+      });
+      setSyncFeedback(res.message);
+      const updated = await AdminService.fetchRemoteContents();
+      setContents(updated);
+    } catch (err: any) {
+      alert(`Erro ao salvar no banco de dados MySQL: ${err?.message || 'Falha de conexao.'}`);
+    } finally {
+      setIsSyncingDatabase(false);
+      setSyncProgress(0);
+      setTimeout(() => setSyncFeedback(null), 6000);
     }
   };
 
@@ -1337,6 +1366,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                   <p className="text-xs text-slate-400">
                     Cadastre filmes, series, canais ao vivo e animes com sincronizacao automatica no banco de dados.
                   </p>
+                  {syncFeedback && (
+                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold animate-in fade-in">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{syncFeedback}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1349,6 +1384,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                   className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer"
                 >
                   <RefreshCw className="w-4 h-4 text-cyan-400" />
+                </button>
+
+                <button
+                  onClick={handleSaveAllToRemoteDatabase}
+                  disabled={isSyncingDatabase || !contents || contents.length === 0}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 hover:text-emerald-200 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  title="Salvar todos os conteudos atuais permanentemente no banco de dados MySQL"
+                >
+                  {isSyncingDatabase ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Salvando no Banco ({syncProgress}%)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4 text-emerald-400" />
+                      <span>Salvar no Banco ({contents.length})</span>
+                    </>
+                  )}
                 </button>
 
                 <button
