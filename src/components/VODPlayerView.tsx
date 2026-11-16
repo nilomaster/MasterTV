@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { MediaItem, EpisodeItem } from '../types/iptv';
 import { getStreamQuality, detectQualityFromDimensions } from '../services/qualityDetector';
+import { resolvePlayableStreamUrl } from '../services/streamResolver';
 
 interface VODPlayerViewProps {
   mediaItem: MediaItem;
@@ -206,16 +207,16 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
       hlsRef.current = null;
     }
 
-    // Auto-upgrade insecure http to https when on secure origin to avoid mixed content blocking
-    let streamUrl = effectiveStreamUrl.trim();
-    if (streamUrl.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
-      streamUrl = streamUrl.replace(/^http:\/\//i, 'https://');
-    }
+    // Resolve secure playable URL with backend proxy fallback
+    const rawStream = effectiveStreamUrl.trim();
+    const streamUrl = resolvePlayableStreamUrl(rawStream);
 
     const isHlsPlaylist = Boolean(
+      rawStream.includes('.m3u8') ||
+      rawStream.includes('/hls') ||
+      rawStream.includes('.m3u') ||
       streamUrl.includes('.m3u8') ||
-      streamUrl.includes('/hls') ||
-      streamUrl.includes('.m3u') ||
+      streamUrl.includes('/api/stream') ||
       streamUrl.includes('/api/proxy')
     );
 

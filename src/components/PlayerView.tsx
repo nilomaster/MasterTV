@@ -30,6 +30,7 @@ import {
 import type { Channel, Category } from '../types/iptv';
 import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
 import { EPGGuideView } from './EPGGuideView';
+import { resolvePlayableStreamUrl } from '../services/streamResolver';
 
 interface PlayerViewProps {
   channels: Channel[];
@@ -160,7 +161,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   channelSourcesRef.current = channelSources;
 
   const activeSourceObj = channelSources.find((s) => s.id === activeSource) || channelSources[0];
-  const streamToPlay = activeSourceObj?.url || currentChannel?.streamUrl || '';
+  const rawStream = activeSourceObj?.url || currentChannel?.streamUrl || '';
+  const streamToPlay = resolvePlayableStreamUrl(rawStream);
 
   const cycleSource = useCallback(() => {
     if (channelSources.length <= 1) return;
@@ -193,6 +195,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     // Check if the stream is a direct video container (MP4, MKV or CDN workers file)
     const isDirectVideo =
+      rawStream.includes('.mp4') ||
+      rawStream.includes('.mkv') ||
       streamToPlay.includes('.mp4') ||
       streamToPlay.includes('.mkv') ||
       streamToPlay.includes('workers.dev');
@@ -201,10 +205,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     const isHlsStream =
       !isDirectVideo &&
       Hls.isSupported() &&
-      (streamToPlay.includes('.m3u8') ||
-        streamToPlay.includes('.txt') ||
+      (rawStream.includes('.m3u8') ||
+        rawStream.includes('.txt') ||
+        streamToPlay.includes('.m3u8') ||
+        streamToPlay.includes('/api/stream') ||
         streamToPlay.includes('/api/proxy') ||
-        streamToPlay.includes('stream') ||
         streamToPlay.includes('m3u8'));
 
     // Resilient helper to start playback without triggering false autoplay blocks
