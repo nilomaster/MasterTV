@@ -725,7 +725,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     <div
       ref={containerRef}
       onMouseMove={resetControlsTimer}
-      className="relative w-full h-screen bg-black overflow-hidden flex items-center justify-center select-none font-sans"
+      className="relative w-full h-[100dvh] max-h-[100dvh] bg-black overflow-hidden flex items-center justify-center select-none font-sans"
     >
       {/* Video Element */}
       <video

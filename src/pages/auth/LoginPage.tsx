@@ -11,7 +11,7 @@ export const LoginPage: React.FC = () => {
   const { navigateTo } = useNavigation();
 
   return (
-    <div className="min-h-screen bg-[#07090e] flex flex-col justify-center items-center">
+    <div className="min-h-[100dvh] w-full bg-[#07090e] flex flex-col justify-center items-center overflow-x-hidden p-2 sm:p-4">
       <LoginView
         onLoginSuccess={(session) => {
           setClientSession(session);

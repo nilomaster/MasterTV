@@ -27,7 +27,7 @@ export const PlayerLayout: React.FC<PlayerLayoutProps> = ({ children, onBack }) 
   }, [onBack, goBack]);
 
   return (
-    <div className="fixed inset-0 w-screen h-[100dvh] bg-[#000000] text-slate-100 overflow-hidden select-none z-50">
+    <div className="fixed inset-0 w-full max-w-full h-[100dvh] bg-[#000000] text-slate-100 overflow-hidden select-none z-50">
       {children}
     </div>
   );

@@ -884,8 +884,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       onMouseLeave={handleMouseLeave}
       className={`w-full bg-[#07090e] select-none font-sans ${
         isFullscreen
-          ? 'fixed inset-0 z-50 h-screen overflow-hidden'
-          : 'h-[100dvh] overflow-hidden flex flex-col md:block relative'
+          ? 'fixed inset-0 z-50 h-[100dvh] w-full overflow-hidden'
+          : 'h-[100dvh] md:h-full overflow-hidden flex flex-col md:block relative'
       }`}
     >
       {/* Video Container (Pinned 16:9 on Mobile, Full-screen Cinema on Desktop) */}

@@ -67,7 +67,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onOpenAdmi
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#07090e] flex flex-col justify-between items-center p-4 relative overflow-hidden select-none">
+    <div className="min-h-[100dvh] w-full max-w-full bg-[#07090e] flex flex-col justify-between items-center p-3 sm:p-4 relative overflow-hidden select-none">
       {/* Background Glow Decorations */}
       <div className="absolute top-[-150px] left-[-150px] w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-150px] right-[-150px] w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />

@@ -407,10 +407,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* MOBILE-FIRST BOTTOM APP BAR (Fixed at bottom for mobile phones & small tablets) */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around sm:hidden transition-all duration-300 ease-in-out ${
-          currentView === 'player' && !isPlayerControlsVisible
-            ? 'translate-y-full opacity-0 pointer-events-none'
+          currentView === 'player'
+            ? 'hidden'
             : 'translate-y-0 opacity-100 pointer-events-auto'
         }`}
+        style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
       >
         <button
           onClick={() => handleNavClick('home')}
