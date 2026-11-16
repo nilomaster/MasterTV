@@ -1,8 +1,10 @@
 // MasterTV Admin M3U & IPTV Playlist Importer Modal
 // Supports Saimon-TV, Xtream Codes, and Generic M3U / M3U8 Playlists
+// In-memory caching ensures 247k items load once and persist across modal sessions
+// Incremental import preserves already saved channels and movies
 // Strictly ASCII comments only as per project guidelines
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -21,11 +23,13 @@ import {
   Sparkles,
   Database,
   Check,
+  Plus,
 } from 'lucide-react';
 import {
   parseAdvancedM3U,
   fetchAdvancedM3U,
   type AdvancedM3UResult,
+  type ParsedPlaylistItem,
 } from '../../services/m3uParser';
 import { AdminService } from '../../services/adminService';
 import type { AdminContentItem } from '../../types/admin';
@@ -41,6 +45,10 @@ function getDeterministicContentId(type: string, title: string, streamUrl: strin
   return `${type}_${Math.abs(hash).toString(36)}`;
 }
 
+// Module-level in-memory cache so reopening the modal preserves the loaded 247k playlist
+let cachedM3UData: AdvancedM3UResult | null = null;
+let cachedM3UUrl: string = '';
+
 interface M3UImporterModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -54,16 +62,16 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 }) => {
   // Input mode: 'url' | 'file' | 'text'
   const [inputMode, setInputMode] = useState<'url' | 'file' | 'text'>('url');
-  const [urlInput, setUrlInput] = useState<string>('');
+  const [urlInput, setUrlInput] = useState<string>(() => cachedM3UUrl);
   const [textInput, setTextInput] = useState<string>('');
   const [selectedFileName, setSelectedFileName] = useState<string>('');
 
-  // Processing state
+  // Processing state initialized with in-memory cache
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [parsedData, setParsedData] = useState<AdvancedM3UResult | null>(null);
+  const [parsedData, setParsedData] = useState<AdvancedM3UResult | null>(() => cachedM3UData);
 
-  // Filter and selection state
+  // Filter and selection state (starts with 0 selected so user can cherry-pick)
   const [typeFilter, setTypeFilter] = useState<'all' | 'channel' | 'movie' | 'series'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
@@ -71,12 +79,51 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
   // Default to FALSE so incremental imports do not wipe previously imported content
   const [shouldClearBeforeImport, setShouldClearBeforeImport] = useState<boolean>(false);
 
+  // Existing database content tracking for visual status and protection
+  const [existingContents, setExistingContents] = useState<AdminContentItem[]>(() => {
+    return AdminService.getContents();
+  });
+  const [addingItemId, setAddingItemId] = useState<string | null>(null);
+
   // Import execution state
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<number>(0);
   const [importProgressText, setImportProgressText] = useState<string>('');
   const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
   const [isImportCompleted, setIsImportCompleted] = useState<boolean>(false);
+
+  // Sync existing contents when modal opens to ensure up-to-date catalog check
+  useEffect(() => {
+    if (isOpen) {
+      AdminService.fetchRemoteContents()
+        .then((remote) => {
+          if (remote && Array.isArray(remote) && remote.length > 0) {
+            setExistingContents(remote);
+          }
+        })
+        .catch(() => {
+          setExistingContents(AdminService.getContents());
+        });
+    }
+  }, [isOpen]);
+
+  // Lookup map of already saved items by stream URL and lowercased title
+  const savedUrlMap = useMemo(() => {
+    const map = new Map<string, AdminContentItem>();
+    existingContents.forEach((c) => {
+      if (c && c.streamUrl) map.set(c.streamUrl.trim(), c);
+      if (c && c.title) map.set(c.title.toLowerCase().trim(), c);
+    });
+    return map;
+  }, [existingContents]);
+
+  // Check if an item is already saved in catalog
+  const isItemAlreadyInCatalog = (item: ParsedPlaylistItem): boolean => {
+    if (item.streamUrl && savedUrlMap.has(item.streamUrl.trim())) return true;
+    if (item.title && savedUrlMap.has(item.title.toLowerCase().trim())) return true;
+    if (item.cleanTitle && savedUrlMap.has(item.cleanTitle.toLowerCase().trim())) return true;
+    return false;
+  };
 
   // Handler to parse from raw text content
   const handleProcessText = (content: string) => {
@@ -90,20 +137,11 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         throw new Error('Nenhum item valido ou tag #EXTINF encontrada no conteudo fornecido.');
       }
 
+      cachedM3UData = result;
       setParsedData(result);
-      // Automatically select channels, movies, animes, and doramas by default
-      const defaultCats = new Set(
-        result.categories
-          .filter((c) => c.type !== 'series')
-          .map((c) => c.name)
-      );
-      setSelectedCategories(defaultCats);
-      const selectedIds = new Set<string>();
-      result.channels.forEach((i) => selectedIds.add(i.id));
-      result.movies.forEach((i) => selectedIds.add(i.id));
-      result.animes.forEach((i) => selectedIds.add(i.id));
-      result.doramas.forEach((i) => selectedIds.add(i.id));
-      setSelectedItemIds(selectedIds);
+      // Start with 0 selected so the user can choose freely without mass overwriting
+      setSelectedCategories(new Set());
+      setSelectedItemIds(new Set());
       setTypeFilter('all');
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao processar lista M3U.');
@@ -114,7 +152,8 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
   // Handler for URL input fetch
   const handleFetchUrl = async () => {
-    if (!urlInput.trim()) {
+    const cleanUrl = urlInput.trim();
+    if (!cleanUrl) {
       setErrorMsg('Por favor, informe a URL da lista M3U.');
       return;
     }
@@ -123,29 +162,21 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     setImportSuccessMsg(null);
 
     try {
-      const result = await fetchAdvancedM3U(urlInput.trim());
+      const result = await fetchAdvancedM3U(cleanUrl);
       if (result.totalCount === 0) {
         throw new Error('Nenhum canal ou video encontrado na lista informada.');
       }
+      cachedM3UData = result;
+      cachedM3UUrl = cleanUrl;
       setParsedData(result);
-      // Automatically select channels, movies, animes, and doramas by default
-      const defaultCats = new Set(
-        result.categories
-          .filter((c) => c.type !== 'series')
-          .map((c) => c.name)
-      );
-      setSelectedCategories(defaultCats);
-      const selectedIds = new Set<string>();
-      result.channels.forEach((i) => selectedIds.add(i.id));
-      result.movies.forEach((i) => selectedIds.add(i.id));
-      result.animes.forEach((i) => selectedIds.add(i.id));
-      result.doramas.forEach((i) => selectedIds.add(i.id));
-      setSelectedItemIds(selectedIds);
+      // Start with 0 selected so the user can cherry-pick content
+      setSelectedCategories(new Set());
+      setSelectedItemIds(new Set());
       setTypeFilter('all');
     } catch (err: any) {
       setErrorMsg(
         err.message ||
-          'Nao foi possivel baixar a lista via URL. Se o servidor de origem bloquear acesso direto (CORS), baixe o arquivo .m3u no computador e use a opcao "Arquivo .M3U"!'
+          'Nao foi possivel baixar a lista via URL. Se o servidor de origem bloquear acesso direto (CORS), baixe o arquivo .m3u no computador e use a opcao "Upload Arquivo .M3U"!'
       );
     } finally {
       setIsLoading(false);
@@ -177,6 +208,62 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
       setIsLoading(false);
     };
     reader.readAsText(file);
+  };
+
+  // Quick 1-click addition of a single channel or movie into database
+  const handleQuickAddSingleItem = async (item: ParsedPlaylistItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      setAddingItemId(item.id);
+      const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
+      const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
+
+      const adminItem: AdminContentItem = {
+        id: getDeterministicContentId(item.type, item.cleanTitle || item.title, item.streamUrl),
+        type: item.type,
+        title: item.cleanTitle || item.title,
+        tagline: item.type === 'channel' ? 'Transmissao Ao Vivo' : '',
+        rating: item.type === 'channel' ? 9.0 : 8.0,
+        duration: item.type === 'channel' ? 'Ao Vivo' : item.type === 'movie' ? '1h 50m' : '1 Temporada',
+        year: item.year || 2026,
+        contentRating: '14',
+        genres: [item.groupTitle || 'Geral'],
+        posterUrl: item.logo || '',
+        backdropUrl: item.logo || '',
+        streamUrl: item.streamUrl,
+        backupStreamUrl: '',
+        sourcesList: [
+          {
+            id: 1,
+            name: cleanQualityLabel,
+            quality: sourceQuality,
+            streamUrl: item.streamUrl,
+            backupStreamUrl: '',
+          },
+        ],
+        description:
+          item.type === 'channel'
+            ? `Transmissao ao vivo do canal ${item.cleanTitle || item.title}.`
+            : `Assista ${item.cleanTitle || item.title} em alta definicao no MasterTV.`,
+        director: '',
+        writers: '',
+        production: 'MasterTV',
+        channelNumber: item.type === 'channel' ? existingContents.length + 1 : undefined,
+      };
+
+      // Add to local catalog state immediately
+      const updated = [...existingContents.filter((c) => c.id !== adminItem.id), adminItem];
+      setExistingContents(updated);
+      AdminService.saveContentsLocally(updated);
+
+      // Persist to MySQL remote database
+      await AdminService.saveBatchRemoteContents([adminItem]);
+      onImportSuccess(1);
+    } catch (err: any) {
+      setErrorMsg(`Erro ao adicionar item: ${err?.message || 'Falha de comunicacao com o banco.'}`);
+    } finally {
+      setAddingItemId(null);
+    }
   };
 
   // Map of category name to item IDs for instant O(1) toggling without scanning 250k items
@@ -347,12 +434,12 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     return parsedData.items.filter((item) => {
       // Type match
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
-      // Category match
+      // Category match: only filter by category if user explicitly selected one or more categories
       if (selectedCategories.size > 0 && !selectedCategories.has(item.groupTitle)) return false;
       // Search match
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesTitle = item.title.toLowerCase().includes(q);
+        const matchesTitle = item.title.toLowerCase().includes(q) || (item.cleanTitle && item.cleanTitle.toLowerCase().includes(q));
         const matchesCat = item.groupTitle.toLowerCase().includes(q);
         if (!matchesTitle && !matchesCat) return false;
       }
@@ -392,15 +479,15 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     setIsImportCompleted(false);
 
     try {
-      let existingContents: AdminContentItem[] = [];
+      let currentExisting: AdminContentItem[] = [];
       if (shouldClearBeforeImport) {
         await AdminService.clearRemoteContents();
         AdminService.saveContentsLocally([]);
       } else {
         try {
-          existingContents = await AdminService.fetchRemoteContents();
+          currentExisting = await AdminService.fetchRemoteContents();
         } catch {
-          existingContents = AdminService.getContents();
+          currentExisting = AdminService.getContents();
         }
       }
 
@@ -443,7 +530,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
           director: '',
           writers: '',
           production: 'MasterTV',
-          channelNumber: item.type === 'channel' ? existingContents.length + newAdminItems.length + 1 : undefined,
+          channelNumber: item.type === 'channel' ? currentExisting.length + newAdminItems.length + 1 : undefined,
         };
 
         newAdminItems.push(adminItem);
@@ -461,7 +548,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
       // Merge with deduplication preserving existing contents and appending new items
       const contentMap = new Map<string, AdminContentItem>();
-      existingContents.forEach((c) => {
+      currentExisting.forEach((c) => {
         if (c && c.id) contentMap.set(c.id, c);
       });
       newAdminItems.forEach((c) => {
@@ -469,6 +556,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
       });
       const mergedList = Array.from(contentMap.values());
       AdminService.saveContentsLocally(mergedList);
+      setExistingContents(mergedList);
 
       // Persist to remote MySQL database in safe batches of 50
       setImportProgressText('Iniciando gravacao no banco de dados MySQL...');
@@ -510,7 +598,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Puxe canais ao vivo, filmes e series completos da sua lista e selecione o que deseja importar.
+                Puxe canais ao vivo, filmes e series completos da sua lista e selecione o que deseja importar com seguranca.
               </p>
             </div>
           </div>
@@ -576,7 +664,10 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                       type="url"
                       placeholder="Ex: http://servidor.tv:8080/get.php?username=XXX&password=YYY&type=m3u_plus"
                       value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
+                      onChange={(e) => {
+                        setUrlInput(e.target.value);
+                        cachedM3UUrl = e.target.value;
+                      }}
                       className="w-full bg-[#07090e] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 transition-colors"
                     />
                   </div>
@@ -688,13 +779,35 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
           {/* STEP 2: PARSED PLAYLIST DASHBOARD & SELECTOR */}
           {parsedData && (
             <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Protected Catalog Awareness Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-cyan-950/20 to-transparent border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-sm">
+                      Catálogo Protegido: {existingContents.length} {existingContents.length === 1 ? 'conteúdo já salvo' : 'conteúdos já salvos'} no Banco MySQL
+                    </p>
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      Esta lista com <strong>{parsedData.totalCount.toLocaleString('pt-BR')} itens</strong> está carregada na memória. Você pode ir escolhendo e adicionando os conteúdos aos poucos — seus canais já cadastrados (ex: Band, Record) <strong>NUNCA</strong> serão apagados!
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <span className="px-3 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-[11px] font-bold">
+                    ✓ Modo Seguro Ativo
+                  </span>
+                </div>
+              </div>
+
               {/* Summary Metric Badges with One-Click Quick Selectors */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold text-slate-400 uppercase">Total na Lista</p>
-                      <p className="text-xl sm:text-2xl font-black text-white">{parsedData.totalCount}</p>
+                      <p className="text-xl sm:text-2xl font-black text-white">{parsedData.totalCount.toLocaleString('pt-BR')}</p>
                     </div>
                     <Sparkles className="w-6 h-6 text-cyan-400 opacity-60" />
                   </div>
@@ -709,7 +822,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold text-red-300 uppercase">Canais Ao Vivo</p>
-                      <p className="text-xl sm:text-2xl font-black text-red-400">{parsedData.channels.length}</p>
+                      <p className="text-xl sm:text-2xl font-black text-red-400">{parsedData.channels.length.toLocaleString('pt-BR')}</p>
                     </div>
                     <Tv className="w-6 h-6 text-red-400 opacity-60" />
                   </div>
@@ -731,7 +844,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold text-cyan-300 uppercase">Filmes (VOD)</p>
-                      <p className="text-xl sm:text-2xl font-black text-cyan-400">{parsedData.movies.length}</p>
+                      <p className="text-xl sm:text-2xl font-black text-cyan-400">{parsedData.movies.length.toLocaleString('pt-BR')}</p>
                     </div>
                     <Film className="w-6 h-6 text-cyan-400 opacity-60" />
                   </div>
@@ -753,7 +866,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold text-purple-300 uppercase">Series (VOD)</p>
-                      <p className="text-xl sm:text-2xl font-black text-purple-400">{parsedData.series.length}</p>
+                      <p className="text-xl sm:text-2xl font-black text-purple-400">{parsedData.series.length.toLocaleString('pt-BR')}</p>
                     </div>
                     <Clapperboard className="w-6 h-6 text-purple-400 opacity-60" />
                   </div>
@@ -779,17 +892,17 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   className="w-4 h-4 rounded text-amber-500 focus:ring-0 bg-[#07090e] border-white/20 cursor-pointer"
                 />
                 <div>
-                  <span className="font-bold">Substituir catalogo existente (Limpar banco MySQL antes de salvar)</span>
+                  <span className="font-bold">Substituir catálogo existente (Limpar banco MySQL antes de salvar)</span>
                   <p className="text-[11px] text-amber-300/80">
                     {shouldClearBeforeImport
-                      ? 'ATENCAO: O catalogo atual sera totalmente apagado antes de salvar os itens selecionados agora.'
-                      : 'Desmarcado (Recomendado): Os itens selecionados serao somados ao catalogo existente sem apagar nada.'}
+                      ? `ATENÇÃO: Todo o catálogo atual (${existingContents.length} conteúdos) será apagado antes de salvar os itens selecionados.`
+                      : `Desmarcado (Recomendado): Os itens selecionados serão somados mantendo os ${existingContents.length} já salvos sem apagar nada.`}
                   </p>
                 </div>
               </label>
 
               {/* Action Buttons to Switch / Reload List */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-400">Filtrar por tipo:</span>
                   <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
@@ -799,7 +912,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                         typeFilter === 'all' ? 'bg-cyan-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Todos ({parsedData.totalCount})
+                      Todos ({parsedData.totalCount.toLocaleString('pt-BR')})
                     </button>
                     <button
                       onClick={() => setTypeFilter('channel')}
@@ -807,7 +920,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                         typeFilter === 'channel' ? 'bg-red-500 text-white font-black' : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Canais ({parsedData.channels.length})
+                      Canais ({parsedData.channels.length.toLocaleString('pt-BR')})
                     </button>
                     <button
                       onClick={() => setTypeFilter('movie')}
@@ -815,7 +928,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                         typeFilter === 'movie' ? 'bg-cyan-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Filmes ({parsedData.movies.length})
+                      Filmes ({parsedData.movies.length.toLocaleString('pt-BR')})
                     </button>
                     <button
                       onClick={() => setTypeFilter('series')}
@@ -823,20 +936,23 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                         typeFilter === 'series' ? 'bg-purple-500 text-white font-black' : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Series ({parsedData.series.length})
+                      Series ({parsedData.series.length.toLocaleString('pt-BR')})
                     </button>
                   </div>
                 </div>
 
                 <button
                   onClick={() => {
+                    cachedM3UData = null;
                     setParsedData(null);
                     setImportSuccessMsg(null);
                     setErrorMsg(null);
+                    setSelectedItemIds(new Set());
+                    setSelectedCategories(new Set());
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-400 hover:text-white border border-white/10 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer self-start sm:self-auto"
                 >
-                  🔄 Trocar de Lista M3U
+                  🔄 Trocar de Lista M3U / Carregar Nova
                 </button>
               </div>
 
@@ -853,7 +969,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                         : typeFilter === 'channel'
                         ? 'Categorias de Canais Ao Vivo'
                         : 'Todas as Categorias'}{' '}
-                      ({displayedCategories.filter((c) => selectedCategories.has(c.name)).length} de {displayedCategories.length} ativas):
+                      ({selectedCategories.size === 0 ? 'Todas ativas' : `${displayedCategories.filter((c) => selectedCategories.has(c.name)).length} de ${displayedCategories.length} selecionadas`}):
                     </span>
                   </div>
 
@@ -869,7 +985,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                       onClick={handleDeselectAllCategories}
                       className="text-[11px] font-bold text-slate-400 hover:underline cursor-pointer"
                     >
-                      Desmarcar
+                      Desmarcar Filtro
                     </button>
                   </div>
                 </div>
@@ -915,16 +1031,16 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   </button>
 
                   <span className="text-xs text-slate-400 ml-2">
-                    Exibindo <strong>{displayedItems.length}</strong> de {parsedData.totalCount} itens
+                    Exibindo <strong>{displayedItems.length}</strong> de {parsedData.totalCount.toLocaleString('pt-BR')} itens
                   </span>
                 </div>
 
                 {/* Search in Playlist */}
-                <div className="relative min-w-[260px]">
+                <div className="relative min-w-[280px]">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Filtrar por nome de canal ou filme..."
+                    placeholder="Buscar canal ou filme (ex: BAND, RECORD, GLOBO)..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-[#07090e] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
@@ -944,17 +1060,25 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                         <th className="py-2.5 px-3">Tipo</th>
                         <th className="py-2.5 px-3">Categoria</th>
                         <th className="py-2.5 px-3">Qualidade</th>
+                        <th className="py-2.5 px-3 text-right">Ação Direta</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {displayedItems.slice(0, 300).map((item) => {
                         const isSelected = selectedItemIds.has(item.id);
+                        const isAlreadySaved = isItemAlreadyInCatalog(item);
+                        const isCurrentlyAdding = addingItemId === item.id;
+
                         return (
                           <tr
                             key={item.id}
                             onClick={() => toggleItem(item.id)}
                             className={`cursor-pointer transition-colors ${
-                              isSelected ? 'bg-cyan-500/10 hover:bg-cyan-500/15' : 'hover:bg-white/5'
+                              isAlreadySaved
+                                ? 'bg-emerald-950/20 hover:bg-emerald-950/30'
+                                : isSelected
+                                ? 'bg-cyan-500/10 hover:bg-cyan-500/15'
+                                : 'hover:bg-white/5'
                             }`}
                           >
                             <td className="py-2 px-3 text-center">
@@ -981,7 +1105,14 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                               )}
                             </td>
                             <td className="py-2 px-3">
-                              <p className="font-bold text-white truncate max-w-xs">{item.cleanTitle || item.title}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-white truncate max-w-xs">{item.cleanTitle || item.title}</p>
+                                {isAlreadySaved && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                                    Salvo
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[10px] text-slate-500 truncate max-w-sm">{item.streamUrl}</p>
                             </td>
                             <td className="py-2 px-3">
@@ -1005,6 +1136,33 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                                 {item.quality}
                               </span>
                             </td>
+                            <td className="py-2 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                              {isAlreadySaved ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[11px] whitespace-nowrap shadow-sm">
+                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>No Catálogo</span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleQuickAddSingleItem(item, e)}
+                                  disabled={isCurrentlyAdding}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 border border-cyan-500/40 font-bold text-[11px] transition-all whitespace-nowrap cursor-pointer disabled:opacity-50"
+                                >
+                                  {isCurrentlyAdding ? (
+                                    <>
+                                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                      <span>Salvando...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>+ Adicionar</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -1013,8 +1171,8 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                 </div>
 
                 {displayedItems.length > 300 && (
-                  <div className="p-2 text-center text-[11px] text-slate-500 border-t border-white/10 bg-white/5">
-                    Mostrando os primeiros 300 itens na previa. Todos os {selectedItemIds.size} itens selecionados serao importados!
+                  <div className="p-2.5 text-center text-[11px] text-slate-400 border-t border-white/10 bg-white/5 flex items-center justify-center gap-2">
+                    <span>Exibindo os primeiros 300 itens na prévia para máxima velocidade. Use a busca acima para encontrar qualquer canal ou filme específico!</span>
                   </div>
                 )}
               </div>
@@ -1028,7 +1186,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
             <span className="text-xs text-slate-400">
               {parsedData ? (
                 <>
-                  Selecionados para salvar:{' '}
+                  Selecionados para salvar em lote:{' '}
                   <strong className="text-cyan-400 font-black text-sm">{selectedItemIds.size} itens</strong>
                   {(selectedCounts.channels > 0 || selectedCounts.movies > 0 || selectedCounts.series > 0) && (
                     <span className="text-slate-400 ml-1.5 font-medium">
@@ -1077,7 +1235,11 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                 ) : (
                   <>
                     <Database className="w-4 h-4 stroke-[2.5]" />
-                    <span>Salvar {selectedItemIds.size} Itens no Banco de Dados</span>
+                    <span>
+                      {selectedItemIds.size > 0
+                        ? `+ Adicionar ${selectedItemIds.size} Itens ao Catálogo (Mantendo os ${existingContents.length} já salvos)`
+                        : 'Selecione itens ou use "+ Adicionar"'}
+                    </span>
                   </>
                 )}
               </button>
@@ -1088,4 +1250,3 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     </div>
   );
 };
-
