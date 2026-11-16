@@ -3323,8 +3323,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         <M3UImporterModal
           isOpen={isM3UModalOpen}
           onClose={() => setIsM3UModalOpen(false)}
-          onImportSuccess={() => {
-            setContents(AdminService.getContents());
+          onImportSuccess={async () => {
+            try {
+              const remote = await AdminService.fetchRemoteContents();
+              setContents(remote);
+            } catch {
+              setContents(AdminService.getContents());
+            }
           }}
         />
       )}

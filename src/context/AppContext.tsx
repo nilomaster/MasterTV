@@ -137,6 +137,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
     initOnlineEPG();
+
+    const handleCatalogUpdated = () => {
+      const refreshed = getCustomChannels();
+      setChannels(refreshed);
+      setCurrentChannel((prev) => {
+        if (prev && refreshed.some((c) => c.id === prev.id)) return prev;
+        return refreshed[0] || null;
+      });
+    };
+    window.addEventListener('mastertv_catalog_updated', handleCatalogUpdated);
+    return () => window.removeEventListener('mastertv_catalog_updated', handleCatalogUpdated);
   }, []);
 
   const liveChannels = enrichChannelsWithLiveEPG(channels);

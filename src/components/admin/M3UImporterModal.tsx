@@ -68,7 +68,8 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [shouldClearBeforeImport, setShouldClearBeforeImport] = useState<boolean>(true);
+  // Default to FALSE so incremental imports do not wipe previously imported content
+  const [shouldClearBeforeImport, setShouldClearBeforeImport] = useState<boolean>(false);
 
   // Import execution state
   const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -391,11 +392,18 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     setIsImportCompleted(false);
 
     try {
+      let existingContents: AdminContentItem[] = [];
       if (shouldClearBeforeImport) {
         await AdminService.clearRemoteContents();
+        AdminService.saveContentsLocally([]);
+      } else {
+        try {
+          existingContents = await AdminService.fetchRemoteContents();
+        } catch {
+          existingContents = AdminService.getContents();
+        }
       }
 
-      const existingContents = shouldClearBeforeImport ? [] : AdminService.getContents();
       const newAdminItems: AdminContentItem[] = [];
       let importedCount = 0;
 
@@ -451,8 +459,15 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         }
       }
 
-      // Merge and save to local storage as quick cache
-      const mergedList = [...newAdminItems, ...existingContents];
+      // Merge with deduplication preserving existing contents and appending new items
+      const contentMap = new Map<string, AdminContentItem>();
+      existingContents.forEach((c) => {
+        if (c && c.id) contentMap.set(c.id, c);
+      });
+      newAdminItems.forEach((c) => {
+        if (c && c.id) contentMap.set(c.id, c);
+      });
+      const mergedList = Array.from(contentMap.values());
       AdminService.saveContentsLocally(mergedList);
 
       // Persist to remote MySQL database in safe batches of 50
@@ -764,9 +779,11 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   className="w-4 h-4 rounded text-amber-500 focus:ring-0 bg-[#07090e] border-white/20 cursor-pointer"
                 />
                 <div>
-                  <span className="font-bold">Substituir catalogo existente (Limpar banco MySQL antes de salvar):</span>
+                  <span className="font-bold">Substituir catalogo existente (Limpar banco MySQL antes de salvar)</span>
                   <p className="text-[11px] text-amber-300/80">
-                    Evita duplicidades. O sistema apaga a lista anterior e salva exatamente os canais, filmes e series selecionados acima.
+                    {shouldClearBeforeImport
+                      ? 'ATENCAO: O catalogo atual sera totalmente apagado antes de salvar os itens selecionados agora.'
+                      : 'Desmarcado (Recomendado): Os itens selecionados serao somados ao catalogo existente sem apagar nada.'}
                   </p>
                 </div>
               </label>
