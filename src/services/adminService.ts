@@ -736,6 +736,18 @@ export class AdminService {
       ...doramas.slice(0, 300),
     ];
 
+    const counts = {
+      channels: channels.length,
+      movies: movies.length,
+      series: series.length,
+      animes: animes.length,
+      doramas: doramas.length,
+      total: safeArray.length,
+    };
+    try {
+      localStorage.setItem('mastertv_catalog_counts', JSON.stringify(counts));
+    } catch {}
+
     try {
       localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(sample));
     } catch (err) {
@@ -754,6 +766,77 @@ export class AdminService {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('mastertv_catalog_updated'));
     }
+  }
+
+  // Return catalog counts with memory and localStorage caching
+  static getCatalogCounts(): {
+    channels: number;
+    movies: number;
+    series: number;
+    animes: number;
+    doramas: number;
+    total: number;
+  } {
+    try {
+      const raw = localStorage.getItem('mastertv_catalog_counts');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.total === 'number') {
+          return parsed;
+        }
+      }
+    } catch {}
+
+    const contents = this.getContents();
+    const channels = contents.filter((c) => c && c.type === 'channel').length;
+    const movies = contents.filter((c) => c && c.type === 'movie').length;
+    const series = contents.filter((c) => c && c.type === 'series').length;
+    const animes = contents.filter((c) => c && c.type === 'anime').length;
+    const doramas = contents.filter((c) => c && c.type === 'dorama').length;
+    return {
+      channels,
+      movies,
+      series,
+      animes,
+      doramas,
+      total: contents.length,
+    };
+  }
+
+  // Fetch real-time catalog counts directly from MySQL (lightweight query)
+  static async fetchCatalogCounts(): Promise<{
+    channels: number;
+    movies: number;
+    series: number;
+    animes: number;
+    doramas: number;
+    total: number;
+  }> {
+    const apiBase = this.getApiBaseUrl();
+    const primaryUrl = `${apiBase}/content.php?action=counts`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php?action=counts';
+
+    try {
+      let res: Response;
+      try {
+        res = await fetch(primaryUrl);
+      } catch {
+        res = await fetch(fallbackUrl);
+      }
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.counts) {
+          try {
+            localStorage.setItem('mastertv_catalog_counts', JSON.stringify(data.counts));
+          } catch {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('mastertv_catalog_updated'));
+          }
+          return data.counts;
+        }
+      }
+    } catch {}
+    return this.getCatalogCounts();
   }
 
   // Fetch remote contents from Locaweb MySQL PHP API

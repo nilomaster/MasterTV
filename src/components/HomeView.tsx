@@ -33,12 +33,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenEPG,
   onOpenVODCategory,
 }) => {
-  const liveCount = channels.length;
+  const [catalogCounts, setCatalogCounts] = React.useState(() => AdminService.getCatalogCounts());
+
+  React.useEffect(() => {
+    AdminService.fetchCatalogCounts().then((counts) => {
+      if (counts) setCatalogCounts(counts);
+    });
+    const handleUpdate = () => {
+      setCatalogCounts(AdminService.getCatalogCounts());
+    };
+    window.addEventListener('mastertv_catalog_updated', handleUpdate);
+    return () => window.removeEventListener('mastertv_catalog_updated', handleUpdate);
+  }, []);
+
   const dbContents = AdminService.getContents();
   const movies = dbContents.filter((c) => c && c.type === 'movie');
   const series = dbContents.filter((c) => c && c.type === 'series');
   const animes = dbContents.filter((c) => c && c.type === 'anime');
   const doramas = dbContents.filter((c) => c && c.type === 'dorama');
+
+  const liveCount = catalogCounts.channels || channels.length;
+  const moviesCount = catalogCounts.movies || movies.length;
+  const seriesCount = catalogCounts.series || series.length;
+  const animesCount = catalogCounts.animes || animes.length;
+  const doramasCount = catalogCounts.doramas || doramas.length;
 
   const livePosters = channels.slice(0, 4).map((c) => c.logo).filter(Boolean);
   const moviePosters = movies.slice(0, 1).map((c) => c.posterUrl).filter(Boolean);
@@ -51,7 +69,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     {
       id: 'live',
       title: 'Ao Vivo',
-      count: liveCount === 1 ? '1 canal transmitindo' : `${liveCount} canais transmitindo`,
+      count: liveCount === 1 ? '1 canal transmitindo' : `${liveCount.toLocaleString('pt-BR')} canais transmitindo`,
       accentColor: 'text-red-400',
       badgeBg: 'bg-red-500/15 border-red-500/30 text-red-400',
       glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(239,68,68,0.2)]',
@@ -65,7 +83,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     {
       id: 'movies',
       title: 'Filmes',
-      count: movies.length === 1 ? '1 título' : `${movies.length} títulos`,
+      count: moviesCount === 1 ? '1 título' : `${moviesCount.toLocaleString('pt-BR')} títulos`,
       accentColor: 'text-blue-400',
       badgeBg: 'bg-blue-500/15 border-blue-500/30 text-blue-300',
       glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(37,99,235,0.2)]',
@@ -77,7 +95,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     {
       id: 'series',
       title: 'Séries',
-      count: series.length === 1 ? '1 título' : `${series.length} títulos`,
+      count: seriesCount === 1 ? '1 título' : `${seriesCount.toLocaleString('pt-BR')} títulos`,
       accentColor: 'text-indigo-400',
       badgeBg: 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300',
       glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(99,102,241,0.2)]',
@@ -89,7 +107,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     {
       id: 'animes',
       title: 'Animes',
-      count: animes.length === 1 ? '1 título' : `${animes.length} títulos`,
+      count: animesCount === 1 ? '1 título' : `${animesCount.toLocaleString('pt-BR')} títulos`,
       accentColor: 'text-amber-400',
       badgeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
       glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(245,158,11,0.2)]',
@@ -101,7 +119,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     {
       id: 'doramas',
       title: 'Doramas',
-      count: doramas.length === 1 ? '1 título' : `${doramas.length} títulos`,
+      count: doramasCount === 1 ? '1 título' : `${doramasCount.toLocaleString('pt-BR')} títulos`,
       accentColor: 'text-rose-400',
       badgeBg: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
       glowShadow: 'group-hover:shadow-[0_8px_25px_rgba(244,63,94,0.2)]',

@@ -63,6 +63,35 @@ class ContentController {
             exit;
         }
 
+        if (isset($_GET['action']) && $_GET['action'] === 'counts') {
+            try {
+                $stmt = $this->pdo->query("SELECT `type`, COUNT(*) as total FROM `contents` WHERE `status` = 'active' GROUP BY `type`");
+                $rows = $stmt->fetchAll();
+                $counts = [
+                    'channels' => 0,
+                    'movies' => 0,
+                    'series' => 0,
+                    'animes' => 0,
+                    'doramas' => 0,
+                    'total' => 0
+                ];
+                foreach ($rows as $row) {
+                    $t = $row['type'];
+                    $qty = (int)$row['total'];
+                    if ($t === 'channel') $counts['channels'] = $qty;
+                    else if ($t === 'movie') $counts['movies'] = $qty;
+                    else if ($t === 'series') $counts['series'] = $qty;
+                    else if ($t === 'anime') $counts['animes'] = $qty;
+                    else if ($t === 'dorama') $counts['doramas'] = $qty;
+                    $counts['total'] += $qty;
+                }
+                sendResponse(['success' => true, 'counts' => $counts]);
+            } catch (Exception $e) {
+                sendResponse(['success' => false, 'message' => 'Erro ao obter contagens: ' . $e->getMessage()], 500);
+            }
+            exit;
+        }
+
         switch ($method) {
             case 'GET':
                 $this->listContents();

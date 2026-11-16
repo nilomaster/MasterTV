@@ -233,6 +233,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     });
   }, [contents, contentFilter, contentSearchQuery]);
 
+  // Pagination for Content Manager grid to prevent browser freeze with 40k+ items
+  const [contentPage, setContentPage] = useState<number>(1);
+  const contentItemsPerPage = 36;
+
+  // Reset page when search or filter changes
+  useEffect(() => {
+    setContentPage(1);
+  }, [contentFilter, contentSearchQuery]);
+
+  const totalContentPages = Math.max(1, Math.ceil(filteredContents.length / contentItemsPerPage));
+  const paginatedContents = useMemo(() => {
+    const start = (contentPage - 1) * contentItemsPerPage;
+    return filteredContents.slice(start, start + contentItemsPerPage);
+  }, [filteredContents, contentPage]);
+
   // Open modal for new content
   const openAddContentModal = () => {
     setEditingContentId(null);
@@ -1565,8 +1580,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredContents.map((item) => {
+              <div className="space-y-4">
+                {/* Pagination Controls Top */}
+                {totalContentPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0b0e14] border border-white/10 text-xs">
+                    <span className="text-slate-400">
+                      Mostrando <strong className="text-white">{(contentPage - 1) * contentItemsPerPage + 1}</strong> a <strong className="text-white">{Math.min(contentPage * contentItemsPerPage, filteredContents.length)}</strong> de <strong className="text-cyan-400">{filteredContents.length}</strong> itens cadastrados
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setContentPage((p) => Math.max(1, p - 1))}
+                        disabled={contentPage === 1}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-cyan-400 font-bold px-2">
+                        Pagina {contentPage} de {totalContentPages}
+                      </span>
+                      <button
+                        onClick={() => setContentPage((p) => Math.min(totalContentPages, p + 1))}
+                        disabled={contentPage === totalContentPages}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                      >
+                        Proxima
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedContents.map((item) => {
                   const typeBadgeBg =
                     item.type === 'channel'
                       ? 'bg-red-500/20 text-red-300 border-red-500/40'
@@ -1682,7 +1726,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                   );
                 })}
               </div>
-            )}
+
+              {/* Pagination Controls Bottom */}
+              {totalContentPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0b0e14] border border-white/10 text-xs">
+                  <span className="text-slate-400">
+                    Pagina <strong className="text-cyan-400">{contentPage}</strong> de <strong className="text-white">{totalContentPages}</strong> (Exibindo 36 itens por pagina)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setContentPage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 300, behavior: 'smooth' });
+                      }}
+                      disabled={contentPage === 1}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      onClick={() => {
+                        setContentPage((p) => Math.min(totalContentPages, p + 1));
+                        window.scrollTo({ top: 300, behavior: 'smooth' });
+                      }}
+                      disabled={contentPage === totalContentPages}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                    >
+                      Proxima
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           </div>
         )}
 
