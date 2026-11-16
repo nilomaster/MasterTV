@@ -132,7 +132,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
   // Format seconds to HH:MM:SS or MM:SS
   const formatTime = (timeInSeconds: number): string => {
-    if (isNaN(timeInSeconds) || timeInSeconds < 0) return '00:00';
+    if (isNaN(timeInSeconds) || !isFinite(timeInSeconds) || timeInSeconds <= 0) return '00:00';
     const totalSecs = Math.floor(timeInSeconds);
     const hours = Math.floor(totalSecs / 3600);
     const minutes = Math.floor((totalSecs % 3600) / 60);
@@ -887,7 +887,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <span className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold ${activeQualityInfo.badgeBg} ${activeQualityInfo.borderBg}`}>
                 {activeQualityInfo.short}
               </span>
-              <span className="text-slate-400">{formatTime(duration)}</span>
+              <span className="text-slate-400">{isFinite(duration) && duration > 0 ? formatTime(duration) : '--:--'}</span>
             </div>
           </div>
 
@@ -989,7 +989,7 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
               <div className="hidden sm:flex text-xs font-mono font-medium text-slate-300 items-center gap-1.5 select-none">
                 <span className="text-white font-semibold">{formatTime(currentTime)}</span>
                 <span className="text-slate-500">/</span>
-                <span className="text-slate-400">{formatTime(duration)}</span>
+                <span className="text-slate-400">{isFinite(duration) && duration > 0 ? formatTime(duration) : '--:--'}</span>
               </div>
 
               {/* Quality badge (Desktop, dynamic from source) */}
