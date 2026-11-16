@@ -694,14 +694,21 @@ export class AdminService {
     localStorage.removeItem(STORAGE_KEY_SESSION);
   }
 
-  // Load contents from localStorage with strict array validation
+  // In-memory cache for full remote catalog (holds tens of thousands of items without localStorage quota limits)
+  private static inMemoryContents: AdminContentItem[] | null = null;
+
+  // Load contents from in-memory cache or localStorage with strict array validation
   static getContents(): AdminContentItem[] {
+    if (this.inMemoryContents && Array.isArray(this.inMemoryContents) && this.inMemoryContents.length > 0) {
+      return this.inMemoryContents;
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY_CONTENTS);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(Boolean);
+        this.inMemoryContents = parsed.filter(Boolean);
+        return this.inMemoryContents;
       }
       return [];
     } catch {
@@ -709,18 +716,35 @@ export class AdminService {
     }
   }
 
-  // Save contents to localStorage and dispatch update event with quota protection
+  // Save contents to in-memory cache and localStorage with quota protection and balanced multi-type sampling
   static saveContentsLocally(contents: AdminContentItem[]) {
     const safeArray = Array.isArray(contents) ? contents.filter(Boolean) : [];
+    this.inMemoryContents = safeArray;
+
+    // Build a balanced multi-type sample so localStorage contains all content types
+    const channels = safeArray.filter((c) => c.type === 'channel');
+    const movies = safeArray.filter((c) => c.type === 'movie');
+    const series = safeArray.filter((c) => c.type === 'series');
+    const animes = safeArray.filter((c) => c.type === 'anime');
+    const doramas = safeArray.filter((c) => c.type === 'dorama');
+
+    const sample = [
+      ...channels.slice(0, 1500),
+      ...movies.slice(0, 1500),
+      ...series.slice(0, 500),
+      ...animes.slice(0, 300),
+      ...doramas.slice(0, 300),
+    ];
+
     try {
-      localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(safeArray));
+      localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(sample));
     } catch (err) {
       // LocalStorage limit is 5MB in browsers. Protect against QuotaExceededError
-      let limit = Math.min(safeArray.length, 3000);
+      let limit = Math.min(sample.length, 1200);
       let saved = false;
-      while (limit > 100 && !saved) {
+      while (limit > 50 && !saved) {
         try {
-          localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(safeArray.slice(0, limit)));
+          localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(sample.slice(0, limit)));
           saved = true;
         } catch {
           limit = Math.floor(limit * 0.7);

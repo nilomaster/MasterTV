@@ -90,19 +90,20 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
       }
 
       setParsedData(result);
-      if (result.totalCount > 3000) {
-        // Pre-select live channels by default for mega playlists (200k+ items)
-        const liveCats = new Set(result.categories.filter((c) => c.type === 'channel').map((c) => c.name));
-        setSelectedCategories(liveCats.size > 0 ? liveCats : new Set([result.categories[0]?.name]));
-        const liveItemIds = new Set(result.items.filter((i) => i.type === 'channel').map((i) => i.id));
-        setSelectedItemIds(liveItemIds.size > 0 ? liveItemIds : new Set(result.items.slice(0, 2000).map((i) => i.id)));
-        setTypeFilter('channel');
-      } else {
-        const allCats = new Set(result.categories.map((c) => c.name));
-        setSelectedCategories(allCats);
-        const allIds = new Set(result.items.map((i) => i.id));
-        setSelectedItemIds(allIds);
-      }
+      // Automatically select channels, movies, animes, and doramas by default
+      const defaultCats = new Set(
+        result.categories
+          .filter((c) => c.type !== 'series')
+          .map((c) => c.name)
+      );
+      setSelectedCategories(defaultCats);
+      const selectedIds = new Set<string>();
+      result.channels.forEach((i) => selectedIds.add(i.id));
+      result.movies.forEach((i) => selectedIds.add(i.id));
+      result.animes.forEach((i) => selectedIds.add(i.id));
+      result.doramas.forEach((i) => selectedIds.add(i.id));
+      setSelectedItemIds(selectedIds);
+      setTypeFilter('all');
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao processar lista M3U.');
     } finally {
@@ -126,19 +127,20 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         throw new Error('Nenhum canal ou video encontrado na lista informada.');
       }
       setParsedData(result);
-      if (result.totalCount > 3000) {
-        // Pre-select live channels by default for mega playlists (200k+ items)
-        const liveCats = new Set(result.categories.filter((c) => c.type === 'channel').map((c) => c.name));
-        setSelectedCategories(liveCats.size > 0 ? liveCats : new Set([result.categories[0]?.name]));
-        const liveItemIds = new Set(result.items.filter((i) => i.type === 'channel').map((i) => i.id));
-        setSelectedItemIds(liveItemIds.size > 0 ? liveItemIds : new Set(result.items.slice(0, 2000).map((i) => i.id)));
-        setTypeFilter('channel');
-      } else {
-        const allCats = new Set(result.categories.map((c) => c.name));
-        setSelectedCategories(allCats);
-        const allIds = new Set(result.items.map((i) => i.id));
-        setSelectedItemIds(allIds);
-      }
+      // Automatically select channels, movies, animes, and doramas by default
+      const defaultCats = new Set(
+        result.categories
+          .filter((c) => c.type !== 'series')
+          .map((c) => c.name)
+      );
+      setSelectedCategories(defaultCats);
+      const selectedIds = new Set<string>();
+      result.channels.forEach((i) => selectedIds.add(i.id));
+      result.movies.forEach((i) => selectedIds.add(i.id));
+      result.animes.forEach((i) => selectedIds.add(i.id));
+      result.doramas.forEach((i) => selectedIds.add(i.id));
+      setSelectedItemIds(selectedIds);
+      setTypeFilter('all');
     } catch (err: any) {
       setErrorMsg(
         err.message ||
