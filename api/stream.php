@@ -41,8 +41,7 @@ $isHttps = (
 );
 $proto = $isHttps ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'] ?? 'mastertvhd.online';
-$scriptUri = $_SERVER['SCRIPT_NAME'] ?? '/api/stream.php';
-$proxyEndpoint = $proto . $host . $scriptUri;
+$proxyEndpoint = $proto . $host . '/api/stream.php';
 
 if ($isM3u8) {
     // 1. Fetch m3u8 playlist, follow redirects and rewrite segment URLs
@@ -164,6 +163,10 @@ curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 // Forward response headers directly to client
 curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($ch, $headerLine) {
     $len = strlen($headerLine);
+    if (preg_match('/^HTTP\/\d(?:\.\d)?\s+(\d+)/i', $headerLine, $m)) {
+        http_response_code((int)$m[1]);
+        return $len;
+    }
     $parts = explode(':', $headerLine, 2);
     if (count($parts) === 2) {
         $headerName = strtolower(trim($parts[0]));

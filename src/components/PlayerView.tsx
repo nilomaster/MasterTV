@@ -269,7 +269,18 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         setStreamError('Sinal temporariamente indisponivel nesta fonte');
         return prev;
       });
-    }, 15000);
+    }, 25000);
+
+    const handleVideoPlaying = () => {
+      if (connectTimeout) {
+        window.clearTimeout(connectTimeout);
+        connectTimeout = null;
+      }
+      setIsLoadingStream(false);
+      setStreamError(null);
+    };
+    video.addEventListener('playing', handleVideoPlaying);
+    video.addEventListener('timeupdate', handleVideoPlaying);
 
     if (isHlsStream) {
       // Optimized resilient config for all Android devices and desktop browsers
@@ -281,14 +292,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         maxBufferLength: 10,
         maxMaxBufferLength: 20,
         maxBufferSize: 25 * 1000 * 1000,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 6,
-        maxBufferHole: 0.8,
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 10,
+        initialLiveManifestSize: 1,
+        maxBufferHole: 1.0,
         highBufferWatchdogPeriod: 2,
         nudgeOffset: 0.2,
-        nudgeMaxRetry: 6,
-        fragLoadingTimeOut: 18000,
-        manifestLoadingTimeOut: 18000,
+        nudgeMaxRetry: 10,
+        fragLoadingTimeOut: 25000,
+        manifestLoadingTimeOut: 25000,
         xhrSetup: (xhr) => {
           xhr.withCredentials = false;
         },
@@ -297,6 +309,21 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       hlsRef.current = hls;
       hls.loadSource(streamToPlay);
       hls.attachMedia(video);
+
+      hls.on(Hls.Events.LEVEL_LOADED, () => {
+        if (connectTimeout) {
+          window.clearTimeout(connectTimeout);
+          connectTimeout = null;
+        }
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, () => {
+        if (connectTimeout) {
+          window.clearTimeout(connectTimeout);
+          connectTimeout = null;
+        }
+        setIsLoadingStream(false);
+      });
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         if (connectTimeout) {
@@ -401,6 +428,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         window.clearTimeout(connectTimeout);
         connectTimeout = null;
       }
+      video.removeEventListener('playing', handleVideoPlaying);
+      video.removeEventListener('timeupdate', handleVideoPlaying);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
