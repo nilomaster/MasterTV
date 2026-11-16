@@ -105,14 +105,38 @@ class ContentController {
     }
 
     private function listContents() {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(120);
+
         try {
             $type = isset($_GET['type']) ? trim($_GET['type']) : null;
-            if ($type) {
-                $stmt = $this->pdo->prepare("SELECT * FROM `contents` WHERE `type` = :t AND `status` = 'active' ORDER BY `created_at` DESC");
-                $stmt->execute([':t' => $type]);
+            $fetchAll = (isset($_GET['all']) && $_GET['all'] === 'true');
+
+            if ($fetchAll) {
+                if ($type) {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `contents` WHERE `type` = :t AND `status` = 'active' ORDER BY `created_at` DESC");
+                    $stmt->execute([':t' => $type]);
+                } else {
+                    $stmt = $this->pdo->query("SELECT * FROM `contents` ORDER BY `created_at` DESC");
+                }
             } else {
-                $stmt = $this->pdo->query("SELECT * FROM `contents` ORDER BY `created_at` DESC");
+                $limit = isset($_GET['limit']) ? max(1, min(5000, (int)$_GET['limit'])) : 2500;
+                $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
+
+                if ($type) {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `contents` WHERE `type` = :t AND `status` = 'active' ORDER BY `created_at` DESC LIMIT :lim OFFSET :off");
+                    $stmt->bindValue(':t', $type, PDO::PARAM_STR);
+                    $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+                    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+                    $stmt->execute();
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `contents` ORDER BY `created_at` DESC LIMIT :lim OFFSET :off");
+                    $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+                    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+                    $stmt->execute();
+                }
             }
+
             $items = $stmt->fetchAll();
 
             $formatted = array_map(function($item) {

@@ -145,19 +145,38 @@ $headers = [
     'Connection: keep-alive',
 ];
 
+$targetUrl = $url;
+
+// Resolve redirect first if Range header is present to prevent libcurl from dropping Range on redirect
 if (isset($_SERVER['HTTP_RANGE'])) {
     $headers[] = 'Range: ' . $_SERVER['HTTP_RANGE'];
+
+    $headCh = curl_init($url);
+    curl_setopt($headCh, CURLOPT_NOBODY, true);
+    curl_setopt($headCh, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($headCh, CURLOPT_MAXREDIRS, 5);
+    curl_setopt($headCh, CURLOPT_USERAGENT, 'IPTVSmartersPro');
+    curl_setopt($headCh, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($headCh, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($headCh, CURLOPT_TIMEOUT, 10);
+    curl_setopt($headCh, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_exec($headCh);
+    $resolved = curl_getinfo($headCh, CURLINFO_EFFECTIVE_URL);
+    if (!empty($resolved) && filter_var($resolved, FILTER_VALIDATE_URL)) {
+        $targetUrl = $resolved;
+    }
+    curl_close($headCh);
 }
 
 $ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
+curl_setopt($ch, CURLOPT_URL, $targetUrl);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 curl_setopt($ch, CURLOPT_USERAGENT, 'IPTVSmartersPro');
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+curl_setopt($ch, CURLOPT_TIMEOUT, 120);
 curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
 // Forward response headers directly to client

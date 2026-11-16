@@ -211,19 +211,35 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
     const rawStream = effectiveStreamUrl.trim();
     const streamUrl = resolvePlayableStreamUrl(rawStream);
 
+    const isDirectVideo = Boolean(
+      rawStream.includes('.mp4') ||
+      rawStream.includes('.mkv') ||
+      rawStream.includes('/movie/') ||
+      rawStream.includes('/series/')
+    );
+
     const isHlsPlaylist = Boolean(
-      rawStream.includes('.m3u8') ||
-      rawStream.includes('/hls') ||
-      rawStream.includes('.m3u') ||
-      streamUrl.includes('.m3u8') ||
-      streamUrl.includes('/api/stream') ||
-      streamUrl.includes('/api/proxy')
+      !isDirectVideo &&
+      (rawStream.includes('.m3u8') ||
+        rawStream.includes('/hls') ||
+        rawStream.includes('.m3u'))
     );
 
     let connectTimeout: number | null = window.setTimeout(() => {
       setIsLoadingStream(false);
       setStreamError('Tempo limite excedido ao conectar a transmissao.');
-    }, 15000);
+    }, 25000);
+
+    const handleVideoPlaying = () => {
+      if (connectTimeout) {
+        window.clearTimeout(connectTimeout);
+        connectTimeout = null;
+      }
+      setIsLoadingStream(false);
+      setStreamError(null);
+    };
+    video.addEventListener('playing', handleVideoPlaying);
+    video.addEventListener('timeupdate', handleVideoPlaying);
 
     const setupNativePlayback = (fallbackToHlsIfFailed = true) => {
       if (!video) return;
@@ -371,14 +387,16 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
     return () => {
       if (connectTimeout) window.clearTimeout(connectTimeout);
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
       if (video) {
+        video.removeEventListener('playing', handleVideoPlaying);
+        video.removeEventListener('timeupdate', handleVideoPlaying);
         video.onloadedmetadata = null;
         video.oncanplay = null;
         video.onerror = null;
+      }
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
     };
   }, [effectiveStreamUrl]);
