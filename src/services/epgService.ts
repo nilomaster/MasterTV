@@ -928,7 +928,257 @@ export const CHANNEL_24H_SCHEDULES: Record<string, ScheduleSlot[]> = {
       rating: '16+',
     },
   ],
+  'ch-hbo': [
+    {
+      start: '00:00',
+      end: '02:00',
+      title: 'House of the Dragon',
+      synopsis: 'A historia da guerra civil que quase destruiu a Casa Targaryen.',
+      category: 'series',
+      rating: '18+',
+    },
+    {
+      start: '02:00',
+      end: '04:00',
+      title: 'The Last of Us',
+      synopsis: 'Joel e Ellie cruzam os Estados Unidos devastados por fungos zumbis.',
+      category: 'series',
+      rating: '16+',
+    },
+    {
+      start: '04:00',
+      end: '06:00',
+      title: 'Succession: Noite de Decisoes',
+      synopsis: 'Lutas pelo poder e controle do maior conglomerado de midia.',
+      category: 'series',
+      rating: '16+',
+    },
+    {
+      start: '06:00',
+      end: '08:30',
+      title: 'Harry Potter e o Prisioneiro de Azkaban',
+      synopsis: 'Harry enfrenta o perigoso Sirius Black que fugiu da prisao dos bruxos.',
+      category: 'filmes',
+      rating: '10+',
+    },
+    {
+      start: '08:30',
+      end: '11:00',
+      title: 'Batman: O Cavaleiro das Trevas',
+      synopsis: 'Batman enfrenta o Coringa em uma batalha epica pelo destino de Gotham.',
+      category: 'filmes',
+      rating: '14+',
+    },
+    {
+      start: '11:00',
+      end: '13:30',
+      title: 'Duna: Parte 1',
+      synopsis: 'Paul Atreides viaja ao planeta mais perigoso do universo para garantir o futuro.',
+      category: 'filmes',
+      rating: '14+',
+    },
+    {
+      start: '13:30',
+      end: '16:00',
+      title: 'Interestelar',
+      synopsis: 'Grupo de astronautas viaja atraves de um buraco de minhoca em busca de sobrevivencia.',
+      category: 'filmes',
+      rating: '10+',
+    },
+    {
+      start: '16:00',
+      end: '18:30',
+      title: 'Elvis',
+      synopsis: 'A vida e a musica de Elvis Presley sob a otica de seu empresario enigmático.',
+      category: 'filmes',
+      rating: '12+',
+    },
+    {
+      start: '18:30',
+      end: '21:00',
+      title: 'Barbie',
+      synopsis: 'Barbie e Ken vivem no colorido mundo da Barbieland e partem para o mundo real.',
+      category: 'filmes',
+      rating: '12+',
+    },
+    {
+      start: '21:00',
+      end: '23:30',
+      title: 'Oppenheimer',
+      synopsis: 'A historia do fisico J. Robert Oppenheimer e o Projeto Manhattan.',
+      category: 'filmes',
+      rating: '16+',
+    },
+    {
+      start: '23:30',
+      end: '00:00',
+      title: 'Especial HBO: Bastidores do Cinema',
+      synopsis: 'Entrevistas exclusivas e making-of dos maiores lancamentos cinematograficos.',
+      category: 'aberta',
+      rating: '12+',
+    },
+  ],
+  'ch-espn': [
+    {
+      start: '00:00',
+      end: '02:00',
+      title: 'SportsCenter Noite',
+      synopsis: 'As ultimas noticias e os melhores momentos das rodadas esportivas.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '02:00',
+      end: '06:00',
+      title: 'ESPN Melhores Momentos',
+      synopsis: 'Reapresentacao das grandes partidas de futebol e esportes americanos.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '06:00',
+      end: '09:00',
+      title: 'SportsCenter Manha',
+      synopsis: 'Giro completo matutino do mundo esportivo com informacoes quentes.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '09:00',
+      end: '11:00',
+      title: 'ESPN F90',
+      synopsis: 'Debate descontraido sobre o futebol brasileiro e internacional.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '11:00',
+      end: '13:00',
+      title: 'SportsCenter 1a Edicao',
+      synopsis: 'Entrevistas ao vivo, preparativos e escalacoes dos clubes.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '13:00',
+      end: '15:30',
+      title: 'Futebol no Mundo',
+      synopsis: 'As ligas europeias e competicoes internacionais em foco.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '15:30',
+      end: '18:00',
+      title: 'Transmissao Ao Vivo ESPN',
+      synopsis: 'Cobertura em tempo real dos maiores classicos internacionais.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '18:00',
+      end: '20:00',
+      title: 'ESPN FC',
+      synopsis: 'Analises taticas e opinioes contundentes sobre o esporte bretao.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '20:00',
+      end: '22:30',
+      title: 'Linha de Passe',
+      synopsis: 'A mais tradicional mesa redonda esportiva da televisao brasileira.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '22:30',
+      end: '00:00',
+      title: 'SportsCenter Edicao Final',
+      synopsis: 'Fechamento do dia esportivo com gols e declaracoes polêmicas.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+  ],
+  'ch-premiere-clubes': [
+    {
+      start: '00:00',
+      end: '02:30',
+      title: 'Melhores Momentos do Brasileirao',
+      synopsis: 'Todos os gols e lances capitais da rodada dos campeonatos.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '02:30',
+      end: '06:00',
+      title: 'Grandes Jogos Historicos',
+      synopsis: 'Partidas inesqueciveis que marcaram a historia do futebol nacional.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '06:00',
+      end: '09:00',
+      title: 'Giro dos Campeonatos',
+      synopsis: 'Cobertura completa dos clubes pelo pais afora.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '09:00',
+      end: '12:00',
+      title: 'Aquecimento Premiere',
+      synopsis: 'Escalacoes, clima nos estadios e analises pre-jogo.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '12:00',
+      end: '15:00',
+      title: 'Pre-Jogo da Rodada',
+      synopsis: 'Entrevistas exclusivas e bastidores nos vestiarios.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '15:00',
+      end: '18:30',
+      title: 'Futebol Ao Vivo - Serie A',
+      synopsis: 'Transmissao exclusiva ao vivo da rodada do Campeonato Brasileiro.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '18:30',
+      end: '21:00',
+      title: 'Pos-Jogo e Entrevistas Coletivas',
+      synopsis: 'Analise detalhada das partidas e declaracoes dos tecnicos.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '21:00',
+      end: '23:30',
+      title: 'Classico Noturno Ao Vivo',
+      synopsis: 'Emocao pura no jogo decisivo da noite com imagens em alta definicao.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+    {
+      start: '23:30',
+      end: '00:00',
+      title: 'Balanco Final dos Estadios',
+      synopsis: 'Resumo completo das classificacoes e tabela atualizada.',
+      category: 'esportes',
+      rating: 'Livre',
+    },
+  ],
+  'ch-premiere-clubes-fhd': [],
 };
+
+// Mirror Premiere Clubes schedule to Premiere Clubes FHD
+CHANNEL_24H_SCHEDULES['ch-premiere-clubes-fhd'] = CHANNEL_24H_SCHEDULES['ch-premiere-clubes'];
 
 export interface ParsedOnlineProgram {
   startMs: number;
@@ -1008,6 +1258,149 @@ const XMLTV_CHANNEL_ALIAS: Record<string, string> = {
   'ESPN Brasil HD': 'ch-espn',
 };
 
+// Channel metadata cache to resolve channel names and attributes
+const channelMetadataMap = new Map<string, Channel>();
+
+// Register channel objects in cache for lookup by ID
+export function registerChannelsMetadata(channels: Channel[]): void {
+  if (!Array.isArray(channels)) return;
+  channels.forEach((ch) => {
+    if (ch && ch.id) {
+      channelMetadataMap.set(String(ch.id), ch);
+      if (ch.epgId) {
+        channelMetadataMap.set(String(ch.epgId), ch);
+      }
+    }
+  });
+}
+
+// Resolve any channel identifier or display name to its canonical EPG key
+export function resolveCanonicalChannelId(identifier?: string, channelName?: string): string {
+  // 1. Direct match in CHANNEL_24H_SCHEDULES
+  if (identifier && CHANNEL_24H_SCHEDULES[identifier]) return identifier;
+  if (channelName && CHANNEL_24H_SCHEDULES[channelName]) return channelName;
+
+  // 2. Direct match in XMLTV_CHANNEL_ALIAS
+  if (identifier && XMLTV_CHANNEL_ALIAS[identifier]) return XMLTV_CHANNEL_ALIAS[identifier];
+  if (channelName && XMLTV_CHANNEL_ALIAS[channelName]) return XMLTV_CHANNEL_ALIAS[channelName];
+
+  // 3. Normalize string (lowercase, remove accents and noise)
+  const combined = `${identifier || ''} ${channelName || ''}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ' ')
+    .replace(/[^\w\s]/g, ' ');
+
+  // 4. Exact and fuzzy matching for major Brazilian networks
+  // Record (Record TV, Record SP, Record Brasilia, Record Rio, Record Interior, etc.)
+  if (combined.includes('record')) return 'ch-record';
+
+  // SBT (SBT HD, SBT SP, SBT Brasilia, etc.)
+  if (combined.includes('sbt') || combined.includes('sistema brasileiro')) return 'ch-sbt';
+
+  // Band (Band HD, Band SP, Bandeirantes, etc. - exclude BandNews)
+  if ((combined.includes('bandeirantes') || combined.includes('band')) && !combined.includes('news')) {
+    return 'ch-band';
+  }
+
+  // RedeTV (RedeTV, Rede TV)
+  if (combined.includes('redetv') || combined.includes('rede tv')) return 'ch-redetv';
+
+  // Globo (Globo SP, Globo Brasilia, Globo Rio, etc. - exclude GloboNews)
+  if (combined.includes('globo') && !combined.includes('news')) return 'ch-globo';
+
+  // AMC
+  if (combined.includes('amc series') || combined.includes('amc-series')) return 'ch-amc-series';
+  if (combined.includes('amc')) return 'ch-amc';
+
+  // HBO suite
+  if (combined.includes('hbo 2') || combined.includes('hbo2')) return 'ch-hbo-2';
+  if (combined.includes('hbo family')) return 'ch-hbo-family';
+  if (combined.includes('hbo mundi')) return 'ch-hbo-mundi';
+  if (combined.includes('hbo plus') || combined.includes('hbo+')) return 'ch-hbo-plus';
+  if (combined.includes('hbo pop')) return 'ch-hbo-pop';
+  if (combined.includes('hbo signature')) return 'ch-hbo-signature';
+  if (combined.includes('hbo xtreme') || combined.includes('hbo extreme')) return 'ch-hbo-xtreme';
+  if (combined.includes('hbo')) return 'ch-hbo';
+
+  // Sports
+  if (combined.includes('premiere') || combined.includes('pfc')) {
+    return combined.includes('fhd') ? 'ch-premiere-clubes-fhd' : 'ch-premiere-clubes';
+  }
+  if (combined.includes('espn')) return 'ch-espn';
+
+  return '';
+}
+
+// Generate realistic 24-hour schedule for generic or unmapped channels
+export function getDynamicFallbackSchedule(channelName?: string, category?: string): ScheduleSlot[] {
+  const cleanName = (channelName || 'Canal').trim();
+  const cat = (category || '').toLowerCase();
+
+  if (cat.includes('esporte') || cat.includes('sport')) {
+    return [
+      { start: '00:00', end: '06:00', title: 'Madrugada Esportiva - Melhores Momentos', synopsis: 'Reapresentacao dos principais lances e partidas.', category: 'esportes', rating: 'Livre' },
+      { start: '06:00', end: '09:00', title: 'Giro Matinal do Esporte', synopsis: 'Noticiario das modalidades com analises e preparativos do dia.', category: 'esportes', rating: 'Livre' },
+      { start: '09:00', end: '12:00', title: 'Aquecimento e Pre-Jogo', synopsis: 'Bastidores dos times, entrevistas e estatisticas.', category: 'esportes', rating: 'Livre' },
+      { start: '12:00', end: '15:00', title: 'Transmissao Esportiva ao Vivo', synopsis: 'Cobertura completa de campeonatos e eventos ao vivo.', category: 'esportes', rating: 'Livre' },
+      { start: '15:00', end: '18:00', title: 'Destaques da Rodada', synopsis: 'Resultados, classificacoes e gols dos jogos.', category: 'esportes', rating: 'Livre' },
+      { start: '18:00', end: '21:00', title: 'Mesa Redonda e Debates', synopsis: 'Especialistas analisam os confrontos e taticas.', category: 'esportes', rating: 'Livre' },
+      { start: '21:00', end: '00:00', title: 'Noite de Campeoes', synopsis: 'Grandes partidas e disputas decisivas.', category: 'esportes', rating: 'Livre' },
+    ];
+  }
+
+  if (cat.includes('noticia') || cat.includes('news')) {
+    return [
+      { start: '00:00', end: '06:00', title: 'Edicao da Madrugada', synopsis: 'Giro de noticias do Brasil e do mundo com plantao 24 horas.', category: 'noticias', rating: 'Livre' },
+      { start: '06:00', end: '09:00', title: 'Noticiario Matutino', synopsis: 'As primeiras informacoes, previsao do tempo e servicos.', category: 'noticias', rating: 'Livre' },
+      { start: '09:00', end: '12:00', title: 'Conexao Noticia ao Vivo', synopsis: 'Cobertura em tempo real dos acontecimentos politicos e economicos.', category: 'noticias', rating: 'Livre' },
+      { start: '12:00', end: '14:00', title: 'Jornal do Meio-Dia', synopsis: 'Resumo das noticias da manha com analise de especialistas.', category: 'noticias', rating: 'Livre' },
+      { start: '14:00', end: '18:00', title: 'Tarde em Noticia', synopsis: 'Debates, entrevistas e transmissao de eventos ao vivo.', category: 'noticias', rating: 'Livre' },
+      { start: '18:00', end: '20:00', title: 'Edicao Principal', synopsis: 'As reportagens mais aprofundadas sobre os fatos do dia.', category: 'noticias', rating: 'Livre' },
+      { start: '20:00', end: '22:00', title: 'Analise Politica e Economica', synopsis: 'Painel com analistas discutindo os rumos do pais.', category: 'noticias', rating: 'Livre' },
+      { start: '22:00', end: '00:00', title: 'Jornal da Noite', synopsis: 'Balanco final das informacoes mais importantes.', category: 'noticias', rating: 'Livre' },
+    ];
+  }
+
+  if (cat.includes('filme') || cat.includes('cinema') || cat.includes('movie')) {
+    return [
+      { start: '00:00', end: '02:30', title: 'Sessao da Madrugada', synopsis: 'Filmes aclamados para os insones.', category: 'filmes', rating: '16+' },
+      { start: '02:30', end: '06:00', title: 'Cinema Noturno', synopsis: 'Classicos do suspense, terror e acao.', category: 'filmes', rating: '14+' },
+      { start: '06:00', end: '09:00', title: 'Cinema Matinal', synopsis: 'Longas leves e emocionantes para comecar o dia.', category: 'filmes', rating: 'Livre' },
+      { start: '09:00', end: '12:00', title: 'Grandes Aventuras', synopsis: 'Acao e ficcao cientifica para toda a familia.', category: 'filmes', rating: '10+' },
+      { start: '12:00', end: '15:00', title: 'Matine de Sucessos', synopsis: 'Os maiores sucessos de bilheteria do cinema mundial.', category: 'filmes', rating: '12+' },
+      { start: '15:00', end: '18:00', title: 'Sessao Cineclube', synopsis: 'Destaques e producoes premiadas de grandes diretores.', category: 'filmes', rating: '12+' },
+      { start: '18:00', end: '21:00', title: 'Sessao Premium', synopsis: 'Super producoes de Hollywood e cinema internacional.', category: 'filmes', rating: '14+' },
+      { start: '21:00', end: '23:30', title: 'Superestreia de Cinema', synopsis: 'O principal filme do dia em alta definicao.', category: 'filmes', rating: '14+' },
+      { start: '23:30', end: '00:00', title: 'Making Of e Bastidores', synopsis: 'Curiosidades e producoes por tras das cameras.', category: 'filmes', rating: 'Livre' },
+    ];
+  }
+
+  if (cat.includes('infantil') || cat.includes('desenho') || cat.includes('kids')) {
+    return [
+      { start: '00:00', end: '06:00', title: 'Classicos Animados', synopsis: 'Historias magicas e desenhos para a madrugada.', category: 'infantil', rating: 'Livre' },
+      { start: '06:00', end: '09:00', title: 'Bom Dia com Desenhos', synopsis: 'Aventuras coloridas e animadas para a garotada.', category: 'infantil', rating: 'Livre' },
+      { start: '09:00', end: '12:00', title: 'Clube da Animacao', synopsis: 'Series infantis de grande sucesso.', category: 'infantil', rating: 'Livre' },
+      { start: '12:00', end: '15:00', title: 'Aventuras sem Fim', synopsis: 'Missoes empolgantes e muita diversao.', category: 'infantil', rating: 'Livre' },
+      { start: '15:00', end: '18:00', title: 'Tarde Divertida', synopsis: 'Episodios especiais e novas temporadas.', category: 'infantil', rating: 'Livre' },
+      { start: '18:00', end: '21:00', title: 'Animacoes Especiais', synopsis: 'Os personagens favoritos reunidos na telinha.', category: 'infantil', rating: 'Livre' },
+      { start: '21:00', end: '00:00', title: 'Hora de Dormir Animada', synopsis: 'Historias tranquilas para encerrar o dia das criancas.', category: 'infantil', rating: 'Livre' },
+    ];
+  }
+
+  // Generic dynamic schedule tailored to the channel name
+  return [
+    { start: '00:00', end: '06:00', title: `${cleanName} - Madrugada Especial`, synopsis: `Transmissao continuada da programacao de ${cleanName}.`, category: 'aberta', rating: 'Livre' },
+    { start: '06:00', end: '09:00', title: `${cleanName} - Edicao Matutina`, synopsis: `Abertura da grade com destaques e conteudos de ${cleanName}.`, category: 'aberta', rating: 'Livre' },
+    { start: '09:00', end: '12:00', title: `${cleanName} - Programa Especial`, synopsis: 'Producao exclusiva e materias selecionadas.', category: 'aberta', rating: 'Livre' },
+    { start: '12:00', end: '15:00', title: `${cleanName} - Destaques da Grade`, synopsis: 'O melhor da programacao em transmissao ao vivo.', category: 'aberta', rating: 'Livre' },
+    { start: '15:00', end: '18:00', title: `${cleanName} - Tarde ao Vivo`, synopsis: 'Cobertura completa e exibicao de conteudos em tempo real.', category: 'aberta', rating: 'Livre' },
+    { start: '18:00', end: '21:00', title: `${cleanName} - Horario Nobre`, synopsis: `O programa principal do dia no canal ${cleanName}.`, category: 'aberta', rating: 'Livre' },
+    { start: '21:00', end: '23:30', title: `${cleanName} - Especial da Noite`, synopsis: 'Transmissao nobre com os melhores momentos e exibicoes.', category: 'aberta', rating: 'Livre' },
+    { start: '23:30', end: '00:00', title: `${cleanName} - Fechamento da Noite`, synopsis: 'Resumo do dia e preparativos para a madrugada.', category: 'aberta', rating: 'Livre' },
+  ];
+}
+
 // In-memory store for parsed online EPG
 let onlineEPGStore: Record<string, ParsedOnlineProgram[]> = {};
 
@@ -1081,7 +1474,7 @@ export function parseXMLTVContent(xmlText: string): Record<string, ParsedOnlineP
 
   while ((match = progRegex.exec(xmlText)) !== null) {
     const rawChannel = match[3];
-    const internalId = XMLTV_CHANNEL_ALIAS[rawChannel];
+    const internalId = XMLTV_CHANNEL_ALIAS[rawChannel] || resolveCanonicalChannelId(rawChannel);
     if (!internalId || !result[internalId]) continue;
 
     const start = parseXMLTVDate(match[1]);
@@ -1302,8 +1695,9 @@ export function formatDuration(minutes: number): string {
 
 // Find current, next program and progress based on real system time
 export function getLiveEPGForChannel(
-  channelId: string,
-  now: Date = new Date()
+  channelOrId: Channel | string,
+  now: Date = new Date(),
+  channelName?: string
 ): {
   currentProgram: string;
   currentProgramTime: string;
@@ -1313,10 +1707,20 @@ export function getLiveEPGForChannel(
   progressPercent: number;
   durationText: string;
 } {
-  const nowMs = now.getTime();
-  const onlineList = onlineEPGStore[channelId];
+  const isObj = typeof channelOrId === 'object' && channelOrId !== null;
+  const cachedCh = !isObj && typeof channelOrId === 'string' ? channelMetadataMap.get(channelOrId) : null;
 
-  // Use real-time online XMLTV EPG if available
+  const rawId = isObj ? channelOrId.id : (cachedCh ? cachedCh.id : (channelOrId as string));
+  const rawName = isObj ? channelOrId.name : (cachedCh ? cachedCh.name : (channelName || ''));
+  const rawEpgId = isObj ? channelOrId.epgId : (cachedCh ? cachedCh.epgId : undefined);
+  const rawCategory = isObj ? channelOrId.category : (cachedCh ? cachedCh.category : undefined);
+
+  const canonicalId = resolveCanonicalChannelId(rawEpgId || rawId, rawName);
+  const nowMs = now.getTime();
+
+  // 1. Check online XMLTV EPG
+  const onlineList = (canonicalId && onlineEPGStore[canonicalId]) || (rawId ? onlineEPGStore[rawId] : undefined);
+
   if (onlineList && onlineList.length > 0) {
     const currentIndex = onlineList.findIndex((p) => p.startMs <= nowMs && nowMs < p.stopMs);
     if (currentIndex !== -1) {
@@ -1337,8 +1741,8 @@ export function getLiveEPGForChannel(
     }
   }
 
-  // Fallback to static 24h schedule
-  const schedule = CHANNEL_24H_SCHEDULES[channelId] || CHANNEL_24H_SCHEDULES['ch-globo'];
+  // 2. Resolve schedule from static grids or dynamic fallback
+  const schedule = (canonicalId && CHANNEL_24H_SCHEDULES[canonicalId]) || getDynamicFallbackSchedule(rawName, rawCategory);
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   let currentIndex = -1;
@@ -1394,8 +1798,9 @@ export function getLiveEPGForChannel(
 
 // Enrich channel objects with live real-time EPG data
 export function enrichChannelsWithLiveEPG(channels: Channel[], now: Date = new Date()): Channel[] {
+  registerChannelsMetadata(channels);
   return channels.map((ch) => {
-    const live = getLiveEPGForChannel(ch.epgId || ch.id, now);
+    const live = getLiveEPGForChannel(ch, now);
     return {
       ...ch,
       currentProgram: live.currentProgram,
@@ -1415,6 +1820,7 @@ export function generateRealTimeEPGSchedule(
   programs: EPGProgram[];
   timeHeaders: string[];
 } {
+  registerChannelsMetadata(channels);
   const programs: EPGProgram[] = [];
   const nowMs = now.getTime();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -1428,7 +1834,8 @@ export function generateRealTimeEPGSchedule(
   }
 
   channels.forEach((ch) => {
-    const onlineList = onlineEPGStore[ch.id];
+    const canonicalId = resolveCanonicalChannelId(ch.epgId || ch.id, ch.name);
+    const onlineList = (canonicalId && onlineEPGStore[canonicalId]) || onlineEPGStore[ch.id];
 
     // Use online XMLTV programs for timeline if available
     if (onlineList && onlineList.length > 0) {
@@ -1456,8 +1863,8 @@ export function generateRealTimeEPGSchedule(
       return;
     }
 
-    // Fallback to static schedule
-    const schedule = CHANNEL_24H_SCHEDULES[ch.id] || CHANNEL_24H_SCHEDULES['ch-globo'];
+    // Static schedule or dynamic fallback
+    const schedule = (canonicalId && CHANNEL_24H_SCHEDULES[canonicalId]) || getDynamicFallbackSchedule(ch.name, ch.category);
 
     schedule.forEach((slot, index) => {
       const startMin = timeToMinutes(slot.start);
@@ -1506,18 +1913,29 @@ export interface EPGTimelineProgram {
 
 // Generate continuous timeline programs for a specific channel
 export function getChannelTimelinePrograms(
-  channelId: string,
+  channelOrId: Channel | string,
   windowStartMs: number,
   windowEndMs: number,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  channelName?: string
 ): EPGTimelineProgram[] {
-  const onlineList = onlineEPGStore[channelId];
+  const isObj = typeof channelOrId === 'object' && channelOrId !== null;
+  const cachedCh = !isObj && typeof channelOrId === 'string' ? channelMetadataMap.get(channelOrId) : null;
+
+  const rawId = isObj ? channelOrId.id : (cachedCh ? cachedCh.id : (channelOrId as string));
+  const rawName = isObj ? channelOrId.name : (cachedCh ? cachedCh.name : (channelName || ''));
+  const rawEpgId = isObj ? channelOrId.epgId : (cachedCh ? cachedCh.epgId : undefined);
+  const rawCategory = isObj ? channelOrId.category : (cachedCh ? cachedCh.category : undefined);
+
+  const canonicalId = resolveCanonicalChannelId(rawEpgId || rawId, rawName);
+
+  const onlineList = (canonicalId && onlineEPGStore[canonicalId]) || (rawId ? onlineEPGStore[rawId] : undefined);
   if (onlineList && onlineList.length > 0) {
     const overlapping = onlineList.filter((p) => p.stopMs > windowStartMs && p.startMs < windowEndMs);
     if (overlapping.length > 0) {
       return overlapping.map((p, idx) => ({
-        id: `epg-tl-${channelId}-${p.startMs}-${idx}`,
-        channelId,
+        id: `epg-tl-${rawId}-${p.startMs}-${idx}`,
+        channelId: rawId,
         title: p.title,
         startTime: p.startTime,
         endTime: p.endTime,
@@ -1531,8 +1949,8 @@ export function getChannelTimelinePrograms(
     }
   }
 
-  // Fallback using CHANNEL_24H_SCHEDULES
-  const schedule = CHANNEL_24H_SCHEDULES[channelId] || CHANNEL_24H_SCHEDULES['ch-globo'];
+  // Fallback using CHANNEL_24H_SCHEDULES or dynamic fallback
+  const schedule = (canonicalId && CHANNEL_24H_SCHEDULES[canonicalId]) || getDynamicFallbackSchedule(rawName, rawCategory);
   const items: EPGTimelineProgram[] = [];
   const baseDate = new Date(nowMs);
 
@@ -1559,8 +1977,8 @@ export function getChannelTimelinePrograms(
 
       if (stopMs > windowStartMs && startMs < windowEndMs) {
         items.push({
-          id: `epg-tl-fb-${channelId}-${startMs}-${idx}`,
-          channelId,
+          id: `epg-tl-fb-${rawId}-${startMs}-${idx}`,
+          channelId: rawId,
           title: slot.title,
           startTime: slot.start,
           endTime: slot.end,

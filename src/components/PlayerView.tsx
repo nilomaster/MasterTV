@@ -860,7 +860,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   // Get real-time live EPG data for current channel
   const currentLiveInfo = useMemo(() => {
     void epgRevision;
-    return currentChannel ? getLiveEPGForChannel(currentChannel.id) : null;
+    return currentChannel ? getLiveEPGForChannel(currentChannel) : null;
   }, [currentChannel, epgRevision]);
 
   // Get full timeline programs for mobile EPG tab
@@ -869,7 +869,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     void epgRevision;
     const now = Date.now();
     return getChannelTimelinePrograms(
-      currentChannel.id,
+      currentChannel,
       now - 4 * 3600 * 1000,
       now + 16 * 3600 * 1000,
       now
@@ -1294,7 +1294,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               filteredChannels.map((ch) => {
                 const isSelected = currentChannel?.id === ch.id;
                 const isTvFocused = isKeyboardNavActive && filteredChannels[tvFocusedIndex]?.id === ch.id;
-                const chLive = getLiveEPGForChannel(ch.id);
+                const chLive = getLiveEPGForChannel(ch);
                 return (
                   <div
                     key={ch.id}
@@ -1633,13 +1633,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-200 font-semibold truncate mt-0.5">
-                  {getLiveEPGForChannel(osdChannel.id).currentProgram || osdChannel.currentProgram || 'Ao Vivo'}
+                  {getLiveEPGForChannel(osdChannel).currentProgram || osdChannel.currentProgram || 'Ao Vivo'}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                   <span className="text-blue-400 font-mono font-bold">
-                    {getLiveEPGForChannel(osdChannel.id).currentProgramTime || osdChannel.currentProgramTime || 'Agora'}
+                    {getLiveEPGForChannel(osdChannel).currentProgramTime || osdChannel.currentProgramTime || 'Agora'}
                   </span>
-                  <span>· {getLiveEPGForChannel(osdChannel.id).durationText || 'Ao Vivo'}</span>
+                  <span>· {getLiveEPGForChannel(osdChannel).durationText || 'Ao Vivo'}</span>
                 </div>
               </div>
             </div>
@@ -1811,7 +1811,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   filteredChannels.map((ch) => {
                     const isSelected = currentChannel?.id === ch.id;
                     const isTvFocused = isKeyboardNavActive && filteredChannels[tvFocusedIndex]?.id === ch.id;
-                    const chLive = getLiveEPGForChannel(ch.id);
+                    const chLive = getLiveEPGForChannel(ch);
                     return (
                       <div
                         key={ch.id}
