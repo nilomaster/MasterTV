@@ -89,8 +89,9 @@ export class AdminService {
       if (isNative || isFile || isLocal) {
         return 'https://mastertvhd.online/api';
       }
+      return `${window.location.origin}/api`;
     }
-    return './api';
+    return 'https://mastertvhd.online/api';
   }
 
   // Fetch clients from PHP MySQL API
@@ -103,6 +104,9 @@ export class AdminService {
       let res: Response;
       try {
         res = await fetch(primaryUrl);
+        if (!res.ok && primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl);
+        }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
           res = await fetch(fallbackUrl);
@@ -565,29 +569,33 @@ export class AdminService {
     const primaryUrl = `${apiBase}/auth.php`;
     const fallbackUrl = 'https://mastertvhd.online/api/auth.php';
 
-    const tryAuth = async (url: string) => {
-      return await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUser, password: cleanPass }),
-      });
+    const tryAuth = async (url: string): Promise<Response | null> => {
+      try {
+        return await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUser, password: cleanPass }),
+        });
+      } catch {
+        return null;
+      }
     };
 
     try {
-      let response: Response;
-      try {
-        response = await tryAuth(primaryUrl);
-      } catch (networkErr) {
-        // If relative URL failed (e.g. on native device), try absolute URL immediately
+      let response = await tryAuth(primaryUrl);
+      if (!response || !response.ok) {
         if (primaryUrl !== fallbackUrl) {
-          response = await tryAuth(fallbackUrl);
-        } else {
-          throw networkErr;
+          const fallbackRes = await tryAuth(fallbackUrl);
+          if (fallbackRes && fallbackRes.ok) {
+            response = fallbackRes;
+          } else if (fallbackRes && (fallbackRes.status === 401 || fallbackRes.status === 403)) {
+            response = fallbackRes;
+          }
         }
       }
 
       if (response && response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
         if (data && data.success && data.client) {
           const session: ClientSession = {
             clientId: String(data.client.id || 'cli-remote'),
@@ -849,6 +857,9 @@ export class AdminService {
       let res: Response;
       try {
         res = await fetch(primaryUrl);
+        if (!res.ok && primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl);
+        }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
           res = await fetch(fallbackUrl);
