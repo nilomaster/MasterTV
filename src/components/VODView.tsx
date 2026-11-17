@@ -1,8 +1,20 @@
-// VOD Catalog view with categories, genres filter and search
-// Strictly ASCII comments only
+// MasterTV VOD Catalog View with UniTV-Style Movie Showcase (Photo 2)
+// Features Hero Movie Carousel + 4 Colorful Quick Filter Buttons (Genero, 2026, No Cinema, Todos)
+// Supports TV Box Remote Control / D-Pad focus with glowing cyan borders
+// Strictly ASCII comments only as per project guidelines
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Film, Play, Star, Tv2, Sparkles, HeartHandshake } from 'lucide-react';
+import {
+  Film,
+  Play,
+  Star,
+  Tv2,
+  Sparkles,
+  HeartHandshake,
+  Calendar,
+  Layers,
+  SlidersHorizontal,
+} from 'lucide-react';
 import type { MediaItem } from '../types/iptv';
 import { AdminService } from '../services/adminService';
 import { detectQualityFromUrl } from '../services/qualityDetector';
@@ -17,6 +29,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
   const [activeFilter, setActiveFilter] = useState<'all' | 'movies' | 'series' | 'animes' | 'doramas'>(initialFilter);
   const [catalogRevision, setCatalogRevision] = useState<number>(0);
   const [visibleCount, setVisibleCount] = useState<number>(48);
+  const [selectedSubFilter, setSelectedSubFilter] = useState<'todos' | 'genero' | '2026' | 'cinema'>('todos');
 
   useEffect(() => {
     if (initialFilter) {
@@ -27,7 +40,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
   // Reset pagination when filter or search changes
   useEffect(() => {
     setVisibleCount(48);
-  }, [activeFilter, searchQuery]);
+  }, [activeFilter, searchQuery, selectedSubFilter]);
 
   useEffect(() => {
     // Sync remote contents from MySQL API when browsing VOD catalog
@@ -130,6 +143,11 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
           : itemType === 'dorama';
 
       if (!matchesFilter) return false;
+
+      // UniTV Photo 2 Sub-Filters
+      if (selectedSubFilter === '2026' && item.year !== 2026) return false;
+      if (selectedSubFilter === 'cinema' && Number(item.rating || 0) < 8.5) return false;
+
       if (!q) return true;
 
       const titleMatch = String(item.title || '').toLowerCase().includes(q);
@@ -142,99 +160,98 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
 
       return titleMatch || genreMatch;
     });
-  }, [allItems, activeFilter, searchQuery]);
+  }, [allItems, activeFilter, searchQuery, selectedSubFilter]);
 
   // Paginated/Lazy-loaded slice to prevent DOM thrashing
   const displayedItems = useMemo(() => {
     return filteredItems.slice(0, visibleCount);
   }, [filteredItems, visibleCount]);
 
+  // Fallback items for UniTV Photo 2 Hero Showcase
+  const fallbackHero = useMemo(() => {
+    return [
+      {
+        id: 'hero-1',
+        title: 'Just Play Dead',
+        tagline: 'Sobrevivencia no Paraiso Tropical',
+        image: './assets/img/covers/VisionQuest.webp',
+      },
+      {
+        id: 'hero-2',
+        title: 'Nao Nos Rendemos',
+        tagline: 'Resistencia e Coragem Sem Limites',
+        image: './assets/img/covers/DeathNoteAnime.webp',
+      },
+      {
+        id: 'hero-3',
+        title: 'Boiuna Terror no Amazonas',
+        tagline: 'O Maior Desafio e Sair com Vida',
+        image: './assets/img/covers/HomenAranhaUmNovoDia.webp',
+      },
+    ];
+  }, []);
+
   // Page title, icon and metadata based on active catalog page
   const pageMeta = useMemo(() => {
     switch (activeFilter) {
       case 'series':
         return {
-          title: 'Catalogo Serie',
+          title: 'Catalogo Series',
           subtitle:
             filteredItems.length === 1
               ? '1 serie disponivel com reproducao em alta definicao.'
               : `${filteredItems.length.toLocaleString('pt-BR')} series disponiveis com reproducao em alta definicao.`,
           icon: Tv2,
-          badge: 'Serie',
+          badge: 'Series',
           badgeColor: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
         };
       case 'animes':
         return {
-          title: 'Catalogo Anime',
+          title: 'Catalogo Animes',
           subtitle:
             filteredItems.length === 1
               ? '1 anime disponivel com reproducao em alta definicao.'
               : `${filteredItems.length.toLocaleString('pt-BR')} animes disponiveis com reproducao em alta definicao.`,
           icon: Sparkles,
-          badge: 'Anime',
+          badge: 'Animes',
           badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
         };
       case 'doramas':
         return {
-          title: 'Catalogo Serie Dorama',
+          title: 'Catalogo Doramas',
           subtitle:
             filteredItems.length === 1
               ? '1 dorama disponivel com reproducao em alta definicao.'
               : `${filteredItems.length.toLocaleString('pt-BR')} doramas disponiveis com reproducao em alta definicao.`,
           icon: HeartHandshake,
-          badge: 'Dorama',
+          badge: 'Doramas',
           badgeColor: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
         };
       case 'movies':
       case 'all':
       default:
         return {
-          title: 'Catalogo Filme',
+          title: 'Catalogo Filmes',
           subtitle:
             filteredItems.length === 1
               ? '1 filme disponivel com reproducao em alta definicao.'
               : `${filteredItems.length.toLocaleString('pt-BR')} filmes disponiveis com reproducao em alta definicao.`,
           icon: Film,
-          badge: 'Filme',
+          badge: 'Filmes',
           badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
         };
     }
   }, [activeFilter, filteredItems.length]);
 
   return (
-    <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-6 flex flex-col gap-6">
-      {/* Sleek Modern Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900/90 via-[#0d1424]/90 to-slate-900/90 border border-white/10 p-5 sm:p-6 backdrop-blur-xl shadow-xl shadow-black/40 flex items-center justify-between">
-        <div className="flex items-center gap-3.5 sm:gap-4 z-10">
-          <div className="w-12 h-12 rounded-xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-md shadow-blue-900/30 shrink-0">
-            <pageMeta.icon className="w-6 h-6" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight">
-                {pageMeta.title}
-              </h1>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${pageMeta.badgeColor}`}>
-                {pageMeta.badge}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1 font-medium">
-              {pageMeta.subtitle}
-            </p>
-          </div>
-        </div>
-
-        {/* Ambient subtle glow */}
-        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none" />
-      </div>
-
-      {/* Category Navigation Pills */}
+    <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-5 flex flex-col gap-6 animate-in fade-in duration-300">
+      {/* Category Navigation Pills (MasterTV Style) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         <button
           onClick={() => setActiveFilter('movies')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeFilter === 'movies' || activeFilter === 'all'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+              ? 'bg-cyan-500 text-slate-950 font-black shadow-lg shadow-cyan-500/30'
               : 'bg-white/5 hover:bg-white/10 text-slate-300'
           }`}
         >
@@ -246,7 +263,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
           onClick={() => setActiveFilter('series')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeFilter === 'series'
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-black'
               : 'bg-white/5 hover:bg-white/10 text-slate-300'
           }`}
         >
@@ -258,7 +275,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
           onClick={() => setActiveFilter('animes')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeFilter === 'animes'
-              ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+              ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 font-black'
               : 'bg-white/5 hover:bg-white/10 text-slate-300'
           }`}
         >
@@ -270,7 +287,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
           onClick={() => setActiveFilter('doramas')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeFilter === 'doramas'
-              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
+              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 font-black'
               : 'bg-white/5 hover:bg-white/10 text-slate-300'
           }`}
         >
@@ -279,7 +296,176 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
         </button>
       </div>
 
-      {/* Empty State or Grid */}
+      {/* UNITV PHOTO 2 MOVIE SHOWCASE (Hero Carousel + 4 Quick Color Filters + 2 Tall Posters) */}
+      {(activeFilter === 'movies' || activeFilter === 'all') && !searchQuery && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
+          {/* LEFT 6 COLS: Featured Carousel Banner + 4 UniTV Filter Buttons */}
+          <div className="lg:col-span-6 flex flex-col gap-3">
+            {/* 16:9 Featured Movie Banner Card with Dots */}
+            <div
+              onClick={() => {
+                const target = filteredItems[0];
+                if (target) onSelectMedia(target);
+              }}
+              className="relative aspect-video rounded-3xl overflow-hidden bg-slate-900 border-2 border-white/10 hover:border-cyan-400 group cursor-pointer transition-all duration-300 shadow-2xl"
+            >
+              <img
+                src={filteredItems[0]?.backdropUrl || filteredItems[0]?.posterUrl || fallbackHero[0].image}
+                alt={filteredItems[0]?.title || fallbackHero[0].title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+
+              {/* Carousel Dots Top Right (UniTV Photo 2 style) */}
+              <div className="absolute top-4 right-4 flex items-center gap-1.5 p-1 rounded-full bg-black/60 backdrop-blur-md">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                <span className="w-2 h-2 rounded-full bg-white/40" />
+                <span className="w-2 h-2 rounded-full bg-white/40" />
+              </div>
+
+              {/* Title & Tagline at Base */}
+              <div className="absolute bottom-4 left-5 right-5 space-y-1">
+                <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider">
+                  Lancamento em Destaque
+                </span>
+                <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-white uppercase tracking-tight drop-shadow-md">
+                  {filteredItems[0]?.title || fallbackHero[0].title}
+                </h3>
+                <p className="text-xs text-slate-300 line-clamp-1">
+                  {filteredItems[0]?.description || fallbackHero[0].tagline}
+                </p>
+              </div>
+            </div>
+
+            {/* 4 UniTV Colorful Quick Filter Buttons (UniTV Photo 2 style) */}
+            <div className="grid grid-cols-4 gap-2.5">
+              {/* Button 1: Genero (Green) */}
+              <button
+                onClick={() => setSelectedSubFilter(selectedSubFilter === 'genero' ? 'todos' : 'genero')}
+                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
+                  selectedSubFilter === 'genero'
+                    ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 text-white ring-2 ring-emerald-300'
+                    : 'bg-gradient-to-tr from-emerald-600 to-teal-700 text-white hover:brightness-110'
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span>Gênero</span>
+              </button>
+
+              {/* Button 2: 2026 / Lancamento (Red) */}
+              <button
+                onClick={() => setSelectedSubFilter(selectedSubFilter === '2026' ? 'todos' : '2026')}
+                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
+                  selectedSubFilter === '2026'
+                    ? 'bg-gradient-to-tr from-rose-500 to-red-600 text-white ring-2 ring-red-300'
+                    : 'bg-gradient-to-tr from-rose-600 to-red-700 text-white hover:brightness-110'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>2026</span>
+              </button>
+
+              {/* Button 3: No Cinema (Orange) */}
+              <button
+                onClick={() => setSelectedSubFilter(selectedSubFilter === 'cinema' ? 'todos' : 'cinema')}
+                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
+                  selectedSubFilter === 'cinema'
+                    ? 'bg-gradient-to-tr from-amber-500 to-orange-600 text-white ring-2 ring-amber-300'
+                    : 'bg-gradient-to-tr from-amber-600 to-orange-700 text-white hover:brightness-110'
+                }`}
+              >
+                <Film className="w-4 h-4" />
+                <span>No Cinema</span>
+              </button>
+
+              {/* Button 4: Todos (Cyan MasterTV) */}
+              <button
+                onClick={() => setSelectedSubFilter('todos')}
+                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
+                  selectedSubFilter === 'todos'
+                    ? 'bg-gradient-to-tr from-cyan-500 to-blue-600 text-slate-950 font-black ring-2 ring-cyan-300'
+                    : 'bg-gradient-to-tr from-cyan-600 to-blue-700 text-white hover:brightness-110'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Todos</span>
+              </button>
+            </div>
+          </div>
+
+          {/* RIGHT 6 COLS: Two Tall Movie Posters (Nao Nos Rendemos & Boiuna style) */}
+          <div className="lg:col-span-6 grid grid-cols-2 gap-4">
+            {/* Tall Poster 1 */}
+            <div
+              onClick={() => {
+                const target = filteredItems[1] || filteredItems[0];
+                if (target) onSelectMedia(target);
+              }}
+              className="group relative rounded-3xl overflow-hidden bg-slate-900 border-2 border-white/10 hover:border-cyan-400 cursor-pointer transition-all duration-300 shadow-2xl flex flex-col justify-end p-5"
+            >
+              <img
+                src={filteredItems[1]?.posterUrl || fallbackHero[1].image}
+                alt={filteredItems[1]?.title || fallbackHero[1].title}
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+              <div className="relative z-10 space-y-1">
+                <span className="text-[10px] font-black uppercase text-rose-400 tracking-wider">
+                  Alta Definicao
+                </span>
+                <h4 className="text-lg sm:text-xl font-black text-white uppercase tracking-tight drop-shadow-md">
+                  {filteredItems[1]?.title || fallbackHero[1].title}
+                </h4>
+                <p className="text-[11px] text-slate-300 truncate">
+                  {filteredItems[1]?.description || fallbackHero[1].tagline}
+                </p>
+              </div>
+            </div>
+
+            {/* Tall Poster 2 */}
+            <div
+              onClick={() => {
+                const target = filteredItems[2] || filteredItems[0];
+                if (target) onSelectMedia(target);
+              }}
+              className="group relative rounded-3xl overflow-hidden bg-slate-900 border-2 border-white/10 hover:border-cyan-400 cursor-pointer transition-all duration-300 shadow-2xl flex flex-col justify-end p-5"
+            >
+              <img
+                src={filteredItems[2]?.posterUrl || fallbackHero[2].image}
+                alt={filteredItems[2]?.title || fallbackHero[2].title}
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+              <div className="relative z-10 space-y-1">
+                <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">
+                  Super Estreia
+                </span>
+                <h4 className="text-lg sm:text-xl font-black text-white uppercase tracking-tight drop-shadow-md">
+                  {filteredItems[2]?.title || fallbackHero[2].title}
+                </h4>
+                <p className="text-[11px] text-slate-300 truncate">
+                  {filteredItems[2]?.description || fallbackHero[2].tagline}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Catalog Section Header */}
+      <div className="flex items-center justify-between pt-2 border-t border-white/10">
+        <div>
+          <h2 className="text-base sm:text-lg font-black text-white">
+            {pageMeta.title}
+          </h2>
+          <p className="text-xs text-slate-400">{pageMeta.subtitle}</p>
+        </div>
+        <span className="text-xs font-mono font-bold text-cyan-400">
+          {filteredItems.length.toLocaleString('pt-BR')} titulos
+        </span>
+      </div>
+
+      {/* Empty State or Full Catalog Grid */}
       {filteredItems.length === 0 ? (
         <div className="py-20 flex flex-col items-center justify-center text-center gap-3">
           <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500">
@@ -315,7 +501,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
                   onClick={() => onSelectMedia(item)}
                   className="group relative cursor-pointer flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-1.5"
                 >
-                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-blue-500/60 group-hover:shadow-lg group-hover:shadow-blue-900/30 transition-all">
+                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-cyan-400 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all">
                     <img
                       src={item.posterUrl || './assets/img/icons/favicon.svg'}
                       alt={item.title || 'Capa'}
@@ -326,12 +512,12 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/40">
-                        <Play className="w-5 h-5 fill-white ml-0.5" />
+                      <div className="w-10 h-10 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-md shadow-cyan-500/40">
+                        <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
                       </div>
                     </div>
 
-                    {/* Quality Badge from Source */}
+                    {/* Quality Badge */}
                     <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded backdrop-blur-md text-[9px] font-mono font-bold border shadow-sm ${qualityInfo.badgeBg} ${qualityInfo.borderBg}`}>
                       {qualityInfo.short}
                     </div>
@@ -343,7 +529,7 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-bold text-slate-200 group-hover:text-blue-300 truncate">
+                    <h4 className="text-xs font-bold text-slate-200 group-hover:text-cyan-300 truncate">
                       {item.title}
                     </h4>
                     <p className="text-[10px] text-slate-400">
@@ -360,24 +546,16 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
             <div className="flex flex-col items-center justify-center gap-3 pt-6 pb-12">
               <p className="text-xs text-slate-400 font-medium">
                 Exibindo <span className="text-white font-bold">{displayedItems.length}</span> de{' '}
-                <span className="text-blue-400 font-bold">{filteredItems.length.toLocaleString('pt-BR')}</span> titulos
+                <span className="text-cyan-400 font-bold">{filteredItems.length.toLocaleString('pt-BR')}</span> titulos
               </p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setVisibleCount((prev) => Math.min(prev + 48, filteredItems.length))}
-                  className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-wide shadow-lg shadow-blue-600/30 transition-all cursor-pointer flex items-center gap-2"
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs tracking-wide shadow-lg shadow-cyan-500/30 transition-all cursor-pointer flex items-center gap-2"
                 >
-                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <Play className="w-3.5 h-3.5 fill-slate-950" />
                   Carregar Mais Titulos (+48)
                 </button>
-                {filteredItems.length - displayedItems.length > 48 && (
-                  <button
-                    onClick={() => setVisibleCount((prev) => Math.min(prev + 240, filteredItems.length))}
-                    className="px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs tracking-wide border border-white/10 transition-all cursor-pointer"
-                  >
-                    Carregar +240
-                  </button>
-                )}
               </div>
             </div>
           )}

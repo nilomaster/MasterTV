@@ -1,22 +1,29 @@
-// Mobile-first responsive navigation header and bottom mobile bar
-// All comments in this file strictly follow ASCII rules
+// MasterTV UniTV-Style Navigation Header & Android TV Interface
+// Features UniTV tab system (TV, JOGOS, DESTAQUES, FILMES, SERIES, KIDS, ANIME, EXPLORAR)
+// System circle action buttons (Search, Filter, History, Profile, Notification, Clock)
+// Strictly ASCII comments only as per project guidelines
 
 import React, { useState } from 'react';
 import {
   Tv,
   Search,
-  Home,
-  Film,
-  Tv2,
-  Sparkles,
-  HeartHandshake,
-  Heart,
+  SlidersHorizontal,
+  History,
+  Bell,
+  User,
   Settings,
   Menu,
   X,
-  User,
+  Heart,
+  ScreenShare,
 } from 'lucide-react';
 import type { ClientSession } from '../types/admin';
+import { UniTVClock } from './common/UniTVClock';
+import {
+  UniTVNotificationDrawer,
+  type UniTVNotificationItem,
+} from './common/UniTVNotificationDrawer';
+import { UniTVProfileModal } from './auth/UniTVProfileModal';
 
 interface NavbarProps {
   currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin' | 'settings';
@@ -47,9 +54,32 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavbarMouseEnter,
   onNavbarMouseLeave,
   clientSession,
+  onLogout,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState<boolean>(false);
+  const [searchBarOpen, setSearchBarOpen] = useState<boolean>(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+
+  // System notifications state for UniTV notification drawer
+  const [notifications, setNotifications] = useState<UniTVNotificationItem[]>([
+    {
+      id: 'notif-1',
+      title: 'Mensagem de atualizacao: MasterTV UniTV Style',
+      message: 'Nova interface de Smart TV instalada com layout UniTV, mosaico e transmissao HLS.',
+      date: 'Hoje',
+      isUnread: true,
+      type: 'update',
+    },
+    {
+      id: 'notif-2',
+      title: 'Servidores de Transmissao 100% Online',
+      message: 'Todos os canais em FHD e HD com redundancia automatica e zero delay.',
+      date: 'Ontem',
+      isUnread: false,
+      type: 'info',
+    },
+  ]);
 
   const handleNavClick = (
     view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios',
@@ -63,14 +93,18 @@ export const Navbar: React.FC<NavbarProps> = ({
     setMobileMenuOpen(false);
   };
 
+  const isHomeActive = currentView === 'home';
+  const isTVActive = currentView === 'player';
   const isMoviesActive = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
   const isSeriesActive = currentView === 'vod' && vodFilter === 'series';
   const isAnimesActive = currentView === 'vod' && vodFilter === 'animes';
   const isDoramasActive = currentView === 'vod' && vodFilter === 'doramas';
 
+  const unreadNotifCount = notifications.filter((n) => n.isUnread).length;
+
   return (
     <>
-      {/* Top Header */}
+      {/* Top Header Navigation - UniTV Style */}
       <header
         onMouseEnter={() => {
           if (currentView === 'player') {
@@ -82,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onNavbarMouseLeave?.();
           }
         }}
-        className={`z-40 w-full bg-[#090d16]/95 backdrop-blur-xl border-b border-white/5 transition-all duration-300 ease-in-out ${
+        className={`z-40 w-full bg-[#070a10]/95 backdrop-blur-xl border-b border-white/10 transition-all duration-300 ease-in-out ${
           currentView === 'player'
             ? `hidden md:block fixed top-0 left-0 right-0 ${
                 isPlayerControlsVisible
@@ -92,13 +126,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             : 'sticky top-0'
         }`}
       >
-        <div className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-2.5 max-w-[1920px] mx-auto gap-2">
-          {/* Brand Logo */}
+        <div className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-3 max-w-[1920px] mx-auto gap-3">
+          {/* LEFT: MasterTV Logo */}
           <div
             onClick={() => handleNavClick('home')}
             className="flex items-center gap-2.5 cursor-pointer group select-none shrink-0"
+            title="MasterTV - Inicio"
           >
-            <div className="relative w-10 h-10 rounded-xl bg-[#0c1322] border border-blue-500/30 p-1 shadow-md shadow-blue-900/20 group-hover:shadow-blue-600/30 group-hover:border-blue-400 transition-all duration-300 flex items-center justify-center overflow-hidden">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#0b0e14] border border-cyan-500/40 p-1 shadow-[0_0_15px_rgba(0,240,255,0.25)] group-hover:border-cyan-400 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all duration-300 flex items-center justify-center overflow-hidden">
               <img
                 src="./assets/img/icons/logo.png"
                 alt="MasterTV Logo"
@@ -106,175 +141,182 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
             </div>
             <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-blue-300 bg-clip-text text-transparent">
-                  MasterTV
-                </span>
-                <span className="text-[9px] uppercase font-bold tracking-widest px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  BETA
-                </span>
-              </div>
-              <p className="text-[9px] text-slate-400 leading-none hidden sm:block">IPTV & EPG Player</p>
+              <span className="font-black text-lg sm:text-xl tracking-tight text-white flex items-center gap-1.5 leading-none">
+                MasterTV
+              </span>
+              <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest leading-none mt-1 hidden sm:block">
+                Ultra HD TV
+              </span>
             </div>
           </div>
 
-          {/* Desktop/Tablet Search Bar */}
-          <div className="relative hidden lg:flex items-center flex-1 max-w-xs xl:max-w-md mx-2">
-            <Search className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar canal, filme ou série..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 bg-slate-900/80 border border-slate-700/60 rounded-full text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/25 transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 text-xs text-slate-400 hover:text-white"
-              >
-                ×
-              </button>
-            )}
-          </div>
-
-          {/* Desktop Navigation Links (Visible on xl screens) */}
-          <nav className="hidden xl:flex items-center gap-1">
-            <button
-              onClick={() => handleNavClick('home')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                currentView === 'home'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Início</span>
-            </button>
-
+          {/* CENTER: UniTV Navigation Tabs (TV, JOGOS, DESTAQUES, FILMES, SERIES, KIDS, ANIME, EXPLORAR) */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
+            {/* TV (Ao Vivo) */}
             <button
               onClick={() => handleNavClick('player')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                currentView === 'player'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
+                isTVActive
+                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
-              <Tv className="w-3.5 h-3.5" />
-              <span>Ao vivo</span>
+              TV
             </button>
 
+            {/* JOGOS (Esportes / Futebol) */}
+            <button
+              onClick={() => handleNavClick('player')}
+              className="px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase text-slate-300 hover:text-white hover:bg-white/5 border border-transparent transition-all cursor-pointer"
+            >
+              JOGOS
+            </button>
+
+            {/* DESTAQUES (Home Mosaico - UniTV Hero) */}
+            <button
+              onClick={() => handleNavClick('home')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
+                isHomeActive
+                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+            >
+              DESTAQUES
+            </button>
+
+            {/* FILMES */}
             <button
               onClick={() => handleNavClick('vod', 'movies')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
                 isMoviesActive
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
-              <Film className="w-3.5 h-3.5" />
-              <span>Filmes</span>
+              FILMES
             </button>
 
+            {/* SERIES */}
             <button
               onClick={() => handleNavClick('vod', 'series')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
                 isSeriesActive
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
-              <Tv2 className="w-3.5 h-3.5" />
-              <span>Séries</span>
+              SÉRIES
             </button>
 
-            <button
-              onClick={() => handleNavClick('vod', 'animes')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                isAnimesActive
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Animes</span>
-            </button>
-
+            {/* KIDS (Colorful UniTV Style Badge) */}
             <button
               onClick={() => handleNavClick('vod', 'doramas')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
                 isDoramasActive
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  ? 'border-2 border-cyan-400 bg-cyan-500/15 shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                  : 'border border-transparent hover:bg-white/5'
               }`}
             >
-              <HeartHandshake className="w-3.5 h-3.5" />
-              <span>Doramas</span>
+              <span className="bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent font-black">
+                KIDS
+              </span>
             </button>
 
+            {/* ANIME */}
             <button
-              onClick={() => handleNavClick('favorites')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                currentView === 'favorites'
-                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              onClick={() => handleNavClick('vod', 'animes')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
+                isAnimesActive
+                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
-              <Heart className="w-3.5 h-3.5" />
-              <span>Favoritos</span>
-              {favoritesCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-500 text-white font-bold">
-                  {favoritesCount}
-                </span>
-              )}
+              ANIME
+            </button>
+
+            {/* EXPLORAR */}
+            <button
+              onClick={() => handleNavClick('vod', 'all')}
+              className="px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase text-slate-300 hover:text-white hover:bg-white/5 border border-transparent transition-all cursor-pointer"
+            >
+              EXPLORAR
             </button>
           </nav>
 
-          {/* Right Action Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Mobile Search Toggle */}
+          {/* RIGHT: UniTV Circular Action Buttons & Real-Time Clock */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Search Circle Button */}
             <button
-              onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
-              className="p-2 rounded-lg bg-slate-900 border border-white/5 text-slate-300 hover:text-white lg:hidden transition-colors"
-              title="Pesquisar"
+              onClick={() => setSearchBarOpen((prev) => !prev)}
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                searchBarOpen
+                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10'
+              }`}
+              title="Pesquisar conteudos"
             >
               <Search className="w-4 h-4" />
             </button>
 
-            {/* Client Session Badge */}
-            {clientSession && (
-              <div
-                onClick={onOpenSettingsModal}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-blue-500/30 hover:border-blue-400 text-xs cursor-pointer transition-all shadow-sm"
-                title="Sua conta MasterTV (Clique para gerenciar)"
-              >
-                <div className="w-5 h-5 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="font-bold text-white text-[11px] leading-tight max-w-[110px] truncate">
-                    {clientSession.customerName}
-                  </span>
-                  <span className="text-[9px] text-blue-400 font-mono font-semibold uppercase leading-tight">
-                    {clientSession.planDuration}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Settings Button */}
+            {/* Filter Circle Button (UniTV Photo 1) */}
             <button
-              onClick={onOpenSettingsModal}
-              title="Configurações"
-              className="p-2 rounded-lg bg-slate-900 border border-white/5 text-slate-300 hover:text-white transition-colors"
+              onClick={() => handleNavClick('vod', 'all')}
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all cursor-pointer hidden sm:flex"
+              title="Filtro de Generos"
             >
-              <Settings className="w-4 h-4" />
+              <SlidersHorizontal className="w-4 h-4" />
             </button>
 
-            {/* Mobile Menu Hamburger Button (Hidden on xl screens) */}
+            {/* History Circle Button (UniTV Photo 1) */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-slate-800/90 text-white xl:hidden border border-white/10 transition-colors"
+              onClick={() => setIsProfileOpen(true)}
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all cursor-pointer hidden sm:flex"
+              title="Historico de reproducao"
+            >
+              <History className="w-4 h-4" />
+            </button>
+
+            {/* User Profile Circle Button with Online Status Dot (UniTV Photo 1 & 3) */}
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="relative w-9 h-9 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 flex items-center justify-center transition-all cursor-pointer"
+              title="Central do Assinante & Perfil"
+            >
+              <User className="w-4 h-4" />
+              <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070a10]" />
+            </button>
+
+            {/* Notification Bell Circle with Unread Counter (UniTV Photo 1 & 5) */}
+            <button
+              onClick={() => setIsNotificationOpen(true)}
+              className="relative w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all cursor-pointer"
+              title="Caixa de Mensagens"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center shadow-md animate-pulse">
+                  {unreadNotifCount}
+                </span>
+              )}
+            </button>
+
+            {/* Screen / TV Cast Indicator (UniTV Photo 1) */}
+            <div
+              className="w-9 h-9 rounded-full bg-white/5 border border-white/10 text-slate-400 items-center justify-center hidden md:flex"
+              title="Dispositivo Conectado: Android TV / TV Box"
+            >
+              <ScreenShare className="w-4 h-4" />
+            </div>
+
+            {/* Real-time Digital Clock (UniTV Photo 1) */}
+            <div className="hidden sm:block border-l border-white/10 pl-2">
+              <UniTVClock />
+            </div>
+
+            {/* Mobile Hamburger Menu Toggle */}
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="w-9 h-9 rounded-full bg-white/10 text-white lg:hidden flex items-center justify-center border border-white/10 cursor-pointer"
               title="Menu"
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -282,23 +324,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Mobile Search Input Overlay */}
-        {mobileSearchOpen && (
-          <div className="px-3 pb-3 pt-1 border-t border-white/5 lg:hidden animate-in fade-in duration-150">
-            <div className="relative flex items-center">
-              <Search className="absolute left-3 w-4 h-4 text-slate-400" />
+        {/* Expandable Search Input Bar */}
+        {searchBarOpen && (
+          <div className="px-4 py-2.5 border-t border-white/10 bg-[#0b0e14]/95 animate-in fade-in duration-200">
+            <div className="max-w-2xl mx-auto relative flex items-center">
+              <Search className="absolute left-3.5 w-4 h-4 text-cyan-400" />
               <input
                 type="text"
-                placeholder="Buscar canal, filme ou série..."
+                placeholder="Pesquisar canais, filmes, series ou animes no MasterTV..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 autoFocus
-                className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#07090e] border border-cyan-500/40 rounded-full pl-10 pr-9 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/30"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 text-xs text-slate-400 hover:text-white"
+                  className="absolute right-3.5 text-xs text-slate-400 hover:text-white"
                 >
                   ×
                 </button>
@@ -307,175 +349,87 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         )}
 
-        {/* Mobile Dropdown Menu Drawer */}
+        {/* Mobile Dropdown Menu for Small Screens */}
         {mobileMenuOpen && (
-          <div className="xl:hidden px-4 py-4 bg-[#090d16]/98 border-t border-white/10 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2 duration-200">
-            <button
-              onClick={() => handleNavClick('home')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                currentView === 'home'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Início</span>
-            </button>
-
+          <div className="lg:hidden px-4 py-4 bg-[#090d16]/98 border-t border-white/10 flex flex-col gap-2 shadow-2xl animate-in slide-in-from-top-2 duration-200">
             <button
               onClick={() => handleNavClick('player')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                currentView === 'player'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <Tv className="w-4 h-4" />
-              <span>Ao Vivo</span>
+              <Tv className="w-4 h-4 text-cyan-400" />
+              <span>TV (Canais Ao Vivo)</span>
             </button>
-
+            <button
+              onClick={() => handleNavClick('home')}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
+            >
+              <span className="font-bold">DESTAQUES</span>
+            </button>
             <button
               onClick={() => handleNavClick('vod', 'movies')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isMoviesActive
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <Film className="w-4 h-4" />
-              <span>Filmes</span>
+              <span>FILMES</span>
             </button>
-
             <button
               onClick={() => handleNavClick('vod', 'series')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isSeriesActive
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <Tv2 className="w-4 h-4" />
-              <span>Séries</span>
+              <span>SÉRIES</span>
             </button>
-
-            <button
-              onClick={() => handleNavClick('vod', 'animes')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isAnimesActive
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Animes</span>
-            </button>
-
             <button
               onClick={() => handleNavClick('vod', 'doramas')}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                isDoramasActive
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <HeartHandshake className="w-4 h-4" />
-              <span>Doramas</span>
+              <span className="bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent font-black">
+                KIDS
+              </span>
             </button>
-
+            <button
+              onClick={() => handleNavClick('vod', 'animes')}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
+            >
+              <span>ANIME</span>
+            </button>
             <button
               onClick={() => handleNavClick('favorites')}
-              className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                currentView === 'favorites'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
-              }`}
+              className="flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
               <div className="flex items-center gap-3">
-                <Heart className="w-4 h-4" />
+                <Heart className="w-4 h-4 text-red-400" />
                 <span>Favoritos</span>
               </div>
-              {favoritesCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold">
-                  {favoritesCount}
-                </span>
-              )}
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold">
+                {favoritesCount}
+              </span>
+            </button>
+            <button
+              onClick={onOpenSettingsModal}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-slate-300 hover:bg-white/10"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Configurações</span>
             </button>
           </div>
         )}
       </header>
 
-      {/* MOBILE-FIRST BOTTOM APP BAR (Fixed at bottom for mobile phones & small tablets) */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around sm:hidden transition-all duration-300 ease-in-out ${
-          currentView === 'player'
-            ? 'hidden'
-            : 'translate-y-0 opacity-100 pointer-events-auto'
-        }`}
-        style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
-      >
-        <button
-          onClick={() => handleNavClick('home')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
-            currentView === 'home' ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Home className="w-4 h-4" />
-          <span className="text-[10px]">Início</span>
-        </button>
+      {/* UniTV Notification Drawer Component (Photo 5) */}
+      <UniTVNotificationDrawer
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+        notifications={notifications}
+        onClearAll={() => setNotifications([])}
+      />
 
-        <button
-          onClick={() => handleNavClick('player')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
-            currentView === 'player' ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Tv className="w-4 h-4" />
-          <span className="text-[10px]">Ao Vivo</span>
-        </button>
-
-        <button
-          onClick={() => handleNavClick('vod', 'movies')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${
-            isMoviesActive ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Film className="w-4 h-4" />
-          <span className="text-[10px]">Filmes</span>
-        </button>
-
-        <button
-          onClick={() => handleNavClick('vod', 'series')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${
-            isSeriesActive ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Tv2 className="w-4 h-4" />
-          <span className="text-[10px]">Séries</span>
-        </button>
-
-        <button
-          onClick={() => handleNavClick('vod', 'animes')}
-          className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-colors ${
-            isAnimesActive ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span className="text-[10px]">Animes</span>
-        </button>
-
-        <button
-          onClick={() => handleNavClick('favorites')}
-          className={`relative flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
-            currentView === 'favorites' ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Heart className="w-4 h-4" />
-          <span className="text-[10px]">Favoritos</span>
-          {favoritesCount > 0 && (
-            <span className="absolute top-0.5 right-2 w-2 h-2 rounded-full bg-red-500"></span>
-          )}
-        </button>
-      </div>
+      {/* UniTV Profile & Account Modal Component (Photo 3) */}
+      <UniTVProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        clientSession={clientSession || null}
+        onLogout={onLogout || (() => {})}
+        favoritesCount={favoritesCount}
+      />
     </>
   );
 };
