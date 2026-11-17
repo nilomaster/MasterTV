@@ -32,7 +32,8 @@ import {
   Edit,
   Tag,
   AlertCircle,
-  Download
+  Download,
+  Database
 } from 'lucide-react';
 import type {
   ClientLine,
@@ -232,6 +233,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     });
   }, [contents, contentFilter, contentSearchQuery]);
 
+  // Pagination for Content Manager grid to prevent browser freeze with 40k+ items
+  const [contentPage, setContentPage] = useState<number>(1);
+  const contentItemsPerPage = 36;
+
+  // Reset page when search or filter changes
+  useEffect(() => {
+    setContentPage(1);
+  }, [contentFilter, contentSearchQuery]);
+
+  const totalContentPages = Math.max(1, Math.ceil(filteredContents.length / contentItemsPerPage));
+  const paginatedContents = useMemo(() => {
+    const start = (contentPage - 1) * contentItemsPerPage;
+    return filteredContents.slice(start, start + contentItemsPerPage);
+  }, [filteredContents, contentPage]);
+
   // Open modal for new content
   const openAddContentModal = () => {
     setEditingContentId(null);
@@ -410,28 +426,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     const sourcesList = [
       {
         id: 1,
-        name: 'Fonte 1 HD',
+        name: '720P - HD',
         quality: 'HD' as const,
         streamUrl: formSource1HdUrl.trim(),
         backupStreamUrl: formSource1HdBackup.trim(),
       },
       {
         id: 2,
-        name: 'Fonte 2 HD',
+        name: '720P - HD (Alternativa)',
         quality: 'HD' as const,
         streamUrl: formSource2HdUrl.trim(),
         backupStreamUrl: formSource2HdBackup.trim(),
       },
       {
         id: 3,
-        name: 'Fonte 3 FHD',
+        name: '1080P - FHD',
         quality: 'FHD' as const,
         streamUrl: formSource3FhdUrl.trim(),
         backupStreamUrl: formSource3FhdBackup.trim(),
       },
       {
         id: 4,
-        name: 'Fonte 4 FHD',
+        name: '1080P - FHD (Alternativa)',
         quality: 'FHD' as const,
         streamUrl: formSource4FhdUrl.trim(),
         backupStreamUrl: formSource4FhdBackup.trim(),
@@ -496,6 +512,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
       await AdminService.deleteContent(item.id);
       const updated = await AdminService.fetchRemoteContents();
       setContents(updated);
+    }
+  };
+
+  // Save all local contents to remote MySQL database
+  const [isSyncingDatabase, setIsSyncingDatabase] = useState<boolean>(false);
+  const [syncProgress, setSyncProgress] = useState<number>(0);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isClearingCatalog, setIsClearingCatalog] = useState<boolean>(false);
+
+  const handleSaveAllToRemoteDatabase = async () => {
+    if (!Array.isArray(contents) || contents.length === 0) {
+      alert('Nenhum conteudo disponivel para salvar no banco de dados.');
+      return;
+    }
+    try {
+      setIsSyncingDatabase(true);
+      setSyncFeedback(null);
+      const res = await AdminService.saveBatchRemoteContents(contents, (pct) => {
+        setSyncProgress(pct);
+      });
+      setSyncFeedback(res.message);
+      const updated = await AdminService.fetchRemoteContents();
+      setContents(updated);
+    } catch (err: any) {
+      alert(`Erro ao salvar no banco de dados MySQL: ${err?.message || 'Falha de conexao.'}`);
+    } finally {
+      setIsSyncingDatabase(false);
+      setSyncProgress(0);
+      setTimeout(() => setSyncFeedback(null), 6000);
+    }
+  };
+
+  // Clear all contents from MySQL database and local cache to start fresh
+  const handleClearAllContents = async () => {
+    if (!confirm('ATENCAO: Deseja realmente excluir TODOS os conteudos do catalogo (canais, filmes e series) do banco de dados MySQL para comecar do zero?')) {
+      return;
+    }
+    try {
+      setIsClearingCatalog(true);
+      const res = await AdminService.clearRemoteContents();
+      if (res.success) {
+        setContents([]);
+        setSyncFeedback('Catalogo apagado com sucesso. O banco de dados esta pronto para receber uma nova lista!');
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      alert(`Erro ao limpar catalogo: ${err?.message || 'Falha de conexao.'}`);
+    } finally {
+      setIsClearingCatalog(false);
+      setTimeout(() => setSyncFeedback(null), 6000);
     }
   };
 
@@ -1337,6 +1404,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                   <p className="text-xs text-slate-400">
                     Cadastre filmes, series, canais ao vivo e animes com sincronizacao automatica no banco de dados.
                   </p>
+                  {syncFeedback && (
+                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold animate-in fade-in">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{syncFeedback}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1352,12 +1425,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                 </button>
 
                 <button
+                  onClick={handleSaveAllToRemoteDatabase}
+                  disabled={isSyncingDatabase || !contents || contents.length === 0}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 hover:text-emerald-200 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  title="Salvar todos os conteudos atuais permanentemente no banco de dados MySQL"
+                >
+                  {isSyncingDatabase ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Salvando no Banco ({syncProgress}%)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4 text-emerald-400" />
+                      <span>Salvar no Banco ({contents.length})</span>
+                    </>
+                  )}
+                </button>
+
+                <button
                   onClick={() => setIsM3UModalOpen(true)}
                   className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:text-cyan-200 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer"
                   title="Importar lista M3U completa da Saimon-TV ou outros servidores"
                 >
                   <Download className="w-4 h-4 text-cyan-400" />
                   <span>Importar M3U</span>
+                </button>
+
+                <button
+                  onClick={handleClearAllContents}
+                  disabled={isClearingCatalog || !contents || contents.length === 0}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  title="Apagar todos os conteudos do banco de dados para recomecar do zero com uma nova lista limpa"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                  <span>{isClearingCatalog ? 'Limpando...' : 'Limpar Catalogo'}</span>
                 </button>
 
                 <button
@@ -1478,8 +1580,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredContents.map((item) => {
+              <div className="space-y-4">
+                {/* Pagination Controls Top */}
+                {totalContentPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0b0e14] border border-white/10 text-xs">
+                    <span className="text-slate-400">
+                      Mostrando <strong className="text-white">{(contentPage - 1) * contentItemsPerPage + 1}</strong> a <strong className="text-white">{Math.min(contentPage * contentItemsPerPage, filteredContents.length)}</strong> de <strong className="text-cyan-400">{filteredContents.length}</strong> itens cadastrados
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setContentPage((p) => Math.max(1, p - 1))}
+                        disabled={contentPage === 1}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-cyan-400 font-bold px-2">
+                        Pagina {contentPage} de {totalContentPages}
+                      </span>
+                      <button
+                        onClick={() => setContentPage((p) => Math.min(totalContentPages, p + 1))}
+                        disabled={contentPage === totalContentPages}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                      >
+                        Proxima
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedContents.map((item) => {
                   const typeBadgeBg =
                     item.type === 'channel'
                       ? 'bg-red-500/20 text-red-300 border-red-500/40'
@@ -1595,7 +1726,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                   );
                 })}
               </div>
-            )}
+
+              {/* Pagination Controls Bottom */}
+              {totalContentPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0b0e14] border border-white/10 text-xs">
+                  <span className="text-slate-400">
+                    Pagina <strong className="text-cyan-400">{contentPage}</strong> de <strong className="text-white">{totalContentPages}</strong> (Exibindo 36 itens por pagina)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setContentPage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 300, behavior: 'smooth' });
+                      }}
+                      disabled={contentPage === 1}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      onClick={() => {
+                        setContentPage((p) => Math.min(totalContentPages, p + 1));
+                        window.scrollTo({ top: 300, behavior: 'smooth' });
+                      }}
+                      disabled={contentPage === totalContentPages}
+                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
+                    >
+                      Proxima
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           </div>
         )}
 
@@ -2245,10 +2408,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                     <div className="flex flex-col gap-3 p-4 rounded-2xl bg-red-950/20 border border-red-500/20">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-red-300">
-                          Links do Canal (Fontes Principais e Alternativas)
+                          Links de Transmissao do Canal (HD e FHD)
                         </span>
                         <span className="text-xs text-slate-400">
-                          Configure as fontes de transmissao (.m3u8 / .mp4) e links de backup para redundancia automatica caso a principal caia.
+                          Configure os links de transmissao (.m3u8 / .mp4) e links de backup para redundancia automatica caso a principal caia.
                         </span>
                       </div>
 
@@ -2258,7 +2421,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                              Fonte 1 (HD)
+                              720P - HD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
                               Principal HD
@@ -2270,7 +2433,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte1.m3u8"
+                              placeholder="https://exemplo.com/canal-720p.m3u8"
                               value={formSource1HdUrl}
                               onChange={(e) => {
                                 setFormSource1HdUrl(e.target.value);
@@ -2301,7 +2464,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-                              Fonte 2 (HD)
+                              720P - HD (Alternativa)
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">
                               Alternativa HD
@@ -2313,7 +2476,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte2.m3u8"
+                              placeholder="https://exemplo.com/canal-720p-alt.m3u8"
                               value={formSource2HdUrl}
                               onChange={(e) => setFormSource2HdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-orange-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2338,7 +2501,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                              Fonte 3 (FHD)
+                              1080P - FHD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                               1080p FHD
@@ -2350,7 +2513,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte3-fhd.m3u8"
+                              placeholder="https://exemplo.com/canal-1080p.m3u8"
                               value={formSource3FhdUrl}
                               onChange={(e) => setFormSource3FhdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-emerald-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2375,7 +2538,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                              Fonte 4 (FHD)
+                              1080P - FHD (Alternativa)
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                               1080p FHD
@@ -2387,7 +2550,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/canal-fonte4-fhd.m3u8"
+                              placeholder="https://exemplo.com/canal-1080p-alt.m3u8"
                               value={formSource4FhdUrl}
                               onChange={(e) => setFormSource4FhdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-purple-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2717,10 +2880,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                     <div className="flex flex-col gap-3 p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-cyan-300">
-                          Fontes de Transmissao e Backup (HD e FHD)
+                          Opcoes de Reproducao e Qualidade (HD e FHD)
                         </span>
                         <span className="text-xs text-slate-400">
-                          Configure as fontes principais de reproducao e seus respectivos links de backup caso o sinal principal caia.
+                          Configure os links de reproducao em 720P e 1080P e seus respectivos links de backup para redundancia automatica.
                         </span>
                       </div>
 
@@ -2730,7 +2893,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-                              Fonte 1 (HD)
+                              720P - HD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                               Principal HD
@@ -2742,7 +2905,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte1-hd.m3u8 ou .mp4"
+                              placeholder="https://exemplo.com/video-720p.m3u8 ou .mp4"
                               value={formSource1HdUrl}
                               onChange={(e) => {
                                 setFormSource1HdUrl(e.target.value);
@@ -2757,7 +2920,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte1-hd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-720p-backup.m3u8"
                               value={formSource1HdBackup}
                               onChange={(e) => {
                                 setFormSource1HdBackup(e.target.value);
@@ -2773,7 +2936,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-                              Fonte 2 (HD)
+                              720P - HD (Alternativa)
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
                               Alternativa HD
@@ -2785,7 +2948,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte2-hd.m3u8"
+                              placeholder="https://exemplo.com/video-720p-alt.m3u8"
                               value={formSource2HdUrl}
                               onChange={(e) => setFormSource2HdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-sky-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2797,7 +2960,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte2-hd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-720p-alt-backup.m3u8"
                               value={formSource2HdBackup}
                               onChange={(e) => setFormSource2HdBackup(e.target.value)}
                               className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-sky-400"
@@ -2810,7 +2973,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                              Fonte 3 (FHD)
+                              1080P - FHD
                             </span>
                             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                               1080p FHD
@@ -2822,7 +2985,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte3-fhd.m3u8"
+                              placeholder="https://exemplo.com/video-1080p.m3u8"
                               value={formSource3FhdUrl}
                               onChange={(e) => setFormSource3FhdUrl(e.target.value)}
                               className="bg-slate-950 border border-white/10 focus:border-emerald-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
@@ -2834,7 +2997,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte3-fhd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-1080p-backup.m3u8"
                               value={formSource3FhdBackup}
                               onChange={(e) => setFormSource3FhdBackup(e.target.value)}
                               className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-400"
@@ -2846,10 +3009,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                         <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-900/80 border border-white/10">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                              Fonte 4 (FHD)
+                              <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+                              1080P - FHD (Alternativa)
                             </span>
-                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
                               1080p FHD
                             </span>
                           </div>
@@ -2859,10 +3022,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://exemplo.com/fonte4-fhd.m3u8"
+                              placeholder="https://exemplo.com/video-1080p-alt.m3u8"
                               value={formSource4FhdUrl}
                               onChange={(e) => setFormSource4FhdUrl(e.target.value)}
-                              className="bg-slate-950 border border-white/10 focus:border-purple-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
+                              className="bg-slate-950 border border-white/10 focus:border-violet-400 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
@@ -2871,10 +3034,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                             </label>
                             <input
                               type="url"
-                              placeholder="https://backup.exemplo.com/fonte4-fhd-backup.m3u8"
+                              placeholder="https://backup.exemplo.com/video-1080p-alt-backup.m3u8"
                               value={formSource4FhdBackup}
                               onChange={(e) => setFormSource4FhdBackup(e.target.value)}
-                              className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-purple-400"
+                              className="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-violet-400"
                             />
                           </div>
                         </div>
@@ -3160,8 +3323,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         <M3UImporterModal
           isOpen={isM3UModalOpen}
           onClose={() => setIsM3UModalOpen(false)}
-          onImportSuccess={() => {
-            setContents(AdminService.getContents());
+          onImportSuccess={async () => {
+            try {
+              const remote = await AdminService.fetchRemoteContents();
+              setContents(remote);
+            } catch {
+              setContents(AdminService.getContents());
+            }
           }}
         />
       )}

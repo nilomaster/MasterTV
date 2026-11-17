@@ -19,7 +19,7 @@ const VIEW_HASH_MAP: Record<ViewType, string> = {
   home: '#/inicio',
   player: '#/ao-vivo',
   epg: '#/guia',
-  vod: '#/on-demand',
+  vod: '#/filmes',
   favorites: '#/favoritos',
   radios: '#/radios',
   'vod-player': '#/assistir',
@@ -38,6 +38,8 @@ function parseViewFromHash(): ViewType {
     hash.includes('filmes') ||
     hash.includes('series') ||
     hash.includes('animes') ||
+    hash.includes('doramas') ||
+    hash.includes('dorama') ||
     hash.includes('on-demand') ||
     hash.includes('vod')
   ) {
@@ -56,11 +58,11 @@ function parseViewFromHash(): ViewType {
 
 function parseVodFilterFromHash(): VODFilterType {
   const hash = window.location.hash.toLowerCase();
-  if (hash.includes('filmes')) return 'movies';
   if (hash.includes('series')) return 'series';
   if (hash.includes('animes')) return 'animes';
-  if (hash.includes('doramas')) return 'doramas';
-  return 'all';
+  if (hash.includes('doramas') || hash.includes('dorama')) return 'doramas';
+  if (hash.includes('filmes') || hash.includes('movie')) return 'movies';
+  return 'movies';
 }
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -81,8 +83,9 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Ignore storage errors
     }
 
-    if (view === 'vod' && filter && filter !== 'all') {
-      window.location.hash = `#/${filter}`;
+    if (view === 'vod') {
+      const f = filter === 'movies' ? 'filmes' : filter || 'filmes';
+      window.location.hash = `#/${f}`;
     } else {
       window.location.hash = VIEW_HASH_MAP[view] || '#/inicio';
     }

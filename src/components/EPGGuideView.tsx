@@ -142,7 +142,7 @@ export const EPGGuideView: React.FC<EPGGuideViewProps> = ({
     void epgRev;
     const map: Record<string, EPGTimelineProgram[]> = {};
     filteredChannels.forEach((ch) => {
-      map[ch.id] = getChannelTimelinePrograms(ch.id, windowStartMs, windowEndMs, nowMs);
+      map[ch.id] = getChannelTimelinePrograms(ch, windowStartMs, windowEndMs, nowMs);
     });
     return map;
   }, [filteredChannels, windowStartMs, windowEndMs, nowMs, epgRev]);

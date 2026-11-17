@@ -58,6 +58,40 @@ class ContentController {
 
         $method = $_SERVER['REQUEST_METHOD'];
 
+        if (isset($_GET['action']) && $_GET['action'] === 'fetch_m3u') {
+            require_once __DIR__ . '/../m3u_proxy.php';
+            exit;
+        }
+
+        if (isset($_GET['action']) && $_GET['action'] === 'counts') {
+            try {
+                $stmt = $this->pdo->query("SELECT `type`, COUNT(*) as total FROM `contents` WHERE `status` = 'active' GROUP BY `type`");
+                $rows = $stmt->fetchAll();
+                $counts = [
+                    'channels' => 0,
+                    'movies' => 0,
+                    'series' => 0,
+                    'animes' => 0,
+                    'doramas' => 0,
+                    'total' => 0
+                ];
+                foreach ($rows as $row) {
+                    $t = $row['type'];
+                    $qty = (int)$row['total'];
+                    if ($t === 'channel') $counts['channels'] = $qty;
+                    else if ($t === 'movie') $counts['movies'] = $qty;
+                    else if ($t === 'series') $counts['series'] = $qty;
+                    else if ($t === 'anime') $counts['animes'] = $qty;
+                    else if ($t === 'dorama') $counts['doramas'] = $qty;
+                    $counts['total'] += $qty;
+                }
+                sendResponse(['success' => true, 'counts' => $counts]);
+            } catch (Exception $e) {
+                sendResponse(['success' => false, 'message' => 'Erro ao obter contagens: ' . $e->getMessage()], 500);
+            }
+            exit;
+        }
+
         switch ($method) {
             case 'GET':
                 $this->listContents();
@@ -71,14 +105,38 @@ class ContentController {
     }
 
     private function listContents() {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(120);
+
         try {
             $type = isset($_GET['type']) ? trim($_GET['type']) : null;
-            if ($type) {
-                $stmt = $this->pdo->prepare("SELECT * FROM `contents` WHERE `type` = :t AND `status` = 'active' ORDER BY `created_at` DESC");
-                $stmt->execute([':t' => $type]);
+            $fetchAll = (isset($_GET['all']) && $_GET['all'] === 'true');
+
+            if ($fetchAll) {
+                if ($type) {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `contents` WHERE `type` = :t AND `status` = 'active' ORDER BY `created_at` DESC");
+                    $stmt->execute([':t' => $type]);
+                } else {
+                    $stmt = $this->pdo->query("SELECT * FROM `contents` ORDER BY `created_at` DESC");
+                }
             } else {
-                $stmt = $this->pdo->query("SELECT * FROM `contents` ORDER BY `created_at` DESC");
+                $limit = isset($_GET['limit']) ? max(1, min(5000, (int)$_GET['limit'])) : 2500;
+                $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
+
+                if ($type) {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `contents` WHERE `type` = :t AND `status` = 'active' ORDER BY `created_at` DESC LIMIT :lim OFFSET :off");
+                    $stmt->bindValue(':t', $type, PDO::PARAM_STR);
+                    $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+                    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+                    $stmt->execute();
+                } else {
+                    $stmt = $this->pdo->prepare("SELECT * FROM `contents` ORDER BY `created_at` DESC LIMIT :lim OFFSET :off");
+                    $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+                    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+                    $stmt->execute();
+                }
             }
+
             $items = $stmt->fetchAll();
 
             $formatted = array_map(function($item) {
@@ -114,6 +172,118 @@ class ContentController {
                 sendResponse(['success' => true, 'message' => 'Conteudo excluido com sucesso.']);
             } catch (Exception $e) {
                 sendResponse(['success' => false, 'message' => 'Erro ao excluir conteudo: ' . $e->getMessage()], 500);
+            }
+        }
+
+        if ($action === 'clear_all') {
+            $type = trim($data['type'] ?? '');
+            try {
+                if (!empty($type) && in_array($type, ['channel', 'movie', 'series', 'anime', 'dorama'])) {
+                    $stmt = $this->pdo->prepare("DELETE FROM `contents` WHERE `type` = :type");
+                    $stmt->execute([':type' => $type]);
+                    sendResponse(['success' => true, 'message' => "Todos os conteudos do tipo '{$type}' foram excluidos com sucesso."]);
+                } else {
+                    $this->pdo->exec("TRUNCATE TABLE `contents`");
+                    sendResponse(['success' => true, 'message' => 'Todo o catalogo do banco de dados foi limpo com sucesso.']);
+                }
+            } catch (Exception $e) {
+                sendResponse(['success' => false, 'message' => 'Erro ao limpar catalogo no MySQL: ' . $e->getMessage()], 500);
+            }
+        }
+
+        if ($action === 'bulk_import') {
+            $items = $data['items'] ?? [];
+            if (!is_array($items) || empty($items)) {
+                sendResponse(['success' => false, 'message' => 'Nenhum item informado para importacao em lote.'], 400);
+            }
+
+            try {
+                @set_time_limit(300);
+                $this->pdo->beginTransaction();
+                $stmt = $this->pdo->prepare("INSERT INTO `contents` (
+                    `id`, `type`, `title`, `tagline`, `rating`, `duration`, `year`, `content_rating`,
+                    `genres`, `poster_url`, `backdrop_url`, `stream_url`, `backup_stream_url`,
+                    `description`, `director`, `writers`, `production`, `channel_number`,
+                    `channel_category`, `current_program`, `epg_id`, `seasons`, `episodes`,
+                    `episodes_json`, `sources_json`, `cast_json`, `status`
+                ) VALUES (
+                    :id, :type, :title, :tagline, :rating, :duration, :year, :content_rating,
+                    :genres, :poster_url, :backdrop_url, :stream_url, :backup_stream_url,
+                    :description, :director, :writers, :production, :channel_number,
+                    :channel_category, :current_program, :epg_id, :seasons, :episodes,
+                    :episodes_json, :sources_json, :cast_json, :status
+                ) ON DUPLICATE KEY UPDATE
+                    `type` = VALUES(`type`),
+                    `title` = VALUES(`title`),
+                    `rating` = VALUES(`rating`),
+                    `duration` = VALUES(`duration`),
+                    `year` = VALUES(`year`),
+                    `genres` = VALUES(`genres`),
+                    `poster_url` = VALUES(`poster_url`),
+                    `backdrop_url` = VALUES(`backdrop_url`),
+                    `stream_url` = VALUES(`stream_url`),
+                    `backup_stream_url` = VALUES(`backup_stream_url`),
+                    `channel_number` = VALUES(`channel_number`),
+                    `channel_category` = VALUES(`channel_category`),
+                    `epg_id` = VALUES(`epg_id`),
+                    `sources_json` = VALUES(`sources_json`),
+                    `status` = 'active',
+                    `updated_at` = CURRENT_TIMESTAMP");
+
+                $inserted = 0;
+                foreach ($items as $item) {
+                    $id = trim($item['id'] ?? '');
+                    if (empty($id)) {
+                        $id = 'item_' . time() . '_' . bin2hex(random_bytes(3));
+                    }
+                    $type = in_array($item['type'] ?? '', ['movie', 'series', 'channel', 'anime', 'dorama']) ? $item['type'] : 'channel';
+                    $title = trim($item['title'] ?? 'Item');
+                    $streamUrl = trim($item['stream_url'] ?? $item['streamUrl'] ?? '');
+                    if (empty($streamUrl)) continue;
+
+                    $genres = is_array($item['genres'] ?? null) ? implode(', ', $item['genres']) : ($item['genres'] ?? 'Geral');
+                    $sourcesJson = isset($item['sources_list']) ? json_encode($item['sources_list'], JSON_UNESCAPED_UNICODE) : (isset($item['sourcesList']) ? json_encode($item['sourcesList'], JSON_UNESCAPED_UNICODE) : null);
+                    $episodesJson = isset($item['episodes_list']) ? json_encode($item['episodes_list'], JSON_UNESCAPED_UNICODE) : null;
+                    $castJson = isset($item['cast']) ? json_encode($item['cast'], JSON_UNESCAPED_UNICODE) : null;
+
+                    $stmt->execute([
+                        ':id' => $id,
+                        ':type' => $type,
+                        ':title' => $title,
+                        ':tagline' => $item['tagline'] ?? '',
+                        ':rating' => (float)($item['rating'] ?? 8.0),
+                        ':duration' => $item['duration'] ?? '',
+                        ':year' => (int)($item['year'] ?? 2026),
+                        ':content_rating' => $item['content_rating'] ?? $item['contentRating'] ?? '14',
+                        ':genres' => $genres,
+                        ':poster_url' => $item['poster_url'] ?? $item['posterUrl'] ?? '',
+                        ':backdrop_url' => $item['backdrop_url'] ?? $item['backdropUrl'] ?? '',
+                        ':stream_url' => $streamUrl,
+                        ':backup_stream_url' => $item['backup_stream_url'] ?? $item['backupStreamUrl'] ?? '',
+                        ':description' => $item['description'] ?? '',
+                        ':director' => $item['director'] ?? '',
+                        ':writers' => $item['writers'] ?? '',
+                        ':production' => $item['production'] ?? '',
+                        ':channel_number' => (int)($item['channel_number'] ?? $item['channelNumber'] ?? ($inserted + 1)),
+                        ':channel_category' => $item['channel_category'] ?? $item['channelCategory'] ?? 'aberta',
+                        ':current_program' => $item['current_program'] ?? $item['currentProgram'] ?? '',
+                        ':epg_id' => $item['epg_id'] ?? $item['epgId'] ?? '',
+                        ':seasons' => (int)($item['seasons'] ?? 1),
+                        ':episodes' => (int)($item['episodes'] ?? 1),
+                        ':episodes_json' => $episodesJson,
+                        ':sources_json' => $sourcesJson,
+                        ':cast_json' => $castJson,
+                        ':status' => 'active',
+                    ]);
+                    $inserted++;
+                }
+                $this->pdo->commit();
+                sendResponse(['success' => true, 'message' => "{$inserted} itens importados com sucesso para o banco de dados.", 'count' => $inserted]);
+            } catch (Exception $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                sendResponse(['success' => false, 'message' => 'Erro na importacao em lote no MySQL: ' . $e->getMessage()], 500);
             }
         }
 

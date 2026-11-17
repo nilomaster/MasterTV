@@ -2,9 +2,10 @@
 // Features horizontal backdrop header, vertical poster, rating badges, sources selector and cast list
 // All comments strictly follow ASCII rules
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Play, Heart, Tv } from 'lucide-react';
 import type { MediaItem, Channel, EPGProgram, EpisodeItem, CastMember } from '../types/iptv';
+import { detectQualityFromUrl } from '../services/qualityDetector';
 
 interface MediaModalProps {
   mediaItem: MediaItem | null;
@@ -59,6 +60,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   onPlayMedia,
 }) => {
   const [isFavorited, setIsFavorited] = useState<boolean>(false);
+  const [selectedSourceIdx, setSelectedSourceIdx] = useState<number>(0);
+
+  // Reset selected source whenever media item changes
+  useEffect(() => {
+    setSelectedSourceIdx(0);
+  }, [mediaItem]);
 
   // Close modal on TV remote back button (Escape, Back, Tizen 10009)
   useEffect(() => {
@@ -81,8 +88,6 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || (!mediaItem && !programItem)) return null;
-
   const title = mediaItem ? mediaItem.title : programItem?.program.title || 'Titulo';
   const tagline = mediaItem?.tagline;
   const description = mediaItem ? mediaItem.description : programItem?.program.description || 'Sem descricao disponivel.';
@@ -94,6 +99,85 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const poster = mediaItem?.posterUrl || programItem?.channel.logo || './assets/img/icons/favicon.svg';
   const backdrop = mediaItem?.backdropUrl || mediaItem?.posterUrl || programItem?.channel.logo || '';
   const mainStreamUrl = mediaItem ? mediaItem.streamUrl : programItem?.channel.streamUrl || '';
+
+  // Resolved sources list supporting multiple sources with their respective qualities
+  const resolvedSources = useMemo(() => {
+    if (mediaItem?.sources && mediaItem.sources.length > 0) {
+      return mediaItem.sources.map((s, idx) => {
+        const sUrl = s.streamUrl || s.url || '';
+        const qInfo = detectQualityFromUrl(sUrl, s.name, s.quality);
+        return {
+          id: s.id ?? idx + 1,
+          name: s.name || `Fonte ${idx + 1}`,
+          streamUrl: sUrl,
+          quality: s.quality,
+          qualityInfo: qInfo,
+        };
+      });
+    }
+    const list = [];
+    const s1Url = mediaItem?.streamUrl || mainStreamUrl;
+    if (s1Url) {
+      list.push({
+        id: 1,
+        name: 'Fonte 1',
+        streamUrl: s1Url,
+        quality: undefined,
+        qualityInfo: detectQualityFromUrl(s1Url, title),
+      });
+    }
+    if (mediaItem?.backupStreamUrl && mediaItem.backupStreamUrl !== mediaItem.streamUrl) {
+      list.push({
+        id: 2,
+        name: 'Fonte 2',
+        streamUrl: mediaItem.backupStreamUrl,
+        quality: undefined,
+        qualityInfo: detectQualityFromUrl(mediaItem.backupStreamUrl, title),
+      });
+    }
+    return list;
+  }, [mediaItem, mainStreamUrl, title]);
+
+  if (!isOpen || (!mediaItem && !programItem)) return null;
+
+  const activeSource = resolvedSources[selectedSourceIdx] || resolvedSources[0];
+  const activeQuality = activeSource?.qualityInfo || detectQualityFromUrl(mediaItem?.streamUrl || mainStreamUrl, title);
+  const activeTargetUrl = activeSource?.streamUrl || mediaItem?.streamUrl || mainStreamUrl;
+
+  // Helper to format clean quality label (e.g. 720P - HD, 1080P - FHD) strictly eliminating "Fonte 1, 2, 3"
+  const getSourceDisplayLabel = (
+    src: typeof resolvedSources[0],
+    allSources: typeof resolvedSources
+  ): string => {
+    let label = '720P - HD';
+    const q = (src.quality || src.qualityInfo.short || '').toUpperCase();
+    if (q.includes('4K') || q.includes('2160') || q.includes('UHD')) {
+      label = '4K - UHD';
+    } else if (q.includes('2K') || q.includes('1440') || q.includes('QHD')) {
+      label = '2K - QHD';
+    } else if (q.includes('1080') || q.includes('FHD') || q.includes('FULL HD')) {
+      label = '1080P - FHD';
+    } else if (q.includes('720') || q.includes('HD')) {
+      label = '720P - HD';
+    } else if (q.includes('480') || q.includes('SD')) {
+      label = '480P - SD';
+    }
+
+    const matching = allSources.filter((s) => {
+      const sq = (s.quality || s.qualityInfo.short || '').toUpperCase();
+      if (label === '1080P - FHD') return sq.includes('1080') || sq.includes('FHD') || sq.includes('FULL HD');
+      if (label === '720P - HD') return sq.includes('720') || (sq.includes('HD') && !sq.includes('FHD'));
+      if (label === '4K - UHD') return sq.includes('4K') || sq.includes('2160') || sq.includes('UHD');
+      return false;
+    });
+
+    if (matching.length > 1) {
+      const idx = matching.indexOf(src);
+      return `${label} (${idx >= 0 ? idx + 1 : 1})`;
+    }
+
+    return label;
+  };
 
   const hasEpisodes = Boolean(mediaItem?.episodeList && mediaItem.episodeList.length > 0);
 
@@ -113,7 +197,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   }
 
   const handlePlayCurrentSource = () => {
-    const targetUrl = mediaItem?.streamUrl || mainStreamUrl;
+    const targetUrl = activeTargetUrl;
     if (hasEpisodes && mediaItem?.episodeList && mediaItem.episodeList.length > 0) {
       onPlayMedia(targetUrl, `${title} - ${mediaItem.episodeList[0].title}`, mediaItem, mediaItem.episodeList[0]);
     } else {
@@ -207,11 +291,16 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 </p>
               )}
 
-              {/* Badges Row (Rating, Year, Duration, Age) */}
+              {/* Badges Row (Rating, Quality, Year, Duration, Age) */}
               <div className="flex flex-wrap items-center gap-2 mt-1 mb-2">
                 {/* Rating Badge */}
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-black/60 border border-amber-400/30 text-amber-300 text-xs font-bold shadow-sm">
                   ★ {rating}
+                </span>
+
+                {/* Detected Quality Badge from Source */}
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg border text-xs font-bold font-mono shadow-sm ${activeQuality.badgeBg} ${activeQuality.borderBg}`}>
+                  {activeQuality.full}
                 </span>
 
                 {/* Year Badge */}
@@ -242,6 +331,30 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                   </span>
                 )}
               </div>
+
+              {/* Multiple Quality Sources Selector */}
+              {resolvedSources.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2 my-2">
+                  <span className="text-xs text-slate-400 font-semibold">Qualidade:</span>
+                  {resolvedSources.map((src, idx) => {
+                    const isSelected = selectedSourceIdx === idx;
+                    const displayLabel = getSourceDisplayLabel(src, resolvedSources);
+                    return (
+                      <button
+                        key={src.id || idx}
+                        onClick={() => setSelectedSourceIdx(idx)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                            : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        {displayLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Genres Line */}
               <div className="text-xs font-medium text-slate-300 mb-4">

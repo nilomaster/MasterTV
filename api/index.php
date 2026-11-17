@@ -34,6 +34,10 @@ switch ($endpoint) {
         $controller->handleRequest();
         break;
 
+    case 'm3u_proxy':
+        require_once __DIR__ . '/m3u_proxy.php';
+        break;
+
     default:
         sendResponse([
             'success' => true,

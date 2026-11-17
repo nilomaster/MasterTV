@@ -694,14 +694,21 @@ export class AdminService {
     localStorage.removeItem(STORAGE_KEY_SESSION);
   }
 
-  // Load contents from localStorage with strict array validation
+  // In-memory cache for full remote catalog (holds tens of thousands of items without localStorage quota limits)
+  private static inMemoryContents: AdminContentItem[] | null = null;
+
+  // Load contents from in-memory cache or localStorage with strict array validation
   static getContents(): AdminContentItem[] {
+    if (this.inMemoryContents && Array.isArray(this.inMemoryContents) && this.inMemoryContents.length > 0) {
+      return this.inMemoryContents;
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY_CONTENTS);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(Boolean);
+        this.inMemoryContents = parsed.filter(Boolean);
+        return this.inMemoryContents;
       }
       return [];
     } catch {
@@ -709,13 +716,127 @@ export class AdminService {
     }
   }
 
-  // Save contents to localStorage and dispatch update event
+  // Save contents to in-memory cache and localStorage with quota protection and balanced multi-type sampling
   static saveContentsLocally(contents: AdminContentItem[]) {
     const safeArray = Array.isArray(contents) ? contents.filter(Boolean) : [];
-    localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(safeArray));
+    this.inMemoryContents = safeArray;
+
+    // Build a balanced multi-type sample so localStorage contains all content types
+    const channels = safeArray.filter((c) => c.type === 'channel');
+    const movies = safeArray.filter((c) => c.type === 'movie');
+    const series = safeArray.filter((c) => c.type === 'series');
+    const animes = safeArray.filter((c) => c.type === 'anime');
+    const doramas = safeArray.filter((c) => c.type === 'dorama');
+
+    const sample = [
+      ...channels.slice(0, 1500),
+      ...movies.slice(0, 1500),
+      ...series.slice(0, 500),
+      ...animes.slice(0, 300),
+      ...doramas.slice(0, 300),
+    ];
+
+    const counts = {
+      channels: channels.length,
+      movies: movies.length,
+      series: series.length,
+      animes: animes.length,
+      doramas: doramas.length,
+      total: safeArray.length,
+    };
+    try {
+      localStorage.setItem('mastertv_catalog_counts', JSON.stringify(counts));
+    } catch {}
+
+    try {
+      localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(sample));
+    } catch (err) {
+      // LocalStorage limit is 5MB in browsers. Protect against QuotaExceededError
+      let limit = Math.min(sample.length, 1200);
+      let saved = false;
+      while (limit > 50 && !saved) {
+        try {
+          localStorage.setItem(STORAGE_KEY_CONTENTS, JSON.stringify(sample.slice(0, limit)));
+          saved = true;
+        } catch {
+          limit = Math.floor(limit * 0.7);
+        }
+      }
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('mastertv_catalog_updated'));
     }
+  }
+
+  // Return catalog counts with memory and localStorage caching
+  static getCatalogCounts(): {
+    channels: number;
+    movies: number;
+    series: number;
+    animes: number;
+    doramas: number;
+    total: number;
+  } {
+    try {
+      const raw = localStorage.getItem('mastertv_catalog_counts');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.total === 'number') {
+          return parsed;
+        }
+      }
+    } catch {}
+
+    const contents = this.getContents();
+    const channels = contents.filter((c) => c && c.type === 'channel').length;
+    const movies = contents.filter((c) => c && c.type === 'movie').length;
+    const series = contents.filter((c) => c && c.type === 'series').length;
+    const animes = contents.filter((c) => c && c.type === 'anime').length;
+    const doramas = contents.filter((c) => c && c.type === 'dorama').length;
+    return {
+      channels,
+      movies,
+      series,
+      animes,
+      doramas,
+      total: contents.length,
+    };
+  }
+
+  // Fetch real-time catalog counts directly from MySQL (lightweight query)
+  static async fetchCatalogCounts(): Promise<{
+    channels: number;
+    movies: number;
+    series: number;
+    animes: number;
+    doramas: number;
+    total: number;
+  }> {
+    const apiBase = this.getApiBaseUrl();
+    const primaryUrl = `${apiBase}/content.php?action=counts`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php?action=counts';
+
+    try {
+      let res: Response;
+      try {
+        res = await fetch(primaryUrl);
+      } catch {
+        res = await fetch(fallbackUrl);
+      }
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.counts) {
+          try {
+            localStorage.setItem('mastertv_catalog_counts', JSON.stringify(data.counts));
+          } catch {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('mastertv_catalog_updated'));
+          }
+          return data.counts;
+        }
+      }
+    } catch {}
+    return this.getCatalogCounts();
   }
 
   // Fetch remote contents from Locaweb MySQL PHP API
@@ -913,6 +1034,146 @@ export class AdminService {
     }
 
     return { success: true, message: 'Conteudo excluido com sucesso!' };
+  }
+
+  // Bulk import items into MySQL database in batches
+  static async saveBatchRemoteContents(
+    items: AdminContentItem[],
+    onProgress?: (percent: number, currentBatch: number, totalBatches: number) => void
+  ): Promise<{ success: boolean; totalSaved: number; message: string }> {
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: true, totalSaved: 0, message: 'Nenhum item para salvar.' };
+    }
+
+    const apiBase = this.getApiBaseUrl();
+    const primaryUrl = `${apiBase}/content.php`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php';
+    const batchSize = 50;
+    const totalBatches = Math.ceil(items.length / batchSize);
+    let totalSaved = 0;
+    let lastError = '';
+
+    for (let b = 0; b < totalBatches; b++) {
+      const slice = items.slice(b * batchSize, (b + 1) * batchSize);
+      const payload = {
+        action: 'bulk_import',
+        items: slice,
+      };
+
+      let success = false;
+      let attempts = 0;
+
+      while (!success && attempts < 2) {
+        attempts++;
+        try {
+          let res: Response;
+          try {
+            res = await fetch(primaryUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          } catch (err) {
+            if (primaryUrl !== fallbackUrl) {
+              res = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+            } else {
+              throw err;
+            }
+          }
+
+          if (res && res.ok) {
+            const data = await res.json();
+            if (data && data.success) {
+              totalSaved += data.count || slice.length;
+              success = true;
+            } else {
+              lastError = data?.message || 'Erro ao processar lote no MySQL.';
+            }
+          } else {
+            lastError = `Servidor retornou status ${res?.status || 'desconhecido'}`;
+          }
+        } catch (err: any) {
+          lastError = err?.message || 'Falha de conexao com a API.';
+        }
+
+        if (!success && attempts < 2) {
+          // Wait 200ms before retry
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+
+      if (onProgress) {
+        const pct = Math.round(((b + 1) / totalBatches) * 100);
+        onProgress(pct, b + 1, totalBatches);
+      }
+
+      // Small delay between batches to prevent server overload
+      await new Promise((r) => setTimeout(r, 40));
+    }
+
+    // Refresh remote contents cache
+    try {
+      await this.fetchRemoteContents();
+    } catch {
+      // Ignore
+    }
+
+    if (totalSaved === 0 && items.length > 0) {
+      throw new Error(lastError || 'Nenhum conteudo pode ser salvo no banco de dados MySQL.');
+    }
+
+    return {
+      success: totalSaved > 0,
+      totalSaved,
+      message: `${totalSaved} itens salvos com sucesso no banco de dados MySQL.`,
+    };
+  }
+
+  // Clear all contents from MySQL database and local storage
+  static async clearRemoteContents(type?: string): Promise<{ success: boolean; message: string }> {
+    const apiBase = this.getApiBaseUrl();
+    const primaryUrl = `${apiBase}/content.php`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php';
+    const payload = { action: 'clear_all', type: type || '' };
+
+    try {
+      let res: Response;
+      try {
+        res = await fetch(primaryUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        if (primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (type) {
+          const current = this.getContents();
+          this.saveContentsLocally(current.filter((c) => c.type !== type));
+        } else {
+          this.saveContentsLocally([]);
+        }
+        return { success: true, message: data.message || 'Catalogo limpo com sucesso!' };
+      }
+      return { success: false, message: 'Falha ao limpar catalogo.' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Erro de conexao ao limpar catalogo.' };
+    }
   }
 }
 

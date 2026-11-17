@@ -66,8 +66,10 @@ export interface CastMember {
 export interface MediaSourceOption {
   id: number;
   name: string;
-  type: string;
-  url: string;
+  type?: string;
+  url?: string;
+  streamUrl?: string;
+  backupStreamUrl?: string;
   quality?: string;
 }
 

@@ -30,6 +30,7 @@ import {
 import type { Channel, Category } from '../types/iptv';
 import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
 import { EPGGuideView } from './EPGGuideView';
+import { resolvePlayableStreamUrl } from '../services/streamResolver';
 
 interface PlayerViewProps {
   channels: Channel[];
@@ -66,8 +67,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   });
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  // Channel drawer is closed by default to avoid blocking the video stream on page load
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  // Channel drawer opens by default on desktop screens so users immediately see their channels
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
   const [searchChannel, setSearchChannel] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [activeSource, setActiveSource] = useState<number>(1);
@@ -160,7 +166,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   channelSourcesRef.current = channelSources;
 
   const activeSourceObj = channelSources.find((s) => s.id === activeSource) || channelSources[0];
-  const streamToPlay = activeSourceObj?.url || currentChannel?.streamUrl || '';
+  const rawStream = activeSourceObj?.url || currentChannel?.streamUrl || '';
+  const streamToPlay = resolvePlayableStreamUrl(rawStream);
 
   const cycleSource = useCallback(() => {
     if (channelSources.length <= 1) return;
@@ -193,6 +200,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
     // Check if the stream is a direct video container (MP4, MKV or CDN workers file)
     const isDirectVideo =
+      rawStream.includes('.mp4') ||
+      rawStream.includes('.mkv') ||
       streamToPlay.includes('.mp4') ||
       streamToPlay.includes('.mkv') ||
       streamToPlay.includes('workers.dev');
@@ -201,10 +210,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     const isHlsStream =
       !isDirectVideo &&
       Hls.isSupported() &&
-      (streamToPlay.includes('.m3u8') ||
-        streamToPlay.includes('.txt') ||
+      (rawStream.includes('.m3u8') ||
+        rawStream.includes('.txt') ||
+        streamToPlay.includes('.m3u8') ||
+        streamToPlay.includes('/api/stream') ||
         streamToPlay.includes('/api/proxy') ||
-        streamToPlay.includes('stream') ||
         streamToPlay.includes('m3u8'));
 
     // Resilient helper to start playback without triggering false autoplay blocks
@@ -264,7 +274,18 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         setStreamError('Sinal temporariamente indisponivel nesta fonte');
         return prev;
       });
-    }, 15000);
+    }, 25000);
+
+    const handleVideoPlaying = () => {
+      if (connectTimeout) {
+        window.clearTimeout(connectTimeout);
+        connectTimeout = null;
+      }
+      setIsLoadingStream(false);
+      setStreamError(null);
+    };
+    video.addEventListener('playing', handleVideoPlaying);
+    video.addEventListener('timeupdate', handleVideoPlaying);
 
     if (isHlsStream) {
       // Optimized resilient config for all Android devices and desktop browsers
@@ -276,14 +297,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         maxBufferLength: 10,
         maxMaxBufferLength: 20,
         maxBufferSize: 25 * 1000 * 1000,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 6,
-        maxBufferHole: 0.8,
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 10,
+        initialLiveManifestSize: 1,
+        maxBufferHole: 1.0,
         highBufferWatchdogPeriod: 2,
         nudgeOffset: 0.2,
-        nudgeMaxRetry: 6,
-        fragLoadingTimeOut: 18000,
-        manifestLoadingTimeOut: 18000,
+        nudgeMaxRetry: 10,
+        fragLoadingTimeOut: 25000,
+        manifestLoadingTimeOut: 25000,
         xhrSetup: (xhr) => {
           xhr.withCredentials = false;
         },
@@ -292,6 +314,21 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       hlsRef.current = hls;
       hls.loadSource(streamToPlay);
       hls.attachMedia(video);
+
+      hls.on(Hls.Events.LEVEL_LOADED, () => {
+        if (connectTimeout) {
+          window.clearTimeout(connectTimeout);
+          connectTimeout = null;
+        }
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, () => {
+        if (connectTimeout) {
+          window.clearTimeout(connectTimeout);
+          connectTimeout = null;
+        }
+        setIsLoadingStream(false);
+      });
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         if (connectTimeout) {
@@ -396,6 +433,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         window.clearTimeout(connectTimeout);
         connectTimeout = null;
       }
+      video.removeEventListener('playing', handleVideoPlaying);
+      video.removeEventListener('timeupdate', handleVideoPlaying);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -826,7 +865,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   // Get real-time live EPG data for current channel
   const currentLiveInfo = useMemo(() => {
     void epgRevision;
-    return currentChannel ? getLiveEPGForChannel(currentChannel.id) : null;
+    return currentChannel ? getLiveEPGForChannel(currentChannel) : null;
   }, [currentChannel, epgRevision]);
 
   // Get full timeline programs for mobile EPG tab
@@ -835,7 +874,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     void epgRevision;
     const now = Date.now();
     return getChannelTimelinePrograms(
-      currentChannel.id,
+      currentChannel,
       now - 4 * 3600 * 1000,
       now + 16 * 3600 * 1000,
       now
@@ -850,8 +889,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       onMouseLeave={handleMouseLeave}
       className={`w-full bg-[#07090e] select-none font-sans ${
         isFullscreen
-          ? 'fixed inset-0 z-50 h-screen overflow-hidden'
-          : 'h-[100dvh] overflow-hidden flex flex-col md:block relative'
+          ? 'fixed inset-0 z-50 h-[100dvh] w-full overflow-hidden'
+          : 'w-full h-full overflow-hidden flex flex-col md:block relative'
       }`}
     >
       {/* Video Container (Pinned 16:9 on Mobile, Full-screen Cinema on Desktop) */}
@@ -982,7 +1021,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             {channelSources.length > 1 && (
               <button
                 onClick={cycleSource}
-                className="px-4 py-2 bg-[#4fe3d0] hover:bg-[#38d4c1] text-slate-950 font-bold rounded-xl text-xs transition-all shadow-lg shadow-[#4fe3d0]/20"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-blue-600/30 cursor-pointer"
               >
                 Alternar Fonte ({channelSources.findIndex((s) => s.id === activeSource) + 1}/{channelSources.length})
               </button>
@@ -1125,7 +1164,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
       {/* TOP BAR OVERLAY - Anchored to top: 0 with seamless downward gradient */}
       <div
-        className={`${isFullscreen ? 'flex' : 'hidden md:flex'} absolute top-0 left-0 right-0 pt-16 sm:pt-20 px-4 sm:px-6 lg:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
+        className={`${isFullscreen ? 'flex' : 'hidden md:flex'} absolute top-0 left-0 right-0 pt-3 sm:pt-4 px-4 sm:px-6 lg:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
           isControlsVisible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -1140,7 +1179,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             </h2>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-300">
-            <span className="text-[#4fe3d0] font-mono font-bold">
+            <span className="text-blue-400 font-mono font-bold">
               {currentLiveInfo?.currentProgramTime || currentChannel?.currentProgramTime || 'Ao Vivo'}
             </span>
             <span className="text-slate-400 font-medium">
@@ -1154,11 +1193,11 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
         </div>
 
-        {/* Right: Next Program & Guia Button */}
-        <div className="flex items-center gap-3 pointer-events-auto">
+        {/* Right: Next Program, Channel List Button & Guia Button */}
+        <div className="flex items-center gap-2.5 pointer-events-auto">
           <div className="hidden md:flex items-center gap-2 bg-[#0b0e14]/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/10 shadow-lg">
             <div className="flex flex-col items-end text-right">
-              <span className="text-[10px] uppercase font-bold text-[#4fe3d0] tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">
                 A Seguir {currentLiveInfo?.nextProgramTime ? `· ${currentLiveInfo.nextProgramTime}` : ''}
               </span>
               <span className="text-xs font-semibold text-slate-200">
@@ -1169,26 +1208,52 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
 
           <button
-            onClick={handleOpenEPG}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0b0e14]/80 hover:bg-[#8b5cf6] hover:text-white text-white border border-white/10 hover:border-[#8b5cf6] font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer"
+            onClick={() => setIsDrawerOpen((prev) => !prev)}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer border ${
+              isDrawerOpen
+                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-600/30'
+                : 'bg-[#0b0e14]/80 hover:bg-blue-600 hover:text-white text-white border-white/10 hover:border-blue-500'
+            }`}
+            title="Abrir ou fechar lista de canais (C)"
           >
-            <Calendar className="w-4 h-4 text-[#8b5cf6] group-hover:text-white" />
+            <List className="w-4 h-4 text-blue-400 group-hover:text-white" />
+            <span>Canais</span>
+          </button>
+
+          <button
+            onClick={handleOpenEPG}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0b0e14]/80 hover:bg-blue-600 hover:text-white text-white border border-white/10 hover:border-blue-500 font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer"
+          >
+            <Calendar className="w-4 h-4 text-blue-400 group-hover:text-white" />
             <span>Guia</span>
           </button>
         </div>
       </div>
 
+      {/* Floating Channel List Opener on Desktop when Drawer is Closed */}
+      {!isDrawerOpen && !isFullscreen && (
+        <button
+          onClick={() => setIsDrawerOpen(true)}
+          title="Abrir Lista de Canais (C)"
+          className="hidden md:flex absolute top-16 left-4 z-20 items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0b0e14]/90 hover:bg-blue-600 border border-white/15 hover:border-blue-400 text-white font-bold text-xs shadow-2xl backdrop-blur-xl transition-all hover:scale-105 cursor-pointer group"
+        >
+          <List className="w-4 h-4 text-blue-400 group-hover:text-white" />
+          <span>Canais</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">C</span>
+        </button>
+      )}
+
       {/* LEFT CHANNEL DRAWER - Desktop */}
       {isDrawerOpen && (
         <aside
-          className="hidden md:flex absolute top-16 sm:top-20 bottom-16 sm:bottom-20 left-2 right-2 sm:right-auto sm:left-4 sm:w-88 lg:w-96 rounded-[24px] bg-[#0b0e14]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.8)] flex-col z-30 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-left-4 duration-200"
+          className="hidden md:flex absolute top-4 bottom-20 left-2 right-2 sm:right-auto sm:left-4 sm:w-88 lg:w-96 rounded-[24px] bg-[#0b0e14]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.8)] flex-col z-30 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-left-4 duration-200"
         >
           {/* Header */}
           <div className="px-4 py-3.5 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-baseline gap-2.5">
               <h3 className="font-extrabold text-xl text-white tracking-tight">Canais</h3>
               <div className="flex items-center gap-1 font-mono">
-                <span className="text-base font-bold text-[#4fe3d0]">
+                <span className="text-base font-bold text-blue-400">
                   {currentChannel?.number ? String(currentChannel.number).padStart(2, '0') : '01'}
                 </span>
                 <span className="text-xs text-slate-400 font-semibold">
@@ -1214,7 +1279,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 placeholder="Buscar canal..."
                 value={searchChannel}
                 onChange={(e) => setSearchChannel(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white/10 border border-white/10 rounded-full text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#4fe3d0] focus:bg-white/15 transition-all"
+                className="w-full pl-9 pr-3 py-2 bg-white/10 border border-white/10 rounded-full text-xs text-white placeholder-white/40 focus:outline-none focus:border-blue-500 focus:bg-white/15 transition-all"
               />
               {searchChannel && (
                 <button
@@ -1260,7 +1325,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               filteredChannels.map((ch) => {
                 const isSelected = currentChannel?.id === ch.id;
                 const isTvFocused = isKeyboardNavActive && filteredChannels[tvFocusedIndex]?.id === ch.id;
-                const chLive = getLiveEPGForChannel(ch.id);
+                const chLive = getLiveEPGForChannel(ch);
                 return (
                   <div
                     key={ch.id}
@@ -1320,7 +1385,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                           >
                             {ch.name}
                           </span>
-                          <span className="text-[9px] font-mono font-bold px-1 rounded bg-[#4fe3d0]/20 text-[#4fe3d0]">
+                          <span className="text-[9px] font-mono font-bold px-1 rounded bg-blue-500/20 text-blue-400">
                             {ch.quality || 'HD'}
                           </span>
                         </div>
@@ -1330,7 +1395,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                         {/* Real-time progress bar */}
                         <div className="w-full max-w-[150px] h-[3px] bg-white/10 rounded-full overflow-hidden mt-1">
                           <div
-                            className="h-full bg-[#4fe3d0] rounded-full transition-all duration-500"
+                            className="h-full bg-blue-500 rounded-full transition-all duration-500"
                             style={{ width: `${chLive.progressPercent}%` }}
                           ></div>
                         </div>
@@ -1374,7 +1439,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           onClick={(e) => e.stopPropagation()}
           className="fixed z-50 w-52 bg-[#12161e]/95 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 text-xs text-white animate-in fade-in zoom-in-95 duration-100"
         >
-          <div className="px-2.5 py-1 text-[10px] font-bold text-[#4fe3d0] uppercase tracking-wider border-b border-white/10">
+          <div className="px-2.5 py-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider border-b border-white/10">
             {contextMenu.channel.name}
           </div>
           <button
@@ -1436,7 +1501,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               title="Abrir lista de canais (C)"
               className={`p-1.5 sm:p-2 rounded-xl transition-all ${
                 isDrawerOpen
-                  ? 'bg-[#4fe3d0] text-slate-950 font-bold shadow-lg shadow-[#4fe3d0]/20'
+                  ? 'bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/30'
                   : 'bg-white/10 text-slate-300 hover:text-white hover:bg-white/15'
               }`}
             >
@@ -1511,7 +1576,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                className="w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="hidden sm:block w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
             </div>
           </div>
@@ -1537,7 +1602,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               title="Modo de Audio: Estereo Inteligente"
               className="hidden xl:flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-slate-300 text-[11px] font-mono border border-white/5"
             >
-              <Sliders className="w-3 h-3 text-[#4fe3d0]" />
+              <Sliders className="w-3 h-3 text-blue-400" />
               <span>Estereo</span>
             </div>
 
@@ -1599,13 +1664,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-200 font-semibold truncate mt-0.5">
-                  {getLiveEPGForChannel(osdChannel.id).currentProgram || osdChannel.currentProgram || 'Ao Vivo'}
+                  {getLiveEPGForChannel(osdChannel).currentProgram || osdChannel.currentProgram || 'Ao Vivo'}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                   <span className="text-blue-400 font-mono font-bold">
-                    {getLiveEPGForChannel(osdChannel.id).currentProgramTime || osdChannel.currentProgramTime || 'Agora'}
+                    {getLiveEPGForChannel(osdChannel).currentProgramTime || osdChannel.currentProgramTime || 'Agora'}
                   </span>
-                  <span>· {getLiveEPGForChannel(osdChannel.id).durationText || 'Ao Vivo'}</span>
+                  <span>· {getLiveEPGForChannel(osdChannel).durationText || 'Ao Vivo'}</span>
                 </div>
               </div>
             </div>
@@ -1777,7 +1842,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                   filteredChannels.map((ch) => {
                     const isSelected = currentChannel?.id === ch.id;
                     const isTvFocused = isKeyboardNavActive && filteredChannels[tvFocusedIndex]?.id === ch.id;
-                    const chLive = getLiveEPGForChannel(ch.id);
+                    const chLive = getLiveEPGForChannel(ch);
                     return (
                       <div
                         key={ch.id}

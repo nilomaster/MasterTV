@@ -9,6 +9,7 @@ import {
   Film,
   Tv2,
   Sparkles,
+  HeartHandshake,
   Heart,
   Settings,
   Menu,
@@ -62,9 +63,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     setMobileMenuOpen(false);
   };
 
-  const isMoviesActive = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all');
+  const isMoviesActive = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
   const isSeriesActive = currentView === 'vod' && vodFilter === 'series';
   const isAnimesActive = currentView === 'vod' && vodFilter === 'animes';
+  const isDoramasActive = currentView === 'vod' && vodFilter === 'doramas';
 
   return (
     <>
@@ -196,6 +198,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Animes</span>
+            </button>
+
+            <button
+              onClick={() => handleNavClick('vod', 'doramas')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                isDoramasActive
+                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <HeartHandshake className="w-3.5 h-3.5" />
+              <span>Doramas</span>
             </button>
 
             <button
@@ -357,6 +371,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
+              onClick={() => handleNavClick('vod', 'doramas')}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                isDoramasActive
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-900/60 text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              <HeartHandshake className="w-4 h-4" />
+              <span>Doramas</span>
+            </button>
+
+            <button
               onClick={() => handleNavClick('favorites')}
               className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 currentView === 'favorites'
@@ -381,10 +407,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* MOBILE-FIRST BOTTOM APP BAR (Fixed at bottom for mobile phones & small tablets) */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around sm:hidden transition-all duration-300 ease-in-out ${
-          currentView === 'player' && !isPlayerControlsVisible
-            ? 'translate-y-full opacity-0 pointer-events-none'
+          currentView === 'player'
+            ? 'hidden'
             : 'translate-y-0 opacity-100 pointer-events-auto'
         }`}
+        style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
       >
         <button
           onClick={() => handleNavClick('home')}

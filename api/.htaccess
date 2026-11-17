@@ -18,6 +18,9 @@
   RewriteRule ^clients(\.php)?$ routes/clients.php [L,QSA]
   RewriteRule ^content(\.php)?$ routes/content.php [L,QSA]
   RewriteRule ^resellers(\.php)?$ routes/resellers.php [L,QSA]
+  RewriteRule ^m3u_proxy(\.php)?$ routes/m3u_proxy.php [L,QSA]
+  RewriteRule ^stream(\.php)?$ routes/stream.php [L,QSA]
+  RewriteRule ^proxy(\.php)?$ routes/stream.php [L,QSA]
 
   # Route unknown endpoints to index.php front controller
   RewriteCond %{REQUEST_FILENAME} !-f
