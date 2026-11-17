@@ -24,7 +24,7 @@ export const LiveTVPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="flex-1 h-[100dvh] md:h-[calc(100dvh-4rem)] w-full overflow-hidden">
+      <div className="w-full h-full flex-1 min-h-0 overflow-hidden relative">
         <PlayerView
           channels={liveChannels}
           currentChannel={activeChannel}

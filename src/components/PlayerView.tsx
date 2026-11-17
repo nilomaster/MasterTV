@@ -67,8 +67,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   });
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  // Channel drawer is closed by default to avoid blocking the video stream on page load
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  // Channel drawer opens by default on desktop screens so users immediately see their channels
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
   const [searchChannel, setSearchChannel] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [activeSource, setActiveSource] = useState<number>(1);
@@ -885,7 +890,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       className={`w-full bg-[#07090e] select-none font-sans ${
         isFullscreen
           ? 'fixed inset-0 z-50 h-[100dvh] w-full overflow-hidden'
-          : 'h-[100dvh] md:h-full overflow-hidden flex flex-col md:block relative'
+          : 'w-full h-full overflow-hidden flex flex-col md:block relative'
       }`}
     >
       {/* Video Container (Pinned 16:9 on Mobile, Full-screen Cinema on Desktop) */}
@@ -1159,7 +1164,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
       {/* TOP BAR OVERLAY - Anchored to top: 0 with seamless downward gradient */}
       <div
-        className={`${isFullscreen ? 'flex' : 'hidden md:flex'} absolute top-0 left-0 right-0 pt-16 sm:pt-20 px-4 sm:px-6 lg:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
+        className={`${isFullscreen ? 'flex' : 'hidden md:flex'} absolute top-0 left-0 right-0 pt-3 sm:pt-4 px-4 sm:px-6 lg:px-8 pb-10 bg-gradient-to-b from-black/95 via-black/60 to-transparent items-start justify-between z-20 pointer-events-none transition-opacity duration-300 ${
           isControlsVisible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -1188,8 +1193,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
         </div>
 
-        {/* Right: Next Program & Guia Button */}
-        <div className="flex items-center gap-3 pointer-events-auto">
+        {/* Right: Next Program, Channel List Button & Guia Button */}
+        <div className="flex items-center gap-2.5 pointer-events-auto">
           <div className="hidden md:flex items-center gap-2 bg-[#0b0e14]/80 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/10 shadow-lg">
             <div className="flex flex-col items-end text-right">
               <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">
@@ -1203,6 +1208,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
 
           <button
+            onClick={() => setIsDrawerOpen((prev) => !prev)}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer border ${
+              isDrawerOpen
+                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-600/30'
+                : 'bg-[#0b0e14]/80 hover:bg-blue-600 hover:text-white text-white border-white/10 hover:border-blue-500'
+            }`}
+            title="Abrir ou fechar lista de canais (C)"
+          >
+            <List className="w-4 h-4 text-blue-400 group-hover:text-white" />
+            <span>Canais</span>
+          </button>
+
+          <button
             onClick={handleOpenEPG}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0b0e14]/80 hover:bg-blue-600 hover:text-white text-white border border-white/10 hover:border-blue-500 font-bold text-xs transition-all shadow-lg backdrop-blur-md cursor-pointer"
           >
@@ -1212,10 +1230,23 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         </div>
       </div>
 
+      {/* Floating Channel List Opener on Desktop when Drawer is Closed */}
+      {!isDrawerOpen && !isFullscreen && (
+        <button
+          onClick={() => setIsDrawerOpen(true)}
+          title="Abrir Lista de Canais (C)"
+          className="hidden md:flex absolute top-16 left-4 z-20 items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0b0e14]/90 hover:bg-blue-600 border border-white/15 hover:border-blue-400 text-white font-bold text-xs shadow-2xl backdrop-blur-xl transition-all hover:scale-105 cursor-pointer group"
+        >
+          <List className="w-4 h-4 text-blue-400 group-hover:text-white" />
+          <span>Canais</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">C</span>
+        </button>
+      )}
+
       {/* LEFT CHANNEL DRAWER - Desktop */}
       {isDrawerOpen && (
         <aside
-          className="hidden md:flex absolute top-16 sm:top-20 bottom-16 sm:bottom-20 left-2 right-2 sm:right-auto sm:left-4 sm:w-88 lg:w-96 rounded-[24px] bg-[#0b0e14]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.8)] flex-col z-30 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-left-4 duration-200"
+          className="hidden md:flex absolute top-4 bottom-20 left-2 right-2 sm:right-auto sm:left-4 sm:w-88 lg:w-96 rounded-[24px] bg-[#0b0e14]/90 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.8)] flex-col z-30 overflow-hidden border border-white/15 animate-in fade-in slide-in-from-left-4 duration-200"
         >
           {/* Header */}
           <div className="px-4 py-3.5 border-b border-white/10 flex items-center justify-between">
