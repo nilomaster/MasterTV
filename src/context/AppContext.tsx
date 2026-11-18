@@ -62,7 +62,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Helper to load channels from database
   const getCustomChannels = (): Channel[] => {
     try {
-      const all = AdminService.getContents();
+      const all = AdminService.getChannels();
       if (!Array.isArray(all)) return [];
       return all
         .filter((c) => c && c.type === 'channel')
@@ -128,7 +128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync with remote database on mount
   useEffect(() => {
-    AdminService.fetchRemoteContents().then(() => {
+    AdminService.fetchRemoteChannels().then(() => {
       const refreshed = getCustomChannels();
       setChannels(refreshed);
       setCurrentChannel((prev) => {
@@ -136,6 +136,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return refreshed[0] || null;
       });
     });
+    // Also fetch general contents in background
+    AdminService.fetchRemoteContents().catch(() => {});
     initOnlineEPG();
 
     const handleCatalogUpdated = () => {

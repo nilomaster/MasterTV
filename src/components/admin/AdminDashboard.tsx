@@ -203,16 +203,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     return resellers.find((r) => r.id === activeResellerId) || resellers[0];
   }, [resellers, activeResellerId]);
 
-  // Load remote clients and contents from MySQL on mount
+  // Real-time catalog counts from MySQL
+  const [catalogCounts, setCatalogCounts] = useState(() => AdminService.getCatalogCounts());
+
+  // Load remote clients, channels and initial contents from MySQL on mount
   useEffect(() => {
     AdminService.fetchRemoteClients().then((loaded) => {
       setClients(loaded);
       setMetrics(AdminService.getMetrics());
     });
-    AdminService.fetchRemoteContents().then((loaded) => {
-      setContents(Array.isArray(loaded) ? loaded : []);
+    AdminService.fetchCatalogCounts().then((counts) => {
+      setCatalogCounts(counts);
+    });
+    Promise.all([
+      AdminService.fetchRemoteChannels(),
+      AdminService.fetchRemoteContents(),
+    ]).then(([channels, loadedContents]) => {
+      const mergedMap = new Map<string, AdminContentItem>();
+      channels.forEach((c) => mergedMap.set(c.id, c));
+      loadedContents.forEach((c) => mergedMap.set(c.id, c));
+      setContents(Array.from(mergedMap.values()));
     });
   }, []);
+
+  // Dynamically load content by type if not present in memory
+  useEffect(() => {
+    if (contentFilter === 'channel') {
+      AdminService.fetchRemoteChannels().then((loadedChannels) => {
+        setContents((prev) => {
+          const map = new Map<string, AdminContentItem>();
+          prev.forEach((c) => map.set(c.id, c));
+          loadedChannels.forEach((c) => map.set(c.id, c));
+          return Array.from(map.values());
+        });
+      });
+    } else if (contentFilter === 'movie' || contentFilter === 'series') {
+      const hasType = contents.some((c) => c.type === contentFilter);
+      if (!hasType) {
+        AdminService.fetchRemoteContents(contentFilter).then((loaded) => {
+          setContents((prev) => {
+            const map = new Map<string, AdminContentItem>();
+            prev.forEach((c) => map.set(c.id, c));
+            loaded.forEach((c) => map.set(c.id, c));
+            return Array.from(map.values());
+          });
+        });
+      }
+    }
+  }, [contentFilter]);
 
   // Filtered contents list
   const filteredContents = useMemo(() => {
@@ -1484,27 +1522,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                       : 'bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  Todos ({Array.isArray(contents) ? contents.length : 0})
-                </button>
-                <button
-                  onClick={() => setContentFilter('movie')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'movie'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Filmes ({Array.isArray(contents) ? contents.filter((c) => c && c.type === 'movie').length : 0})
-                </button>
-                <button
-                  onClick={() => setContentFilter('series')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'series'
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Series ({Array.isArray(contents) ? contents.filter((c) => c && c.type === 'series').length : 0})
+                  Todos ({catalogCounts.total > 0 ? catalogCounts.total.toLocaleString('pt-BR') : contents.length.toLocaleString('pt-BR')})
                 </button>
                 <button
                   onClick={() => setContentFilter('channel')}
@@ -1514,7 +1532,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                       : 'bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  Canais Ao Vivo ({Array.isArray(contents) ? contents.filter((c) => c && c.type === 'channel').length : 0})
+                  Canais Ao Vivo ({catalogCounts.channels > 0 ? catalogCounts.channels.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'channel').length})
+                </button>
+                <button
+                  onClick={() => setContentFilter('movie')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    contentFilter === 'movie'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
+                      : 'bg-white/5 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Filmes ({catalogCounts.movies > 0 ? catalogCounts.movies.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'movie').length})
+                </button>
+                <button
+                  onClick={() => setContentFilter('series')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    contentFilter === 'series'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-sm'
+                      : 'bg-white/5 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Series ({catalogCounts.series > 0 ? catalogCounts.series.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'series').length})
                 </button>
                 <button
                   onClick={() => setContentFilter('anime')}
@@ -1524,7 +1562,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                       : 'bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  Animes ({Array.isArray(contents) ? contents.filter((c) => c && c.type === 'anime').length : 0})
+                  Animes ({catalogCounts.animes > 0 ? catalogCounts.animes.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'anime').length})
                 </button>
                 <button
                   onClick={() => setContentFilter('dorama')}
@@ -1534,7 +1572,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                       : 'bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
-                  Doramas ({Array.isArray(contents) ? contents.filter((c) => c && c.type === 'dorama').length : 0})
+                  Doramas ({catalogCounts.doramas > 0 ? catalogCounts.doramas.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'dorama').length})
                 </button>
               </div>
 
@@ -3325,8 +3363,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
           onClose={() => setIsM3UModalOpen(false)}
           onImportSuccess={async () => {
             try {
-              const remote = await AdminService.fetchRemoteContents();
-              setContents(remote);
+              const [channels, remote, counts] = await Promise.all([
+                AdminService.fetchRemoteChannels(),
+                AdminService.fetchRemoteContents(),
+                AdminService.fetchCatalogCounts(),
+              ]);
+              const mergedMap = new Map<string, AdminContentItem>();
+              channels.forEach((c) => mergedMap.set(c.id, c));
+              remote.forEach((c) => mergedMap.set(c.id, c));
+              setContents(Array.from(mergedMap.values()));
+              setCatalogCounts(counts);
             } catch {
               setContents(AdminService.getContents());
             }

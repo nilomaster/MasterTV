@@ -98,11 +98,15 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
   // Sync existing contents when modal opens to ensure up-to-date catalog check
   useEffect(() => {
     if (isOpen) {
-      AdminService.fetchRemoteContents()
-        .then((remote) => {
-          if (remote && Array.isArray(remote) && remote.length > 0) {
-            setExistingContents(remote);
-          }
+      Promise.all([
+        AdminService.fetchRemoteChannels(),
+        AdminService.fetchRemoteContents(),
+      ])
+        .then(([channels, remote]) => {
+          const merged = new Map<string, AdminContentItem>();
+          channels.forEach((c) => merged.set(c.id, c));
+          remote.forEach((c) => merged.set(c.id, c));
+          setExistingContents(Array.from(merged.values()));
         })
         .catch(() => {
           setExistingContents(AdminService.getContents());
@@ -588,7 +592,14 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         AdminService.saveContentsLocally([]);
       } else {
         try {
-          currentExisting = await AdminService.fetchRemoteContents();
+          const [remoteChannels, remoteContents] = await Promise.all([
+            AdminService.fetchRemoteChannels(),
+            AdminService.fetchRemoteContents(),
+          ]);
+          const map = new Map<string, AdminContentItem>();
+          remoteChannels.forEach((c) => map.set(c.id, c));
+          remoteContents.forEach((c) => map.set(c.id, c));
+          currentExisting = Array.from(map.values());
         } catch {
           currentExisting = AdminService.getContents();
         }

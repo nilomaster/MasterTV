@@ -20,6 +20,7 @@ const STORAGE_KEY_TRANSACTIONS = 'mastertv_admin_transactions_v2';
 const STORAGE_KEY_SETTINGS = 'mastertv_admin_settings_v3';
 const STORAGE_KEY_SESSION = 'mastertv_client_session_v2';
 const STORAGE_KEY_CONTENTS = 'mastertv_admin_contents_v2';
+const STORAGE_KEY_CHANNELS = 'mastertv_admin_channels_v2';
 
 const DEFAULT_SETTINGS: AdminSettings = {
   serverName: 'MasterTV IPTV & VOD',
@@ -724,20 +725,47 @@ export class AdminService {
     }
   }
 
+  // Dedicated channel storage helpers to guarantee live channels are never pushed out by movies/series
+  static getChannels(): AdminContentItem[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_CHANNELS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(Boolean);
+        }
+      }
+    } catch {}
+    return this.getContents().filter((c) => c && c.type === 'channel');
+  }
+
+  static saveChannelsLocally(channels: AdminContentItem[]) {
+    if (!Array.isArray(channels) || channels.length === 0) return;
+    try {
+      localStorage.setItem(STORAGE_KEY_CHANNELS, JSON.stringify(channels.filter(Boolean)));
+    } catch {}
+  }
+
   // Save contents to in-memory cache and localStorage with quota protection and balanced multi-type sampling
   static saveContentsLocally(contents: AdminContentItem[]) {
     const safeArray = Array.isArray(contents) ? contents.filter(Boolean) : [];
     this.inMemoryContents = safeArray;
 
-    // Build a balanced multi-type sample so localStorage contains all content types
+    // Isolate channels and persist in dedicated channel store
     const channels = safeArray.filter((c) => c.type === 'channel');
+    if (channels.length > 0) {
+      this.saveChannelsLocally(channels);
+    }
+    // Always preserve existing live channels so they never vanish
+    const preservedChannels = channels.length > 0 ? channels : this.getChannels();
+
     const movies = safeArray.filter((c) => c.type === 'movie');
     const series = safeArray.filter((c) => c.type === 'series');
     const animes = safeArray.filter((c) => c.type === 'anime');
     const doramas = safeArray.filter((c) => c.type === 'dorama');
 
     const sample = [
-      ...channels.slice(0, 1500),
+      ...preservedChannels.slice(0, 1500),
       ...movies.slice(0, 1500),
       ...series.slice(0, 500),
       ...animes.slice(0, 300),
@@ -745,12 +773,12 @@ export class AdminService {
     ];
 
     const counts = {
-      channels: channels.length,
+      channels: preservedChannels.length,
       movies: movies.length,
       series: series.length,
       animes: animes.length,
       doramas: doramas.length,
-      total: safeArray.length,
+      total: Math.max(safeArray.length, preservedChannels.length + movies.length + series.length),
     };
     try {
       localStorage.setItem('mastertv_catalog_counts', JSON.stringify(counts));
@@ -847,11 +875,84 @@ export class AdminService {
     return this.getCatalogCounts();
   }
 
-  // Fetch remote contents from Locaweb MySQL PHP API
-  static async fetchRemoteContents(): Promise<AdminContentItem[]> {
+  // Fetch all remote live channels directly from MySQL (guarantees channels are never missing)
+  static async fetchRemoteChannels(): Promise<AdminContentItem[]> {
     const apiBase = this.getApiBaseUrl();
-    const primaryUrl = `${apiBase}/content.php`;
-    const fallbackUrl = 'https://mastertvhd.online/api/content.php';
+    const primaryUrl = `${apiBase}/content.php?type=channel&all=true`;
+    const fallbackUrl = 'https://mastertvhd.online/api/content.php?type=channel&all=true';
+
+    try {
+      let res: Response;
+      try {
+        res = await fetch(primaryUrl);
+        if (!res.ok && primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl);
+        }
+      } catch (err) {
+        if (primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl);
+        } else {
+          throw err;
+        }
+      }
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.contents)) {
+          const mapped: AdminContentItem[] = data.contents.map((item: any) => ({
+            id: String(item.id),
+            type: 'channel' as ContentType,
+            title: item.title,
+            tagline: item.tagline || '',
+            rating: parseFloat(item.rating) || 8.0,
+            duration: item.duration || 'Ao Vivo',
+            year: parseInt(item.year, 10) || 2026,
+            contentRating: item.content_rating || 'Livre',
+            genres:
+              typeof item.genres === 'string'
+                ? item.genres.split(',').map((g: string) => g.trim())
+                : Array.isArray(item.genres)
+                ? item.genres
+                : ['aberta'],
+            posterUrl: item.poster_url || '',
+            backdropUrl: item.backdrop_url || item.poster_url || '',
+            streamUrl: item.stream_url || '',
+            backupStreamUrl: item.backup_stream_url || '',
+            description: item.description || '',
+            director: item.director || '',
+            writers: item.writers || '',
+            production: item.production || '',
+            channelNumber: parseInt(item.channel_number, 10) || 1,
+            channelCategory: item.channel_category || 'aberta',
+            currentProgram: item.current_program || 'Transmissao ao Vivo',
+            epgId: item.epg_id || item.epgId || '',
+            seasons: 1,
+            episodes: 1,
+            episodesList: [],
+            sourcesList: Array.isArray(item.sources_list) ? item.sources_list : [],
+            cast: [],
+            status: item.status || 'active',
+            createdAt: item.created_at,
+            updatedAt: item.updated_at,
+          }));
+          this.saveChannelsLocally(mapped);
+          return mapped;
+        }
+      }
+    } catch {}
+    return this.getChannels();
+  }
+
+  // Fetch remote contents from Locaweb MySQL PHP API with optional type filter
+  static async fetchRemoteContents(type?: string): Promise<AdminContentItem[]> {
+    if (type === 'channel') {
+      return this.fetchRemoteChannels();
+    }
+
+    const apiBase = this.getApiBaseUrl();
+    const query = type ? `?type=${encodeURIComponent(type)}&limit=2500` : '?limit=2500';
+    const primaryUrl = `${apiBase}/content.php${query}`;
+    const fallbackUrl = `https://mastertvhd.online/api/content.php${query}`;
 
     try {
       let res: Response;
