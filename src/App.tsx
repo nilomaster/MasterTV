@@ -13,6 +13,7 @@ import {
   EPGGuidePage,
   MoviesPage,
   KidsPage,
+  AnimePage,
   WatchPage,
   FavoritesPage,
   SettingsPage,
@@ -61,6 +62,13 @@ const AppRouter: React.FC = () => {
       return (
         <ErrorBoundary fallbackTitle="Area Kids MasterTV">
           <KidsPage />
+        </ErrorBoundary>
+      );
+
+    case 'anime':
+      return (
+        <ErrorBoundary fallbackTitle="Area Anime MasterTV">
+          <AnimePage />
         </ErrorBoundary>
       );
 

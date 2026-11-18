@@ -99,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isMoviesActive = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
   const isSeriesActive = currentView === 'vod' && vodFilter === 'series';
   const isKidsActive = currentView === 'kids';
-  const isAnimesActive = currentView === 'vod' && vodFilter === 'animes';
+  const isAnimeActive = currentView === 'anime' || (currentView === 'vod' && vodFilter === 'animes');
 
   const unreadNotifCount = notifications.filter((n) => n.isUnread).length;
 
@@ -226,16 +226,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            {/* ANIME */}
+            {/* ANIME (UniTV Red Active Highlight) */}
             <button
-              onClick={() => handleNavClick('vod', 'animes')}
+              onClick={() => handleNavClick('anime')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
-                isAnimesActive
-                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
+                isAnimeActive
+                  ? 'border-2 border-red-500 bg-red-500/15 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.35)] scale-105'
                   : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
-              ANIME
+              <span className={isAnimeActive ? 'text-red-500 font-black' : ''}>ANIME</span>
             </button>
 
             {/* EXPLORAR */}
@@ -393,10 +393,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
             <button
-              onClick={() => handleNavClick('vod', 'animes')}
+              onClick={() => handleNavClick('anime')}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <span>ANIME</span>
+              <span className={isAnimeActive ? 'text-red-500 font-black' : ''}>ANIME</span>
             </button>
             <button
               onClick={() => handleNavClick('favorites')}
