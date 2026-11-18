@@ -72,15 +72,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* Main Page Content */}
       <main className={`flex-1 min-h-0 relative z-10 flex flex-col ${
-        currentView === 'player' || currentView === 'vod' || currentView === 'home'
+        currentView === 'player' || currentView === 'vod' || currentView === 'home' || currentView === 'kids' || currentView === 'anime'
           ? 'h-full overflow-x-hidden p-0 pb-0'
           : 'pb-24 sm:pb-8'
       }`}>
         {children}
       </main>
 
-      {/* Professional Footer (Hidden on Live TV and Cinema views to match UniTV TV screen) */}
-      {currentView !== 'player' && currentView !== 'vod' && currentView !== 'home' && (
+      {/* Professional Footer (Hidden on Live TV, VOD, Kids and Anime to match UniTV screen) */}
+      {currentView !== 'player' && currentView !== 'vod' && currentView !== 'home' && currentView !== 'kids' && currentView !== 'anime' && (
         <footer className="relative z-10 border-t border-white/5 bg-[#05070a]/80 backdrop-blur-md py-6 px-4 text-center text-xs text-slate-500 shrink-0">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
