@@ -18,6 +18,7 @@ import {
   ScreenShare,
 } from 'lucide-react';
 import type { ClientSession } from '../types/admin';
+import type { ViewType, VODFilterType } from '../context/NavigationContext';
 import { UniTVClock } from './common/UniTVClock';
 import {
   UniTVNotificationDrawer,
@@ -26,10 +27,10 @@ import {
 import { UniTVProfileModal } from './auth/UniTVProfileModal';
 
 interface NavbarProps {
-  currentView: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin' | 'settings';
-  vodFilter?: 'all' | 'movies' | 'series' | 'animes' | 'doramas';
-  setCurrentView: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin' | 'settings') => void;
-  onNavigateCategory?: (view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin' | 'settings', category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas') => void;
+  currentView: ViewType;
+  vodFilter?: VODFilterType;
+  setCurrentView: (view: ViewType) => void;
+  onNavigateCategory?: (view: ViewType, category?: VODFilterType) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenSettingsModal: () => void;
@@ -82,8 +83,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   ]);
 
   const handleNavClick = (
-    view: 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios',
-    category?: 'all' | 'movies' | 'series' | 'animes' | 'doramas'
+    view: ViewType,
+    category?: VODFilterType
   ) => {
     if (onNavigateCategory) {
       onNavigateCategory(view, category);
@@ -97,8 +98,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isTVActive = currentView === 'player';
   const isMoviesActive = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
   const isSeriesActive = currentView === 'vod' && vodFilter === 'series';
+  const isKidsActive = currentView === 'kids';
   const isAnimesActive = currentView === 'vod' && vodFilter === 'animes';
-  const isDoramasActive = currentView === 'vod' && vodFilter === 'doramas';
 
   const unreadNotifCount = notifications.filter((n) => n.isUnread).length;
 
@@ -210,15 +211,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* KIDS (Colorful UniTV Style Badge) */}
             <button
-              onClick={() => handleNavClick('vod', 'doramas')}
+              onClick={() => handleNavClick('kids')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
-                isDoramasActive
+                isKidsActive
                   ? 'border-2 border-cyan-400 bg-cyan-500/15 shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
                   : 'border border-transparent hover:bg-white/5'
               }`}
             >
-              <span className="bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent font-black">
-                KIDS
+              <span className="font-black text-xs sm:text-sm tracking-widest inline-flex items-center gap-0.5">
+                <span className="text-[#FF2A85]">K</span>
+                <span className="text-[#FFD200]">I</span>
+                <span className="text-[#00E5FF]">D</span>
+                <span className="text-[#00E676]">S</span>
               </span>
             </button>
 
@@ -378,11 +382,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>SÉRIES</span>
             </button>
             <button
-              onClick={() => handleNavClick('vod', 'doramas')}
+              onClick={() => handleNavClick('kids')}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <span className="bg-gradient-to-r from-amber-400 via-rose-400 to-cyan-400 bg-clip-text text-transparent font-black">
-                KIDS
+              <span className="font-black text-xs sm:text-sm tracking-widest inline-flex items-center gap-0.5">
+                <span className="text-[#FF2A85]">K</span>
+                <span className="text-[#FFD200]">I</span>
+                <span className="text-[#00E5FF]">D</span>
+                <span className="text-[#00E676]">S</span>
               </span>
             </button>
             <button

@@ -12,6 +12,7 @@ import {
   LiveTVPage,
   EPGGuidePage,
   MoviesPage,
+  KidsPage,
   WatchPage,
   FavoritesPage,
   SettingsPage,
@@ -53,6 +54,13 @@ const AppRouter: React.FC = () => {
       return (
         <ErrorBoundary fallbackTitle="Catalogo On Demand">
           <MoviesPage />
+        </ErrorBoundary>
+      );
+
+    case 'kids':
+      return (
+        <ErrorBoundary fallbackTitle="Area Kids MasterTV">
+          <KidsPage />
         </ErrorBoundary>
       );
 
