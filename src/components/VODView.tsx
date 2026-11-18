@@ -1,23 +1,22 @@
-// MasterTV VOD Catalog View with UniTV-Style Movie Showcase (Photo 2)
-// Features Hero Movie Carousel + 4 Colorful Quick Filter Buttons (Genero, 2026, No Cinema, Todos)
-// Supports TV Box Remote Control / D-Pad focus with glowing cyan borders
-// Strictly ASCII comments only as per project guidelines
+// MasterTV UniTV-Style Movie Billboard View (Photo 1 & Photo 2)
+// Exact match to UniTV layout: Left 16:9 Hero + 4 Colored Buttons, Center Tall Poster, Right Tall Poster
+// Fully responsive for Web, Android APK, TV Box and Smart TV with Remote Control D-Pad focus
+// All comments in this file strictly follow ASCII rules
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Film,
   Play,
   Star,
-  Tv2,
-  Sparkles,
-  HeartHandshake,
   Calendar,
   Layers,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  Search,
 } from 'lucide-react';
 import type { MediaItem } from '../types/iptv';
 import { AdminService } from '../services/adminService';
-import { detectQualityFromUrl } from '../services/qualityDetector';
 
 interface VODViewProps {
   onSelectMedia: (item: MediaItem) => void;
@@ -25,32 +24,26 @@ interface VODViewProps {
   initialFilter?: 'all' | 'movies' | 'series' | 'animes' | 'doramas';
 }
 
-export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '', initialFilter = 'all' }) => {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'movies' | 'series' | 'animes' | 'doramas'>(initialFilter);
+export const VODView: React.FC<VODViewProps> = ({
+  onSelectMedia,
+  searchQuery = '',
+  initialFilter = 'movies',
+}) => {
   const [catalogRevision, setCatalogRevision] = useState<number>(0);
-  const [visibleCount, setVisibleCount] = useState<number>(48);
+  const [featuredIndex, setFeaturedIndex] = useState<number>(0);
   const [selectedSubFilter, setSelectedSubFilter] = useState<'todos' | 'genero' | '2026' | 'cinema'>('todos');
+  const [focusedIndex, setFocusedIndex] = useState<number>(0);
+  const isHoveredRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (initialFilter) {
-      setActiveFilter(initialFilter);
-    }
-  }, [initialFilter]);
-
-  // Reset pagination when filter or search changes
-  useEffect(() => {
-    setVisibleCount(48);
-  }, [activeFilter, searchQuery, selectedSubFilter]);
-
-  useEffect(() => {
-    // Sync remote contents from MySQL API when browsing VOD catalog
+    // Sincroniza catalogo remoto do MySQL ao entrar na tela de filmes
     AdminService.fetchRemoteContents().catch(() => {});
     const handleUpdate = () => setCatalogRevision((prev) => prev + 1);
     window.addEventListener('mastertv_catalog_updated', handleUpdate);
     return () => window.removeEventListener('mastertv_catalog_updated', handleUpdate);
   }, []);
 
-  // Custom media items registered via Admin Panel
+  // Carrega itens cadastrados no banco de dados
   const customMediaItems: MediaItem[] = useMemo(() => {
     try {
       const all = AdminService.getContents();
@@ -110,46 +103,108 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
     }
   }, [catalogRevision]);
 
-  // Only items synchronized from the database
-  const allItems: MediaItem[] = useMemo(() => {
-    return Array.isArray(customMediaItems) ? customMediaItems.filter(Boolean) : [];
-  }, [customMediaItems]);
+  // Fallback visual com posters compativeis caso banco de dados esteja vazio
+  const fallbackMovies: MediaItem[] = useMemo(() => {
+    return [
+      {
+        id: 'hero-1',
+        title: 'Just Play Dead',
+        tagline: 'Sobrevivencia no Paraiso Tropical',
+        type: 'movie',
+        year: 2026,
+        rating: 9.2,
+        duration: '1h 55m',
+        genres: ['Acao', 'Suspense'],
+        posterUrl: './assets/img/covers/VisionQuest.webp',
+        backdropUrl: './assets/img/covers/VisionQuest.webp',
+        description: 'Uma jornada eletrizante de sobrevivencia onde cada segundo conta.',
+        streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      },
+      {
+        id: 'hero-2',
+        title: 'Nao Nos Rendemos',
+        tagline: 'Resistencia e Coragem Sem Limites',
+        type: 'movie',
+        year: 2026,
+        rating: 8.9,
+        duration: '2h 10m',
+        genres: ['Aventura', 'Guerra'],
+        posterUrl: './assets/img/covers/DeathNoteAnime.webp',
+        backdropUrl: './assets/img/covers/DeathNoteAnime.webp',
+        description: 'Um grupo de sobreviventes enfrenta forcas implacaveis em territorio hostil.',
+        streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      },
+      {
+        id: 'hero-3',
+        title: 'Boiuna Terror no Amazonas',
+        tagline: 'O Maior Desafio e Sair com Vida',
+        type: 'movie',
+        year: 2026,
+        rating: 8.7,
+        duration: '1h 48m',
+        genres: ['Terror', 'Misterio'],
+        posterUrl: './assets/img/covers/HomenAranhaUmNovoDia.webp',
+        backdropUrl: './assets/img/covers/HomenAranhaUmNovoDia.webp',
+        description: 'Lendas ancestrais ganham vida nas profundezas da floresta amazonica.',
+        streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      },
+    ];
+  }, []);
 
-  // Calculate counts per category
-  const categoryCounts = useMemo(() => {
-    const counts = { movies: 0, series: 0, animes: 0, doramas: 0 };
-    for (const item of allItems) {
-      if (!item) continue;
-      if (item.type === 'movie') counts.movies++;
-      else if (item.type === 'series') counts.series++;
-      else if (item.type === 'anime') counts.animes++;
-      else if (item.type === 'dorama') counts.doramas++;
+  // Lista de filmes disponiveis (apenas filmes ou all)
+  const movieList: MediaItem[] = useMemo(() => {
+    let items = customMediaItems.filter((i) => {
+      if (initialFilter === 'series') return i.type === 'series';
+      if (initialFilter === 'animes') return i.type === 'anime';
+      if (initialFilter === 'doramas') return i.type === 'dorama';
+      return i.type === 'movie' || !i.type;
+    });
+
+    if (items.length === 0) {
+      items = fallbackMovies;
     }
-    return counts;
-  }, [allItems]);
 
-  const filteredItems = useMemo(() => {
+    // Sub-filtros estilo UniTV
+    if (selectedSubFilter === '2026') {
+      const f = items.filter((i) => i.year === 2026);
+      if (f.length > 0) return f;
+    } else if (selectedSubFilter === 'cinema') {
+      const f = items.filter((i) => Number(i.rating || 0) >= 8.5);
+      if (f.length > 0) return f;
+    }
+
+    return items;
+  }, [customMediaItems, fallbackMovies, initialFilter, selectedSubFilter]);
+
+  // Itens para o trio em destaque da UniTV (Left Hero + Center + Right)
+  const currentHero = movieList[featuredIndex % movieList.length] || fallbackMovies[0];
+  const currentPoster1 = movieList[(featuredIndex + 1) % movieList.length] || fallbackMovies[1];
+  const currentPoster2 = movieList[(featuredIndex + 2) % movieList.length] || fallbackMovies[2];
+
+  // Avanco automatico suave da vitrine a cada 8 segundos (estilo Smart TV)
+  useEffect(() => {
+    if (movieList.length <= 1) return;
+    const interval = window.setInterval(() => {
+      if (!isHoveredRef.current) {
+        setFeaturedIndex((prev) => (prev + 1) % movieList.length);
+      }
+    }, 8000);
+    return () => window.clearInterval(interval);
+  }, [movieList.length]);
+
+  const handleNext = useCallback(() => {
+    setFeaturedIndex((prev) => (prev + 1) % movieList.length);
+  }, [movieList.length]);
+
+  const handlePrev = useCallback(() => {
+    setFeaturedIndex((prev) => (prev - 1 + movieList.length) % movieList.length);
+  }, [movieList.length]);
+
+  // Se o usuario pesquisou algo na barra de pesquisa superior, exibe os resultados da busca
+  const searchResults = useMemo(() => {
     const q = String(searchQuery || '').trim().toLowerCase();
-    return allItems.filter((item) => {
-      if (!item) return false;
-      const itemType = String(item.type || 'movie');
-      const matchesFilter =
-        activeFilter === 'movies' || activeFilter === 'all'
-          ? itemType === 'movie'
-          : activeFilter === 'series'
-          ? itemType === 'series'
-          : activeFilter === 'animes'
-          ? itemType === 'anime'
-          : itemType === 'dorama';
-
-      if (!matchesFilter) return false;
-
-      // UniTV Photo 2 Sub-Filters
-      if (selectedSubFilter === '2026' && item.year !== 2026) return false;
-      if (selectedSubFilter === 'cinema' && Number(item.rating || 0) < 8.5) return false;
-
-      if (!q) return true;
-
+    if (!q) return [];
+    return customMediaItems.filter((item) => {
       const titleMatch = String(item.title || '').toLowerCase().includes(q);
       const genreList = Array.isArray(item.genres)
         ? item.genres
@@ -157,410 +212,343 @@ export const VODView: React.FC<VODViewProps> = ({ onSelectMedia, searchQuery = '
         ? [String(item.genres)]
         : [];
       const genreMatch = genreList.some((g) => String(g || '').toLowerCase().includes(q));
-
       return titleMatch || genreMatch;
     });
-  }, [allItems, activeFilter, searchQuery, selectedSubFilter]);
+  }, [customMediaItems, searchQuery]);
 
-  // Paginated/Lazy-loaded slice to prevent DOM thrashing
-  const displayedItems = useMemo(() => {
-    return filteredItems.slice(0, visibleCount);
-  }, [filteredItems, visibleCount]);
+  // Suporte a controle remoto D-Pad (0: Hero, 1-4: Botoes, 5: Poster 1, 6: Poster 2)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
+        if (e.key === 'ArrowRight') {
+          setFocusedIndex((prev) => Math.min(prev + 1, 6));
+        } else if (e.key === 'ArrowLeft') {
+          setFocusedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'ArrowDown') {
+          if (focusedIndex === 0) setFocusedIndex(1);
+        } else if (e.key === 'ArrowUp') {
+          if (focusedIndex >= 1 && focusedIndex <= 4) setFocusedIndex(0);
+        } else if (e.key === 'Enter') {
+          if (focusedIndex === 0) onSelectMedia(currentHero);
+          else if (focusedIndex === 1) setSelectedSubFilter('genero');
+          else if (focusedIndex === 2) setSelectedSubFilter('2026');
+          else if (focusedIndex === 3) setSelectedSubFilter('cinema');
+          else if (focusedIndex === 4) handleNext();
+          else if (focusedIndex === 5) onSelectMedia(currentPoster1);
+          else if (focusedIndex === 6) onSelectMedia(currentPoster2);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedIndex, currentHero, currentPoster1, currentPoster2, onSelectMedia, handleNext]);
 
-  // Fallback items for UniTV Photo 2 Hero Showcase
-  const fallbackHero = useMemo(() => {
-    return [
-      {
-        id: 'hero-1',
-        title: 'Just Play Dead',
-        tagline: 'Sobrevivencia no Paraiso Tropical',
-        image: './assets/img/covers/VisionQuest.webp',
-      },
-      {
-        id: 'hero-2',
-        title: 'Nao Nos Rendemos',
-        tagline: 'Resistencia e Coragem Sem Limites',
-        image: './assets/img/covers/DeathNoteAnime.webp',
-      },
-      {
-        id: 'hero-3',
-        title: 'Boiuna Terror no Amazonas',
-        tagline: 'O Maior Desafio e Sair com Vida',
-        image: './assets/img/covers/HomenAranhaUmNovoDia.webp',
-      },
-    ];
-  }, []);
-
-  // Page title, icon and metadata based on active catalog page
-  const pageMeta = useMemo(() => {
-    switch (activeFilter) {
-      case 'series':
-        return {
-          title: 'Catalogo Series',
-          subtitle:
-            filteredItems.length === 1
-              ? '1 serie disponivel com reproducao em alta definicao.'
-              : `${filteredItems.length.toLocaleString('pt-BR')} series disponiveis com reproducao em alta definicao.`,
-          icon: Tv2,
-          badge: 'Series',
-          badgeColor: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-        };
-      case 'animes':
-        return {
-          title: 'Catalogo Animes',
-          subtitle:
-            filteredItems.length === 1
-              ? '1 anime disponivel com reproducao em alta definicao.'
-              : `${filteredItems.length.toLocaleString('pt-BR')} animes disponiveis com reproducao em alta definicao.`,
-          icon: Sparkles,
-          badge: 'Animes',
-          badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-        };
-      case 'doramas':
-        return {
-          title: 'Catalogo Doramas',
-          subtitle:
-            filteredItems.length === 1
-              ? '1 dorama disponivel com reproducao em alta definicao.'
-              : `${filteredItems.length.toLocaleString('pt-BR')} doramas disponiveis com reproducao em alta definicao.`,
-          icon: HeartHandshake,
-          badge: 'Doramas',
-          badgeColor: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-        };
-      case 'movies':
-      case 'all':
-      default:
-        return {
-          title: 'Catalogo Filmes',
-          subtitle:
-            filteredItems.length === 1
-              ? '1 filme disponivel com reproducao em alta definicao.'
-              : `${filteredItems.length.toLocaleString('pt-BR')} filmes disponiveis com reproducao em alta definicao.`,
-          icon: Film,
-          badge: 'Filmes',
-          badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-        };
-    }
-  }, [activeFilter, filteredItems.length]);
-
-  return (
-    <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-5 flex flex-col gap-6 animate-in fade-in duration-300">
-      {/* Category Navigation Pills (MasterTV Style) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          onClick={() => setActiveFilter('movies')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeFilter === 'movies' || activeFilter === 'all'
-              ? 'bg-cyan-500 text-slate-950 font-black shadow-lg shadow-cyan-500/30'
-              : 'bg-white/5 hover:bg-white/10 text-slate-300'
-          }`}
-        >
-          <Film className="w-3.5 h-3.5" />
-          Filmes ({categoryCounts.movies.toLocaleString('pt-BR')})
-        </button>
-
-        <button
-          onClick={() => setActiveFilter('series')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeFilter === 'series'
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-black'
-              : 'bg-white/5 hover:bg-white/10 text-slate-300'
-          }`}
-        >
-          <Tv2 className="w-3.5 h-3.5" />
-          Series ({categoryCounts.series.toLocaleString('pt-BR')})
-        </button>
-
-        <button
-          onClick={() => setActiveFilter('animes')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeFilter === 'animes'
-              ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 font-black'
-              : 'bg-white/5 hover:bg-white/10 text-slate-300'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Animes ({categoryCounts.animes.toLocaleString('pt-BR')})
-        </button>
-
-        <button
-          onClick={() => setActiveFilter('doramas')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeFilter === 'doramas'
-              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 font-black'
-              : 'bg-white/5 hover:bg-white/10 text-slate-300'
-          }`}
-        >
-          <HeartHandshake className="w-3.5 h-3.5" />
-          Doramas ({categoryCounts.doramas.toLocaleString('pt-BR')})
-        </button>
-      </div>
-
-      {/* UNITV PHOTO 2 MOVIE SHOWCASE (Hero Carousel + 4 Quick Color Filters + 2 Tall Posters) */}
-      {(activeFilter === 'movies' || activeFilter === 'all') && !searchQuery && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
-          {/* LEFT 6 COLS: Featured Carousel Banner + 4 UniTV Filter Buttons */}
-          <div className="lg:col-span-6 flex flex-col gap-3">
-            {/* 16:9 Featured Movie Banner Card with Dots */}
-            <div
-              onClick={() => {
-                const target = filteredItems[0];
-                if (target) onSelectMedia(target);
-              }}
-              className="relative aspect-video rounded-3xl overflow-hidden bg-slate-900 border-2 border-white/10 hover:border-cyan-400 group cursor-pointer transition-all duration-300 shadow-2xl"
-            >
-              <img
-                src={filteredItems[0]?.backdropUrl || filteredItems[0]?.posterUrl || fallbackHero[0].image}
-                alt={filteredItems[0]?.title || fallbackHero[0].title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
-
-              {/* Carousel Dots Top Right (UniTV Photo 2 style) */}
-              <div className="absolute top-4 right-4 flex items-center gap-1.5 p-1 rounded-full bg-black/60 backdrop-blur-md">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                <span className="w-2 h-2 rounded-full bg-white/40" />
-                <span className="w-2 h-2 rounded-full bg-white/40" />
-              </div>
-
-              {/* Title & Tagline at Base */}
-              <div className="absolute bottom-4 left-5 right-5 space-y-1">
-                <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider">
-                  Lancamento em Destaque
-                </span>
-                <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-white uppercase tracking-tight drop-shadow-md">
-                  {filteredItems[0]?.title || fallbackHero[0].title}
-                </h3>
-                <p className="text-xs text-slate-300 line-clamp-1">
-                  {filteredItems[0]?.description || fallbackHero[0].tagline}
-                </p>
-              </div>
-            </div>
-
-            {/* 4 UniTV Colorful Quick Filter Buttons (UniTV Photo 2 style) */}
-            <div className="grid grid-cols-4 gap-2.5">
-              {/* Button 1: Genero (Green) */}
-              <button
-                onClick={() => setSelectedSubFilter(selectedSubFilter === 'genero' ? 'todos' : 'genero')}
-                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
-                  selectedSubFilter === 'genero'
-                    ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 text-white ring-2 ring-emerald-300'
-                    : 'bg-gradient-to-tr from-emerald-600 to-teal-700 text-white hover:brightness-110'
-                }`}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                <span>Gênero</span>
-              </button>
-
-              {/* Button 2: 2026 / Lancamento (Red) */}
-              <button
-                onClick={() => setSelectedSubFilter(selectedSubFilter === '2026' ? 'todos' : '2026')}
-                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
-                  selectedSubFilter === '2026'
-                    ? 'bg-gradient-to-tr from-rose-500 to-red-600 text-white ring-2 ring-red-300'
-                    : 'bg-gradient-to-tr from-rose-600 to-red-700 text-white hover:brightness-110'
-                }`}
-              >
-                <Calendar className="w-4 h-4" />
-                <span>2026</span>
-              </button>
-
-              {/* Button 3: No Cinema (Orange) */}
-              <button
-                onClick={() => setSelectedSubFilter(selectedSubFilter === 'cinema' ? 'todos' : 'cinema')}
-                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
-                  selectedSubFilter === 'cinema'
-                    ? 'bg-gradient-to-tr from-amber-500 to-orange-600 text-white ring-2 ring-amber-300'
-                    : 'bg-gradient-to-tr from-amber-600 to-orange-700 text-white hover:brightness-110'
-                }`}
-              >
-                <Film className="w-4 h-4" />
-                <span>No Cinema</span>
-              </button>
-
-              {/* Button 4: Todos (Cyan MasterTV) */}
-              <button
-                onClick={() => setSelectedSubFilter('todos')}
-                className={`py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 font-bold text-xs shadow-lg transition-transform hover:scale-[1.03] cursor-pointer ${
-                  selectedSubFilter === 'todos'
-                    ? 'bg-gradient-to-tr from-cyan-500 to-blue-600 text-slate-950 font-black ring-2 ring-cyan-300'
-                    : 'bg-gradient-to-tr from-cyan-600 to-blue-700 text-white hover:brightness-110'
-                }`}
-              >
-                <Layers className="w-4 h-4" />
-                <span>Todos</span>
-              </button>
-            </div>
-          </div>
-
-          {/* RIGHT 6 COLS: Two Tall Movie Posters (Nao Nos Rendemos & Boiuna style) */}
-          <div className="lg:col-span-6 grid grid-cols-2 gap-4">
-            {/* Tall Poster 1 */}
-            <div
-              onClick={() => {
-                const target = filteredItems[1] || filteredItems[0];
-                if (target) onSelectMedia(target);
-              }}
-              className="group relative rounded-3xl overflow-hidden bg-slate-900 border-2 border-white/10 hover:border-cyan-400 cursor-pointer transition-all duration-300 shadow-2xl flex flex-col justify-end p-5"
-            >
-              <img
-                src={filteredItems[1]?.posterUrl || fallbackHero[1].image}
-                alt={filteredItems[1]?.title || fallbackHero[1].title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
-              <div className="relative z-10 space-y-1">
-                <span className="text-[10px] font-black uppercase text-rose-400 tracking-wider">
-                  Alta Definicao
-                </span>
-                <h4 className="text-lg sm:text-xl font-black text-white uppercase tracking-tight drop-shadow-md">
-                  {filteredItems[1]?.title || fallbackHero[1].title}
-                </h4>
-                <p className="text-[11px] text-slate-300 truncate">
-                  {filteredItems[1]?.description || fallbackHero[1].tagline}
-                </p>
-              </div>
-            </div>
-
-            {/* Tall Poster 2 */}
-            <div
-              onClick={() => {
-                const target = filteredItems[2] || filteredItems[0];
-                if (target) onSelectMedia(target);
-              }}
-              className="group relative rounded-3xl overflow-hidden bg-slate-900 border-2 border-white/10 hover:border-cyan-400 cursor-pointer transition-all duration-300 shadow-2xl flex flex-col justify-end p-5"
-            >
-              <img
-                src={filteredItems[2]?.posterUrl || fallbackHero[2].image}
-                alt={filteredItems[2]?.title || fallbackHero[2].title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
-              <div className="relative z-10 space-y-1">
-                <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">
-                  Super Estreia
-                </span>
-                <h4 className="text-lg sm:text-xl font-black text-white uppercase tracking-tight drop-shadow-md">
-                  {filteredItems[2]?.title || fallbackHero[2].title}
-                </h4>
-                <p className="text-[11px] text-slate-300 truncate">
-                  {filteredItems[2]?.description || fallbackHero[2].tagline}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Full Catalog Section Header */}
-      <div className="flex items-center justify-between pt-2 border-t border-white/10">
-        <div>
-          <h2 className="text-base sm:text-lg font-black text-white">
-            {pageMeta.title}
+  // Caso esteja pesquisando, exibe a grade de busca
+  if (searchQuery.trim().length > 0) {
+    return (
+      <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-5 flex flex-col gap-6 animate-in fade-in duration-300">
+        <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+          <Search className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-bold text-white">
+            Resultados para &quot;<span className="text-cyan-400">{searchQuery}</span>&quot; ({searchResults.length})
           </h2>
-          <p className="text-xs text-slate-400">{pageMeta.subtitle}</p>
         </div>
-        <span className="text-xs font-mono font-bold text-cyan-400">
-          {filteredItems.length.toLocaleString('pt-BR')} titulos
-        </span>
-      </div>
 
-      {/* Empty State or Full Catalog Grid */}
-      {filteredItems.length === 0 ? (
-        <div className="py-20 flex flex-col items-center justify-center text-center gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500">
-            <pageMeta.icon className="w-8 h-8" />
+        {searchResults.length === 0 ? (
+          <div className="py-20 text-center text-slate-400">
+            Nenhum titulo corresponde aos termos pesquisados.
           </div>
-          <h3 className="text-base font-bold text-white">Nenhum titulo encontrado</h3>
-          <p className="text-xs text-slate-400 max-w-sm">
-            {searchQuery
-              ? 'Nenhum resultado corresponde a sua pesquisa.'
-              : `Nenhum conteudo cadastrado em ${pageMeta.title}. Adicione ou importe novos titulos pelo Painel Administrativo.`}
-          </p>
-        </div>
-      ) : (
-        <>
+        ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-            {displayedItems.map((item) => {
-              const firstGenre = Array.isArray(item.genres) && item.genres.length > 0
-                ? String(item.genres[0])
-                : typeof item.genres === 'string'
-                ? String(item.genres)
-                : 'Geral';
-              const displayRating = Number(item.rating || 0).toFixed(1);
-              const primarySource = item.sources && item.sources.length > 0 ? item.sources[0] : null;
-              const qualityInfo = detectQualityFromUrl(
-                primarySource?.streamUrl || primarySource?.url || item.streamUrl,
-                primarySource?.name || item.title,
-                primarySource?.quality
-              );
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => onSelectMedia(item)}
-                  className="group relative cursor-pointer flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-1.5"
-                >
-                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-cyan-400 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all">
-                    <img
-                      src={item.posterUrl || './assets/img/icons/favicon.svg'}
-                      alt={item.title || 'Capa'}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = './assets/img/icons/favicon.svg';
-                      }}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-md shadow-cyan-500/40">
-                        <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
-                      </div>
+            {searchResults.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => onSelectMedia(item)}
+                className="group relative cursor-pointer flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-1.5"
+              >
+                <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-cyan-400 transition-all">
+                  <img
+                    src={item.posterUrl || './assets/img/icons/favicon.svg'}
+                    alt={item.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-lg">
+                      <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
                     </div>
-
-                    {/* Quality Badge */}
-                    <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded backdrop-blur-md text-[9px] font-mono font-bold border shadow-sm ${qualityInfo.badgeBg} ${qualityInfo.borderBg}`}>
-                      {qualityInfo.short}
-                    </div>
-
-                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold text-amber-300 flex items-center gap-0.5">
-                      <Star className="w-2.5 h-2.5 fill-amber-300" />
-                      {displayRating}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-200 group-hover:text-cyan-300 truncate">
-                      {item.title}
-                    </h4>
-                    <p className="text-[10px] text-slate-400">
-                      {item.year || 2026} · {firstGenre}
-                    </p>
                   </div>
                 </div>
-              );
-            })}
+                <h4 className="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-400">{item.title}</h4>
+              </div>
+            ))}
           </div>
+        )}
+      </div>
+    );
+  }
 
-          {/* Lazy Load Controls */}
-          {visibleCount < filteredItems.length && (
-            <div className="flex flex-col items-center justify-center gap-3 pt-6 pb-12">
-              <p className="text-xs text-slate-400 font-medium">
-                Exibindo <span className="text-white font-bold">{displayedItems.length}</span> de{' '}
-                <span className="text-cyan-400 font-bold">{filteredItems.length.toLocaleString('pt-BR')}</span> titulos
-              </p>
-              <div className="flex items-center gap-3">
+  // UNITV IDENTICAL CINEMA SHOWCASE (Photo 1)
+  // Left (50%): 16:9 Featured Hero + 4 Colored Buttons in a single row
+  // Center (25%): Full-height Tall Poster 1
+  // Right (25%): Full-height Tall Poster 2
+  return (
+    <div
+      onMouseEnter={() => {
+        isHoveredRef.current = true;
+      }}
+      onMouseLeave={() => {
+        isHoveredRef.current = false;
+      }}
+      className="w-full max-w-[1920px] mx-auto px-3 sm:px-6 lg:px-8 py-3 lg:py-5 flex flex-col justify-center animate-in fade-in duration-300 select-none min-h-[calc(100vh-100px)]"
+    >
+      {/* 3-Column UniTV Cinema Billboard Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3.5 sm:gap-4 lg:gap-5 items-stretch flex-1">
+        {/* COLUMN 1 (50% width on Desktop): Left Hero Card + 4 Buttons */}
+        <div className="lg:col-span-6 flex flex-col justify-between gap-3 sm:gap-4 h-full min-h-[460px] sm:min-h-[520px] lg:min-h-[580px]">
+          {/* Top 16:9 Hero Movie Card */}
+          <div
+            onClick={() => onSelectMedia(currentHero)}
+            className={`flex-1 relative rounded-3xl overflow-hidden bg-slate-950/80 border-2 transition-all duration-300 shadow-2xl group cursor-pointer flex flex-col justify-end p-5 sm:p-6 ${
+              focusedIndex === 0
+                ? 'border-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.35)] scale-[1.01]'
+                : 'border-white/10 hover:border-cyan-400/80'
+            }`}
+          >
+            {/* Background Backdrop Image */}
+            <img
+              src={currentHero.backdropUrl || currentHero.posterUrl}
+              alt={currentHero.title}
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+            />
+            {/* Cinematic Gradient Mask */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/20" />
+
+            {/* Top Carousel Dots (UniTV Photo 1/2 Red Active Dot + White Dots) */}
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10">
+              {Array.from({ length: Math.min(movieList.length, 5) }).map((_, i) => (
                 <button
-                  onClick={() => setVisibleCount((prev) => Math.min(prev + 48, filteredItems.length))}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs tracking-wide shadow-lg shadow-cyan-500/30 transition-all cursor-pointer flex items-center gap-2"
-                >
-                  <Play className="w-3.5 h-3.5 fill-slate-950" />
-                  Carregar Mais Titulos (+48)
-                </button>
+                  key={i}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFeaturedIndex(i);
+                  }}
+                  className={`transition-all rounded-full ${
+                    i === featuredIndex % Math.min(movieList.length, 5)
+                      ? 'w-4 h-2 bg-red-600 rounded-full'
+                      : 'w-2 h-2 bg-white/40 hover:bg-white/70'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Manual Carousel Navigation Arrows */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrev();
+              }}
+              title="Filme Anterior"
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/60 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNext();
+              }}
+              title="Proximo Filme"
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/60 hover:bg-cyan-500 hover:text-slate-950 text-white flex items-center justify-center backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Bottom Info overlay matching UniTV Photo 1 */}
+            <div className="relative z-10 space-y-1.5 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                  LANCAMENTO EM DESTAQUE
+                </span>
+                <span className="text-[11px] font-bold text-slate-300">
+                  {currentHero.year || 2026}
+                </span>
+                <span className="text-[11px] font-bold text-amber-300 flex items-center gap-0.5">
+                  <Star className="w-3 h-3 fill-amber-300" />
+                  {Number(currentHero.rating || 9.0).toFixed(1)}
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white uppercase tracking-tight drop-shadow-lg line-clamp-1">
+                {currentHero.title}
+              </h2>
+
+              <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 leading-relaxed drop-shadow">
+                {currentHero.description || currentHero.tagline || 'Transmissao em alta definicao com som espacial e imagem cristalina.'}
+              </p>
+
+              <div className="pt-2 flex items-center gap-3">
+                <div className="px-5 py-2.5 rounded-xl bg-cyan-500 group-hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-cyan-500/30 transition-all">
+                  <Play className="w-4 h-4 fill-slate-950" />
+                  <span>Assistir Agora</span>
+                </div>
               </div>
             </div>
-          )}
-        </>
-      )}
+          </div>
+
+          {/* Bottom 4 UniTV Color Action Buttons (Green, Red, Yellow, Cyan) */}
+          <div className="grid grid-cols-4 gap-2 sm:gap-2.5 h-20 sm:h-24 shrink-0">
+            {/* Button 1: Genero (Green) */}
+            <button
+              onClick={() => {
+                setSelectedSubFilter((prev) => (prev === 'genero' ? 'todos' : 'genero'));
+                handleNext();
+              }}
+              className={`rounded-2xl p-2.5 flex flex-col items-center justify-center gap-1 font-black text-xs sm:text-sm shadow-xl transition-all duration-200 cursor-pointer ${
+                focusedIndex === 1
+                  ? 'ring-2 ring-emerald-300 scale-[1.03]'
+                  : 'hover:scale-[1.02]'
+              } bg-gradient-to-tr from-emerald-700 via-emerald-600 to-green-500 text-white border border-emerald-400/30`}
+            >
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <SlidersHorizontal className="w-4 h-4 text-white" />
+              </div>
+              <span className="tracking-wide">Gênero</span>
+            </button>
+
+            {/* Button 2: 2026 (Red) */}
+            <button
+              onClick={() => {
+                setSelectedSubFilter((prev) => (prev === '2026' ? 'todos' : '2026'));
+                handleNext();
+              }}
+              className={`rounded-2xl p-2.5 flex flex-col items-center justify-center gap-1 font-black text-xs sm:text-sm shadow-xl transition-all duration-200 cursor-pointer ${
+                focusedIndex === 2
+                  ? 'ring-2 ring-rose-300 scale-[1.03]'
+                  : 'hover:scale-[1.02]'
+              } bg-gradient-to-tr from-red-700 via-rose-600 to-red-500 text-white border border-rose-400/30`}
+            >
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <Calendar className="w-4 h-4 text-white" />
+              </div>
+              <span className="tracking-wide">2026</span>
+            </button>
+
+            {/* Button 3: No Cinema (Yellow / Gold) */}
+            <button
+              onClick={() => {
+                setSelectedSubFilter((prev) => (prev === 'cinema' ? 'todos' : 'cinema'));
+                handleNext();
+              }}
+              className={`rounded-2xl p-2.5 flex flex-col items-center justify-center gap-1 font-black text-xs sm:text-sm shadow-xl transition-all duration-200 cursor-pointer ${
+                focusedIndex === 3
+                  ? 'ring-2 ring-yellow-200 scale-[1.03]'
+                  : 'hover:scale-[1.02]'
+              } bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-300 text-slate-950 border border-yellow-200/50`}
+            >
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/15 flex items-center justify-center backdrop-blur-sm">
+                <Film className="w-4 h-4 text-slate-950" />
+              </div>
+              <span className="tracking-wide font-black">No Cinema</span>
+            </button>
+
+            {/* Button 4: Todos (Cyan MasterTV) */}
+            <button
+              onClick={() => {
+                setSelectedSubFilter('todos');
+                handleNext();
+              }}
+              className={`rounded-2xl p-2.5 flex flex-col items-center justify-center gap-1 font-black text-xs sm:text-sm shadow-xl transition-all duration-200 cursor-pointer ${
+                focusedIndex === 4
+                  ? 'ring-2 ring-cyan-200 scale-[1.03]'
+                  : 'hover:scale-[1.02]'
+              } bg-gradient-to-tr from-cyan-600 via-cyan-500 to-blue-500 text-slate-950 border border-cyan-300/40`}
+            >
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/15 flex items-center justify-center backdrop-blur-sm">
+                <Layers className="w-4 h-4 text-slate-950" />
+              </div>
+              <span className="tracking-wide font-black">Todos</span>
+            </button>
+          </div>
+        </div>
+
+        {/* COLUMN 2 (25% width on Desktop): Center Tall Movie Poster (UniTV Photo 1/2) */}
+        <div
+          onClick={() => onSelectMedia(currentPoster1)}
+          className={`lg:col-span-3 relative rounded-3xl overflow-hidden bg-slate-950/80 border-2 transition-all duration-300 shadow-2xl group cursor-pointer flex flex-col justify-end p-5 sm:p-6 min-h-[460px] sm:min-h-[520px] lg:min-h-[580px] ${
+            focusedIndex === 5
+              ? 'border-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.35)] scale-[1.01]'
+              : 'border-white/10 hover:border-cyan-400/80'
+          }`}
+        >
+          {/* Vertical Poster Cover */}
+          <img
+            src={currentPoster1.posterUrl || currentPoster1.backdropUrl}
+            alt={currentPoster1.title}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          />
+          {/* Cinematic Gradient Mask */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+
+          {/* Hover Play Button */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+            <div className="w-14 h-14 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-xl shadow-cyan-500/50 transform scale-90 group-hover:scale-100 transition-transform">
+              <Play className="w-7 h-7 fill-slate-950 ml-1" />
+            </div>
+          </div>
+
+          {/* Bottom Title Overlay */}
+          <div className="relative z-10 space-y-1">
+            <span className="text-[10px] font-black uppercase text-cyan-400 tracking-wider">
+              {currentPoster1.genres?.[0] || 'FILME RECOMENDADO'}
+            </span>
+            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight drop-shadow-md line-clamp-2">
+              {currentPoster1.title}
+            </h3>
+            <p className="text-[11px] text-slate-300 truncate">
+              {currentPoster1.description || currentPoster1.tagline || 'Disponivel em alta definicao'}
+            </p>
+          </div>
+        </div>
+
+        {/* COLUMN 3 (25% width on Desktop): Right Tall Movie Poster (UniTV Photo 1/2) */}
+        <div
+          onClick={() => onSelectMedia(currentPoster2)}
+          className={`lg:col-span-3 relative rounded-3xl overflow-hidden bg-slate-950/80 border-2 transition-all duration-300 shadow-2xl group cursor-pointer flex flex-col justify-end p-5 sm:p-6 min-h-[460px] sm:min-h-[520px] lg:min-h-[580px] ${
+            focusedIndex === 6
+              ? 'border-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.35)] scale-[1.01]'
+              : 'border-white/10 hover:border-cyan-400/80'
+          }`}
+        >
+          {/* Vertical Poster Cover */}
+          <img
+            src={currentPoster2.posterUrl || currentPoster2.backdropUrl}
+            alt={currentPoster2.title}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+          />
+          {/* Cinematic Gradient Mask */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+
+          {/* Hover Play Button */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+            <div className="w-14 h-14 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-xl shadow-cyan-500/50 transform scale-90 group-hover:scale-100 transition-transform">
+              <Play className="w-7 h-7 fill-slate-950 ml-1" />
+            </div>
+          </div>
+
+          {/* Bottom Title Overlay */}
+          <div className="relative z-10 space-y-1">
+            <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider">
+              {currentPoster2.genres?.[0] || 'SUPER ESTREIA'}
+            </span>
+            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight drop-shadow-md line-clamp-2">
+              {currentPoster2.title}
+            </h3>
+            <p className="text-[11px] text-slate-300 truncate">
+              {currentPoster2.description || currentPoster2.tagline || 'Disponivel em alta definicao'}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

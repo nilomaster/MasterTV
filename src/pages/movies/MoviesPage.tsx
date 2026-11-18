@@ -13,7 +13,7 @@ export const MoviesPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-4 flex-1">
+      <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-8 py-2 sm:py-3 flex-1 flex flex-col justify-center">
         <VODView
           onSelectMedia={(item) => setSelectedMedia(item)}
           searchQuery={searchQuery}
