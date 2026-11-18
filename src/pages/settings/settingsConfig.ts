@@ -7,6 +7,7 @@ export interface ClientPlayerPreferences {
   bufferSize: string;
   smartAudio: boolean;
   upscale4K: boolean;
+  autoRestartOnFreeze: boolean;
 }
 
 export const DEFAULT_CLIENT_PREFERENCES: ClientPlayerPreferences = {
@@ -15,6 +16,7 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPlayerPreferences = {
   bufferSize: '30s',
   smartAudio: true,
   upscale4K: false,
+  autoRestartOnFreeze: true,
 };
 
 export const SETTINGS_STORAGE_KEY = 'mastertv_client_preferences';

@@ -25,7 +25,8 @@ import {
   Sliders,
   ChevronDown,
   Play,
-  ArrowLeft
+  ArrowLeft,
+  RefreshCw
 } from 'lucide-react';
 import type { Channel, Category } from '../types/iptv';
 import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
@@ -135,6 +136,44 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
   const controlsTimeoutRef = useRef<number | null>(null);
   const lastLoadedStreamRef = useRef<string>('');
+
+  // Auto-Restart and Freeze Recovery state (Strictly ASCII comments)
+  const [streamNonce, setStreamNonce] = useState<number>(0);
+  const [isAutoRecovering, setIsAutoRecovering] = useState<boolean>(false);
+  const [autoRecoverySecondsLeft, setAutoRecoverySecondsLeft] = useState<number>(5);
+  const [isAutoRestartEnabled, setIsAutoRestartEnabled] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem('mastertv_client_preferences');
+      if (raw) return JSON.parse(raw).autoRestartOnFreeze ?? true;
+    } catch {}
+    return true;
+  });
+
+  const lastCurrentTimeRef = useRef<number>(0);
+  const consecutiveFrozenSecondsRef = useRef<number>(0);
+  const isVideoStalledRef = useRef<boolean>(false);
+  const restartAttemptsRef = useRef<number>(0);
+
+  const restartStream = useCallback(() => {
+    setIsAutoRecovering(true);
+    setStreamError(null);
+    setIsLoadingStream(true);
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+      } catch {}
+      hlsRef.current = null;
+    }
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      } catch {}
+    }
+    lastLoadedStreamRef.current = '';
+    setStreamNonce((n) => n + 1);
+  }, []);
 
   // Clean up HLS when PlayerView unmounts
   useEffect(() => {
@@ -363,38 +402,50 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               networkRetryCount++;
-              if (networkRetryCount <= 2) {
+              if (networkRetryCount <= 3) {
                 hls.startLoad();
               } else {
+                networkRetryCount = 0;
                 if (connectTimeout) {
                   window.clearTimeout(connectTimeout);
                   connectTimeout = null;
                 }
-                setActiveSource((prev) => {
-                  const sources = channelSourcesRef.current;
-                  const currentIdx = sources.findIndex((s) => s.id === prev);
-                  if (currentIdx !== -1 && currentIdx < sources.length - 1) {
-                    return sources[currentIdx + 1].id;
-                  }
+                const sources = channelSourcesRef.current;
+                const currentIdx = sources.findIndex((s) => s.id === activeSource);
+                if (currentIdx !== -1 && currentIdx < sources.length - 1) {
+                  setActiveSource(sources[currentIdx + 1].id);
+                } else if (isAutoRestartEnabled) {
+                  restartStream();
+                } else {
                   setStreamError('Sinal temporariamente indisponivel nesta fonte');
                   setIsLoadingStream(false);
-                  hls.destroy();
-                  return prev;
-                });
+                }
               }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               hls.recoverMediaError();
               break;
             default:
-              if (connectTimeout) {
-                window.clearTimeout(connectTimeout);
-                connectTimeout = null;
+              if (isAutoRestartEnabled) {
+                restartStream();
+              } else {
+                if (connectTimeout) {
+                  window.clearTimeout(connectTimeout);
+                  connectTimeout = null;
+                }
+                setStreamError('Sinal temporariamente indisponivel nesta fonte');
+                setIsLoadingStream(false);
               }
-              setStreamError('Sinal temporariamente indisponivel nesta fonte');
-              setIsLoadingStream(false);
-              hls.destroy();
               break;
+          }
+        } else {
+          // Handle non-fatal buffer stalls immediately by jumping to live sync edge
+          if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+            if (hls.liveSyncPosition) {
+              video.currentTime = hls.liveSyncPosition;
+            }
+            hls.startLoad();
+            video.play().catch(() => {});
           }
         }
       });
@@ -415,16 +466,16 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           window.clearTimeout(connectTimeout);
           connectTimeout = null;
         }
-        setActiveSource((prev) => {
-          const sources = channelSourcesRef.current;
-          const currentIdx = sources.findIndex((s) => s.id === prev);
-          if (currentIdx !== -1 && currentIdx < sources.length - 1) {
-            return sources[currentIdx + 1].id;
-          }
+        const sources = channelSourcesRef.current;
+        const currentIdx = sources.findIndex((s) => s.id === activeSource);
+        if (currentIdx !== -1 && currentIdx < sources.length - 1) {
+          setActiveSource(sources[currentIdx + 1].id);
+        } else if (isAutoRestartEnabled) {
+          restartStream();
+        } else {
           setIsLoadingStream(false);
           setStreamError('Transmissao temporariamente indisponivel nesta fonte');
-          return prev;
-        });
+        }
       };
     }
 
@@ -441,7 +492,127 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       }
       lastLoadedStreamRef.current = '';
     };
-  }, [streamToPlay]);
+  }, [streamToPlay, streamNonce]);
+
+  // Auto-retry countdown when streamError occurs
+  useEffect(() => {
+    if (!streamError || !isAutoRestartEnabled) {
+      setAutoRecoverySecondsLeft(5);
+      return;
+    }
+    setAutoRecoverySecondsLeft(5);
+    const interval = window.setInterval(() => {
+      setAutoRecoverySecondsLeft((prev) => {
+        if (prev <= 1) {
+          window.clearInterval(interval);
+          restartStream();
+          return 5;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [streamError, isAutoRestartEnabled, restartStream]);
+
+  // Live Stream Anti-Freeze Watchdog (Strictly ASCII comments)
+  useEffect(() => {
+    if (!isAutoRestartEnabled) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onWaiting = () => {
+      isVideoStalledRef.current = true;
+    };
+    const onPlaying = () => {
+      isVideoStalledRef.current = false;
+      consecutiveFrozenSecondsRef.current = 0;
+      setIsAutoRecovering(false);
+      restartAttemptsRef.current = 0;
+    };
+    const onTimeUpdate = () => {
+      isVideoStalledRef.current = false;
+      consecutiveFrozenSecondsRef.current = 0;
+      setIsAutoRecovering(false);
+    };
+
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('stalled', onWaiting);
+    video.addEventListener('playing', onPlaying);
+    video.addEventListener('timeupdate', onTimeUpdate);
+
+    const watchdog = window.setInterval(() => {
+      if (!videoRef.current || isLoadingStream || streamError || isAutoplayBlocked) {
+        return;
+      }
+      const vid = videoRef.current;
+      if (vid.paused || vid.ended) {
+        consecutiveFrozenSecondsRef.current = 0;
+        return;
+      }
+
+      const cur = vid.currentTime;
+      const last = lastCurrentTimeRef.current;
+      const advanced = Math.abs(cur - last) > 0.05;
+      lastCurrentTimeRef.current = cur;
+
+      if (!advanced || isVideoStalledRef.current || vid.readyState <= 2) {
+        consecutiveFrozenSecondsRef.current += 1;
+        const frozen = consecutiveFrozenSecondsRef.current;
+
+        // Stage 1: Fast live catch-up after 4 seconds of stall
+        if (frozen === 4) {
+          setIsAutoRecovering(true);
+          if (hlsRef.current) {
+            if (hlsRef.current.liveSyncPosition) {
+              vid.currentTime = hlsRef.current.liveSyncPosition;
+            } else if (Number.isFinite(vid.duration) && vid.duration > 1) {
+              vid.currentTime = Math.max(0, vid.duration - 0.5);
+            }
+            hlsRef.current.startLoad();
+          } else {
+            vid.currentTime += 0.2;
+          }
+          vid.play().catch(() => {});
+        }
+
+        // Stage 2: Media Error Recovery at 7 seconds
+        if (frozen === 7) {
+          setIsAutoRecovering(true);
+          if (hlsRef.current) {
+            hlsRef.current.recoverMediaError();
+            hlsRef.current.startLoad(-1);
+          }
+          vid.play().catch(() => {});
+        }
+
+        // Stage 3: Full Stream Restart at 9 seconds
+        if (frozen >= 9) {
+          consecutiveFrozenSecondsRef.current = 0;
+          restartAttemptsRef.current += 1;
+          const sources = channelSourcesRef.current;
+          if (restartAttemptsRef.current >= 3 && sources.length > 1) {
+            restartAttemptsRef.current = 0;
+            cycleSource();
+          } else {
+            restartStream();
+          }
+        }
+      } else {
+        consecutiveFrozenSecondsRef.current = 0;
+        if (isAutoRecovering) {
+          setIsAutoRecovering(false);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      video.removeEventListener('waiting', onWaiting);
+      video.removeEventListener('stalled', onWaiting);
+      video.removeEventListener('playing', onPlaying);
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      window.clearInterval(watchdog);
+    };
+  }, [isLoadingStream, streamError, isAutoplayBlocked, isAutoRestartEnabled, cycleSource, restartStream, isAutoRecovering]);
 
   // Effective controls visibility takes navbar hover into account
   const isControlsVisible = showControls || isNavbarHovered;
@@ -979,6 +1150,14 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </button>
         )}
 
+        {/* Auto-Recovery Pulsing Indicator */}
+        {isAutoRecovering && !streamError && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-950/85 border border-cyan-500/40 backdrop-blur-md shadow-lg shadow-cyan-500/20 text-cyan-300 text-xs font-semibold animate-pulse pointer-events-none">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+            <span>Sinal instavel detectado. Sincronizando transmissao...</span>
+          </div>
+        )}
+
       {/* Loading Overlay */}
       {isLoadingStream && (
         <div className="absolute inset-0 bg-[#07090e]/80 backdrop-blur-md flex flex-col items-center justify-center pointer-events-none z-10 animate-in fade-in duration-200">
@@ -1012,11 +1191,19 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             <Tv className="w-8 h-8 text-red-400" />
           </div>
           <h3 className="text-lg font-bold text-white mb-1">{streamError}</h3>
-          <p className="text-xs text-slate-400 max-w-md mb-4">
+          <p className="text-xs text-slate-400 max-w-md mb-3">
             {channelSources.length > 1
-              ? `Voce pode alternar entre as ${channelSources.length} fontes disponiveis ou selecionar outro canal.`
-              : 'Voce pode tentar recarregar a transmissao ou selecionar outro canal.'}
+              ? `Voce pode alternar entre as ${channelSources.length} fontes disponiveis ou aguardar a reconexao automatica.`
+              : 'O sinal sera reiniciado automaticamente para restaurar a transmissao.'}
           </p>
+
+          {isAutoRestartEnabled && (
+            <div className="flex items-center gap-2 mb-4 px-3.5 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 text-xs font-semibold">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+              <span>Reconectando automaticamente em {autoRecoverySecondsLeft}s...</span>
+            </div>
+          )}
+
           <div className="flex gap-3">
             {channelSources.length > 1 && (
               <button
@@ -1028,15 +1215,12 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             )}
             <button
               onClick={() => {
-                setStreamError(null);
-                setIsLoadingStream(true);
-                if (hlsRef.current) {
-                  hlsRef.current.startLoad();
-                }
+                restartStream();
               }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs transition-all"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              Tentar Novamente
+              <RefreshCw className="w-3 h-3 text-cyan-400" />
+              <span>Reconectar Agora</span>
             </button>
           </div>
         </div>
@@ -1595,6 +1779,28 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             >
               <Zap className="w-3 h-3 fill-current" />
               <span>ZERO DELAY</span>
+            </button>
+
+            {/* Anti-Trava Auto-Restart Badge */}
+            <button
+              onClick={() => {
+                const nextVal = !isAutoRestartEnabled;
+                setIsAutoRestartEnabled(nextVal);
+                try {
+                  const raw = localStorage.getItem('mastertv_client_preferences');
+                  const cur = raw ? JSON.parse(raw) : {};
+                  localStorage.setItem('mastertv_client_preferences', JSON.stringify({ ...cur, autoRestartOnFreeze: nextVal }));
+                } catch {}
+              }}
+              title="Reconexao Automatica ao Travar: Reinicia o canal ao vivo caso o sinal congele"
+              className={`hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                isAutoRestartEnabled
+                  ? 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 shadow-sm shadow-cyan-900/30'
+                  : 'bg-white/5 border border-white/10 text-slate-400 opacity-60'
+              }`}
+            >
+              <RefreshCw className={`w-3 h-3 ${isAutoRecovering ? 'animate-spin text-cyan-400' : ''}`} />
+              <span>{isAutoRestartEnabled ? 'ANTI-TRAVA' : 'TRAVA LIVRE'}</span>
             </button>
 
             {/* Stereo Audio Mode */}

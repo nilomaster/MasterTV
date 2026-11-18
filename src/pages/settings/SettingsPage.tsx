@@ -17,6 +17,7 @@ import {
   Zap,
   Volume2,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getClientPreferences,
@@ -177,6 +178,30 @@ export const SettingsPage: React.FC = () => {
                 type="checkbox"
                 checked={prefs.smartAudio}
                 onChange={(e) => updatePreference('smartAudio', e.target.checked)}
+                className="w-4 h-4 accent-cyan-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Auto-Restart on Freeze / Anti-Travamento */}
+            <div className="p-4 rounded-xl bg-[#0b0e14] border border-cyan-500/20 flex items-center justify-between shadow-sm shadow-cyan-500/10">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 text-cyan-400" />
+                <div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Reconexao Automatica ao Travar</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      ATIVO
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Reinicia o sinal ao vivo automaticamente caso congele ou o buffer trave
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={prefs.autoRestartOnFreeze}
+                onChange={(e) => updatePreference('autoRestartOnFreeze', e.target.checked)}
                 className="w-4 h-4 accent-cyan-500 cursor-pointer"
               />
             </div>

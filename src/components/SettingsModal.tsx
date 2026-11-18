@@ -25,11 +25,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [hardwareAcceleration, setHardwareAcceleration] = useState<boolean>(true);
   const [lowLatency, setLowLatency] = useState<boolean>(true);
   const [bufferSize, setBufferSize] = useState<string>('30s');
+  const [autoRestartOnFreeze, setAutoRestartOnFreeze] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem('mastertv_client_preferences');
+      if (raw) return JSON.parse(raw).autoRestartOnFreeze ?? true;
+    } catch {}
+    return true;
+  });
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
   const handleSave = () => {
+    try {
+      const raw = localStorage.getItem('mastertv_client_preferences');
+      const cur = raw ? JSON.parse(raw) : {};
+      localStorage.setItem('mastertv_client_preferences', JSON.stringify({ ...cur, autoRestartOnFreeze, hardwareAcceleration, lowLatency, bufferSize }));
+    } catch {}
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -130,6 +142,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onClick={() => setLowLatency(!lowLatency)}
               className={`w-11 h-6 rounded-full transition-colors p-1 flex items-center ${
                 lowLatency ? 'bg-blue-600 justify-end' : 'bg-slate-700 justify-start'
+              }`}
+            >
+              <div className="w-4 h-4 rounded-full bg-slate-950 shadow"></div>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-cyan-500/20">
+            <div>
+              <span className="font-bold text-white flex items-center gap-1.5">
+                <span>Reconexão Automática ao Travar</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                  ANTI-TRAVA
+                </span>
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Reinicia canais ao vivo de forma automática caso o sinal congele.
+              </span>
+            </div>
+            <button
+              onClick={() => setAutoRestartOnFreeze(!autoRestartOnFreeze)}
+              className={`w-11 h-6 rounded-full transition-colors p-1 flex items-center ${
+                autoRestartOnFreeze ? 'bg-cyan-500 justify-end' : 'bg-slate-700 justify-start'
               }`}
             >
               <div className="w-4 h-4 rounded-full bg-slate-950 shadow"></div>
