@@ -42,18 +42,25 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMoviesDesktopView = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
   const isSeriesDesktopView = currentView === 'vod' && vodFilter === 'series';
   const isKidsDesktopView = currentView === 'kids';
+  const isAnimeDesktopView = currentView === 'anime';
   const useWaveBackdrop = currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView;
 
   return (
-    <div className={`w-full ${isKidsDesktopView ? 'bg-[#0874CB]' : 'bg-[#030A16]'} text-slate-100 flex flex-col relative font-sans ${
-      currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView || isKidsDesktopView
+    <div className={`w-full ${
+      isKidsDesktopView
+        ? 'bg-[#0874CB]'
+        : isAnimeDesktopView
+        ? 'bg-[#101116]'
+        : 'bg-[#030A16]'
+    } text-slate-100 flex flex-col relative font-sans ${
+      currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView || isKidsDesktopView || isAnimeDesktopView
         ? 'h-[100dvh] overflow-hidden'
         : 'min-h-[100dvh] overflow-x-hidden'
     }`}>
-      {/* Ambient brand background lighting (or dedicated Live TV / Movies / Series / Kids backdrop) */}
+      {/* Ambient brand background lighting (suppressed on Anime page for clean neon-free dark backdrop) */}
       {isKidsDesktopView ? (
         <KidsAnimatedBackground />
-      ) : (
+      ) : isAnimeDesktopView ? null : (
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           {useWaveBackdrop ? (
             <img

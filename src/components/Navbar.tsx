@@ -743,6 +743,143 @@ export const Navbar: React.FC<NavbarProps> = ({
     );
   }
 
+  // Dedicated Anime Header (Clean dark #14161B & #FF6400 orange accents, ZERO neon, NO icon beside Anime title)
+  if (isAnimeActive) {
+    return (
+      <>
+        <header className="z-40 w-full bg-[#14161B] border-b border-[#282B32] relative shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 lg:px-7 py-3 max-w-[1920px] mx-auto gap-4">
+            {/* LEFT: MasterTV Logo (returns to Home) + Divider + Pure White Anime Title (no icon) */}
+            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+              <div
+                onClick={() => {
+                  setSearchQuery('');
+                  handleNavClick('home');
+                }}
+                className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
+                title="Voltar para a Pagina Inicial"
+              >
+                <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+                  <img
+                    src="./assets/img/icons/logo.png"
+                    alt="MasterTV Logo"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-xl tracking-tight leading-none flex items-center">
+                    <span className="text-white">Master</span>
+                    <span className="text-[#FF6400]">TV</span>
+                  </span>
+                  <span className="text-[9px] font-semibold text-[#B8BBC5] uppercase tracking-[0.24em] leading-none mt-1 hidden sm:block">
+                    ULTRA HD TV
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-9 w-px bg-[#282B32] shrink-0" />
+
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white leading-none">
+                  Anime
+                </h1>
+                <p className="text-xs text-[#B8BBC5] font-medium mt-1 truncate hidden sm:block">
+                  O melhor do mundo dos animes em um só lugar
+                </p>
+              </div>
+            </div>
+
+            {/* RIGHT: Search, Notifications, User Profile, Divider, Clock & Date */}
+            <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+              <button
+                onClick={() => setSearchBarOpen((prev) => !prev)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center border transition-colors duration-150 cursor-pointer ${
+                  searchBarOpen || searchQuery
+                    ? 'bg-[#FF6400] border-[#FF6400] text-white'
+                    : 'bg-[#202229] hover:bg-[#30333B] border-[#30333B] text-white'
+                }`}
+                title="Pesquisar animes"
+                aria-label="Pesquisar animes"
+              >
+                <Search className="w-[18px] h-[18px]" />
+              </button>
+
+              <button
+                onClick={() => setIsNotificationOpen(true)}
+                className="relative w-10 h-10 rounded-full bg-[#202229] hover:bg-[#30333B] border border-[#30333B] text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
+                title="Notificacoes"
+                aria-label="Notificacoes"
+              >
+                <Bell className="w-[18px] h-[18px]" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF6400]" />
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="w-10 h-10 rounded-full bg-[#202229] hover:bg-[#30333B] border border-[#30333B] text-white flex items-center justify-center transition-colors duration-150 cursor-pointer"
+                title="Perfil do Usuario"
+                aria-label="Perfil do Usuario"
+              >
+                <User className="w-[18px] h-[18px]" />
+              </button>
+
+              <div className="hidden sm:block h-8 w-px bg-[#282B32] mx-1" />
+
+              <div className="hidden sm:block">
+                <UniTVClock showDate />
+              </div>
+            </div>
+          </div>
+
+          {/* Expandable Search Input Bar for Anime */}
+          {searchBarOpen && (
+            <div className="px-4 sm:px-6 lg:px-7 pb-3">
+              <div className="max-w-xl ml-auto relative flex items-center">
+                <Search className="absolute left-4 w-4 h-4 text-[#FF6400]" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar animes por titulo, genero ou ano..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full bg-[#17191F] border border-[#30333B] rounded-[10px] pl-11 pr-10 py-2.5 text-sm text-white placeholder-[#B8BBC5] focus:outline-none focus:border-[#FF6400]"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3.5 text-[#B8BBC5] hover:text-white cursor-pointer"
+                    aria-label="Limpar busca"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </header>
+
+        {/* Notification Drawer Component */}
+        <UniTVNotificationDrawer
+          isOpen={isNotificationOpen}
+          onClose={() => setIsNotificationOpen(false)}
+          notifications={notifications}
+          onClearAll={() => setNotifications([])}
+        />
+
+        {/* User Profile & Account Modal */}
+        <UniTVProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          clientSession={clientSession || null}
+          onLogout={onLogout || (() => {})}
+          favoritesCount={favoritesCount}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {/* Top Header Navigation - Internal Pages (Preserved) */}

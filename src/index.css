@@ -168,6 +168,20 @@
     animation: none !important;
   }
 }
+
+/* Scoped CSS Variables exclusively for the Anime page (Zero neon, Crunchyroll-inspired palette) */
+.anime-theme {
+  --anime-bg-main: #101116;
+  --anime-bg-secondary: #17191F;
+  --anime-bg-sidebar: #14161B;
+  --anime-bg-card: #202229;
+  --anime-orange: #FF6400;
+  --anime-orange-hover: #FF8533;
+  --anime-text-primary: #FFFFFF;
+  --anime-text-secondary: #B8BBC5;
+  --anime-border: #30333B;
+  --anime-divider: #282B32;
+}
 .no-scrollbar {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
