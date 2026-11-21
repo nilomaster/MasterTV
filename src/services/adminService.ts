@@ -104,13 +104,13 @@ export class AdminService {
     try {
       let res: Response;
       try {
-        res = await fetch(primaryUrl);
+        res = await fetch(primaryUrl, { cache: 'no-store' });
         if (!res.ok && primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl);
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
         }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl);
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
         } else {
           throw err;
         }
@@ -729,9 +729,9 @@ export class AdminService {
   static getChannels(): AdminContentItem[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_CHANNELS);
-      if (raw) {
+      if (raw !== null) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.filter(Boolean);
         }
       }
@@ -739,15 +739,44 @@ export class AdminService {
     return this.getContents().filter((c) => c && c.type === 'channel');
   }
 
-  static saveChannelsLocally(channels: AdminContentItem[]) {
-    if (!Array.isArray(channels) || channels.length === 0) return;
+  static clearChannelsLocally() {
+    try {
+      // Persist explicit empty array so getChannels never falls back to stale contents
+      localStorage.setItem(STORAGE_KEY_CHANNELS, '[]');
+      if (this.inMemoryContents) {
+        this.inMemoryContents = this.inMemoryContents.filter((c) => c && c.type !== 'channel');
+      }
+      const rawContents = localStorage.getItem(STORAGE_KEY_CONTENTS);
+      if (rawContents) {
+        const parsed = JSON.parse(rawContents);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem(
+            STORAGE_KEY_CONTENTS,
+            JSON.stringify(parsed.filter((c: any) => c && c.type !== 'channel'))
+          );
+        }
+      }
+    } catch {}
+  }
+
+  static saveChannelsLocally(channels: AdminContentItem[], allowEmpty = false) {
+    if (!Array.isArray(channels)) return;
+    if (channels.length === 0) {
+      if (allowEmpty) {
+        this.clearChannelsLocally();
+      }
+      return;
+    }
     try {
       localStorage.setItem(STORAGE_KEY_CHANNELS, JSON.stringify(channels.filter(Boolean)));
     } catch {}
   }
 
   // Save contents to in-memory cache and localStorage with quota protection and balanced multi-type sampling
-  static saveContentsLocally(contents: AdminContentItem[]) {
+  static saveContentsLocally(
+    contents: AdminContentItem[],
+    options?: { allowClearChannels?: boolean }
+  ) {
     const safeArray = Array.isArray(contents) ? contents.filter(Boolean) : [];
     this.inMemoryContents = safeArray;
 
@@ -755,9 +784,16 @@ export class AdminService {
     const channels = safeArray.filter((c) => c.type === 'channel');
     if (channels.length > 0) {
       this.saveChannelsLocally(channels);
+    } else if (options?.allowClearChannels) {
+      this.clearChannelsLocally();
     }
-    // Always preserve existing live channels so they never vanish
-    const preservedChannels = channels.length > 0 ? channels : this.getChannels();
+    // Preserve existing live channels during normal partial syncs, unless explicitly cleared
+    const preservedChannels =
+      channels.length > 0
+        ? channels
+        : options?.allowClearChannels
+        ? []
+        : this.getChannels();
 
     const movies = safeArray.filter((c) => c.type === 'movie');
     const series = safeArray.filter((c) => c.type === 'series');
@@ -884,13 +920,13 @@ export class AdminService {
     try {
       let res: Response;
       try {
-        res = await fetch(primaryUrl);
+        res = await fetch(primaryUrl, { cache: 'no-store' });
         if (!res.ok && primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl);
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
         }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl);
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
         } else {
           throw err;
         }
@@ -935,7 +971,10 @@ export class AdminService {
             createdAt: item.created_at,
             updatedAt: item.updated_at,
           }));
-          this.saveChannelsLocally(mapped);
+          this.saveChannelsLocally(mapped, true);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('mastertv_catalog_updated'));
+          }
           return mapped;
         }
       }
@@ -957,13 +996,13 @@ export class AdminService {
     try {
       let res: Response;
       try {
-        res = await fetch(primaryUrl);
+        res = await fetch(primaryUrl, { cache: 'no-store' });
         if (!res.ok && primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl);
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
         }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl);
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
         } else {
           throw err;
         }
@@ -1008,7 +1047,7 @@ export class AdminService {
             createdAt: item.created_at,
             updatedAt: item.updated_at,
           }));
-          this.saveContentsLocally(mapped);
+          this.saveContentsLocally(mapped, { allowClearChannels: !type && mapped.length === 0 });
           return mapped;
         }
       }
@@ -1276,9 +1315,13 @@ export class AdminService {
         const data = await res.json();
         if (type) {
           const current = this.getContents();
-          this.saveContentsLocally(current.filter((c) => c.type !== type));
+          this.saveContentsLocally(
+            current.filter((c) => c.type !== type),
+            { allowClearChannels: type === 'channel' }
+          );
         } else {
-          this.saveContentsLocally([]);
+          this.clearChannelsLocally();
+          this.saveContentsLocally([], { allowClearChannels: true });
         }
         return { success: true, message: data.message || 'Catalogo limpo com sucesso!' };
       }
