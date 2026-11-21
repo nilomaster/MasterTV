@@ -39,11 +39,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { currentView, vodFilter, navigateTo } = useNavigation();
 
   const isMoviesDesktopView = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
-  const useWaveBackdrop = currentView === 'player' || isMoviesDesktopView;
+  const isSeriesDesktopView = currentView === 'vod' && vodFilter === 'series';
+  const useWaveBackdrop = currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView;
 
   return (
-    <div className={`w-full bg-[#050B16] text-slate-100 flex flex-col relative font-sans ${
-      currentView === 'player' || isMoviesDesktopView ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-x-hidden'
+    <div className={`w-full bg-[#030A16] text-slate-100 flex flex-col relative font-sans ${
+      currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView
+        ? 'h-[100dvh] overflow-hidden'
+        : 'min-h-[100dvh] overflow-x-hidden'
     }`}>
       {/* Ambient brand background lighting (or dedicated Live TV / Movies wave backdrop) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
