@@ -6,6 +6,7 @@ import { Navbar } from '../components/Navbar';
 import { PlaylistModal } from '../components/PlaylistModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { MediaModal } from '../components/MediaModal';
+import { KidsAnimatedBackground } from '../components/kids/KidsAnimatedBackground';
 import { useApp } from '../context/AppContext';
 import { useNavigation } from '../context/NavigationContext';
 
@@ -40,30 +41,35 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const isMoviesDesktopView = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
   const isSeriesDesktopView = currentView === 'vod' && vodFilter === 'series';
+  const isKidsDesktopView = currentView === 'kids';
   const useWaveBackdrop = currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView;
 
   return (
-    <div className={`w-full bg-[#030A16] text-slate-100 flex flex-col relative font-sans ${
-      currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView
+    <div className={`w-full ${isKidsDesktopView ? 'bg-[#0874CB]' : 'bg-[#030A16]'} text-slate-100 flex flex-col relative font-sans ${
+      currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView || isKidsDesktopView
         ? 'h-[100dvh] overflow-hidden'
         : 'min-h-[100dvh] overflow-x-hidden'
     }`}>
-      {/* Ambient brand background lighting (or dedicated Live TV / Movies wave backdrop) */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {useWaveBackdrop ? (
-          <img
-            src="./assets/img/home/fundo_aovivo.png"
-            alt=""
-            aria-hidden="true"
-            className="hidden md:block w-full h-full object-cover"
-          />
-        ) : (
-          <>
-            <div className="absolute -top-[300px] left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-[140px]" />
-            <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-blue-800/5 blur-[120px]" />
-          </>
-        )}
-      </div>
+      {/* Ambient brand background lighting (or dedicated Live TV / Movies / Series / Kids backdrop) */}
+      {isKidsDesktopView ? (
+        <KidsAnimatedBackground />
+      ) : (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          {useWaveBackdrop ? (
+            <img
+              src="./assets/img/home/fundo_aovivo.png"
+              alt=""
+              aria-hidden="true"
+              className="hidden md:block w-full h-full object-cover"
+            />
+          ) : (
+            <>
+              <div className="absolute -top-[300px] left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-[140px]" />
+              <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-blue-800/5 blur-[120px]" />
+            </>
+          )}
+        </div>
+      )}
 
       {/* Top Navbar */}
       <header className="relative z-40 shrink-0">

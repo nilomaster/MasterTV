@@ -1,101 +1,40 @@
-// MasterTV UniTV-Style Kids Bento Showcase & Synchronized Cartoons Catalog
-// Exact 1:1 match to UniTV Kids interface (media_1794979782484_0f6c5b62.jpg)
-// Fully synchronized with real imported Desenhos, Kids Series, Movies & Live Channels from MySQL/M3U
-// Strictly ASCII comments only
+// MasterTV Redesigned Desktop Kids Catalog View
+// Cheerful, colorful cartoon-style interface with zero excessive neon
+// Two-column layout: Left Kids Sidebar (#07539A with #FFD93D active pill) + Right Banner & Real Kids Catalog
+// Preserves 100% of real synchronized cartoons, series, movies, live kids channels, search and MediaModal/Player
+// Strictly ASCII comments only as per project guidelines
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Play, Sparkles, Search, Tv, Film, Clapperboard, ChevronDown, Layers } from 'lucide-react';
+import {
+  Star,
+  Rocket,
+  Tv,
+  Film,
+  Clapperboard,
+  BookOpen,
+  Music,
+  Sparkles,
+  Play,
+  Search,
+  ChevronRight,
+  X,
+  Loader2,
+  Heart,
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNavigation } from '../../context/NavigationContext';
 import { AdminService } from '../../services/adminService';
 import type { AdminContentItem } from '../../types/admin';
 import type { MediaItem, Channel } from '../../types/iptv';
 
-export interface KidsShowcaseSlot {
-  id: string;
-  defaultTitle: string;
-  defaultCategory: string;
-  image: string;
-  defaultTag?: string;
-  searchKeywords: string[];
-  streamUrl?: string;
-  mediaItem?: MediaItem;
+interface KidsViewProps {
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }
 
-const SHOWCASE_SLOTS: KidsShowcaseSlot[] = [
-  {
-    id: 'kids-peanuts-movie',
-    defaultTitle: 'The Peanuts Movie',
-    defaultCategory: 'Filme Animacao',
-    image: './assets/img/covers/kids_peanuts_movie.webp',
-    defaultTag: 'Destaque Kids',
-    searchKeywords: ['peanuts', 'snoopy', 'charlie brown'],
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  },
-  {
-    id: 'kids-galinha',
-    defaultTitle: 'Galinha Pintadinha',
-    defaultCategory: 'Desenho & Cancoes',
-    image: './assets/img/covers/kids_galinha.webp',
-    defaultTag: 'Sucesso Infantil',
-    searchKeywords: ['galinha pintadinha', 'galinha'],
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-  },
-  {
-    id: 'kids-dbillions',
-    defaultTitle: 'DBillions',
-    defaultCategory: 'Musica & Danca',
-    image: './assets/img/covers/kids_dbillions.webp',
-    defaultTag: 'Educativo',
-    searchKeywords: ['dbillions', 'd billions'],
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  },
-  {
-    id: 'kids-mais',
-    defaultTitle: 'Mais Desenhos',
-    defaultCategory: 'Explorar Catalogo',
-    image: './assets/img/covers/kids_mais.webp',
-    defaultTag: 'Ver Todos',
-    searchKeywords: ['mais'],
-  },
-  {
-    id: 'kids-animes',
-    defaultTitle: 'Animes Kids',
-    defaultCategory: 'Animes & Shonen',
-    image: './assets/img/covers/kids_animes.webp',
-    defaultTag: 'Animes',
-    searchKeywords: ['anime'],
-  },
-  {
-    id: 'kids-oddbods',
-    defaultTitle: 'Oddbods',
-    defaultCategory: 'Comedia Infantil',
-    image: './assets/img/covers/kids_oddbods.webp',
-    defaultTag: 'Diversao',
-    searchKeywords: ['oddbods', 'odd bods'],
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  },
-  {
-    id: 'kids-snoopy-lar',
-    defaultTitle: 'Lar, Snoopy',
-    defaultCategory: 'Serie Animada',
-    image: './assets/img/covers/kids_snoopy_lar.webp',
-    defaultTag: 'Especial',
-    searchKeywords: ['lar, snoopy', 'snoopy no espaco', 'snoopy'],
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-  },
-  {
-    id: 'kids-evolution',
-    defaultTitle: 'Evolution',
-    defaultCategory: 'Aventura & Ciencia',
-    image: './assets/img/covers/kids_evolution.webp',
-    defaultTag: 'Animacao 3D',
-    searchKeywords: ['evolution', 'evolucao'],
-    streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-  },
-];
+const PAGE_SIZE = 36;
 
-// Helper to test if an item is a cartoon or kids content
+// Detect if an item belongs to Kids / Desenhos catalog
 function isKidsContentItem(item: AdminContentItem | Channel): boolean {
   const title = (
     ('title' in item ? item.title : '') ||
@@ -104,9 +43,9 @@ function isKidsContentItem(item: AdminContentItem | Channel): boolean {
   ).toLowerCase();
 
   const category = (
-    ('channelCategory' in item ? (item.channelCategory || '') : '') ||
-    ('category' in item ? ((item as any).category || '') : '') ||
-    ('groupTitle' in item ? ((item as any).groupTitle || '') : '') ||
+    ('channelCategory' in item ? item.channelCategory || '' : '') ||
+    ('category' in item ? (item as any).category || '' : '') ||
+    ('groupTitle' in item ? (item as any).groupTitle || '' : '') ||
     ''
   ).toLowerCase();
 
@@ -134,7 +73,6 @@ function isKidsContentItem(item: AdminContentItem | Channel): boolean {
     'nick jr',
     'discovery kids',
     'baby tv',
-    'tooncami',
     'peppa',
     'galinha pintadinha',
     'bob esponja',
@@ -155,40 +93,47 @@ function isKidsContentItem(item: AdminContentItem | Channel): boolean {
     'pocoyo',
     'dora',
     'baby shark',
-    'naruto',
-    'pokemon',
-    'pokémon',
-    'dragon ball',
   ];
 
   if (kidsKeywords.some((k) => category.includes(k))) return true;
   if (kidsKeywords.some((k) => genres.some((g) => g.includes(k)))) return true;
   if (kidsKeywords.some((k) => title.includes(k))) return true;
-
   return false;
 }
 
-// Convert AdminContentItem to MediaItem format
+// Convert AdminContentItem to MediaItem preserving all real seasons, episodes, IDs and URLs
 function toMediaItem(c: AdminContentItem): MediaItem {
   return {
-    id: String(c.id || `custom-vod-${Math.random()}`),
+    id: String(c.id || `kids-vod-${Math.random()}`),
     title: String(c.title || 'Titulo'),
     tagline: c.tagline ? String(c.tagline) : undefined,
     type: (c.type as 'movie' | 'series' | 'anime' | 'dorama') || 'movie',
-    year: Number(c.year) || 2026,
-    rating: Number(c.rating) || 8.0,
-    duration: String(c.duration || '1h 30m'),
+    year: Number(c.year) || 0,
+    rating: Number(c.rating) || 0,
+    duration: c.duration ? String(c.duration) : undefined,
     contentRating: c.contentRating ? String(c.contentRating) : 'Livre',
     genres: Array.isArray(c.genres)
-      ? c.genres.map(String).filter(Boolean)
+      ? c.genres.map(String).map((g) => g.trim()).filter(Boolean)
       : typeof c.genres === 'string'
       ? String(c.genres).split(',').map((g) => g.trim()).filter(Boolean)
-      : ['Kids & Animacao'],
+      : [],
     posterUrl: String(c.posterUrl || ''),
     backdropUrl: String(c.backdropUrl || c.posterUrl || ''),
-    description: String(c.description || `${c.title} - Disponivel no catalogo MasterTV Kids.`),
+    description: String(c.description || ''),
     streamUrl: String(c.streamUrl || ''),
     backupStreamUrl: c.backupStreamUrl ? String(c.backupStreamUrl) : undefined,
+    sources: Array.isArray((c as any).sourcesList) && (c as any).sourcesList.length > 0
+      ? (c as any).sourcesList.map((s: any, idx: number) => ({
+          id: Number(s.id) || idx + 1,
+          name: String(s.name || `Fonte ${idx + 1}`),
+          quality: s.quality ? String(s.quality) : undefined,
+          streamUrl: String(s.streamUrl || s.url || ''),
+          url: String(s.streamUrl || s.url || ''),
+          backupStreamUrl: s.backupStreamUrl ? String(s.backupStreamUrl) : undefined,
+        }))
+      : Array.isArray((c as any).sources) && (c as any).sources.length > 0
+      ? (c as any).sources
+      : undefined,
     seasons: Number(c.seasons) || undefined,
     episodes: Number(c.episodes) || undefined,
     episodeList: Array.isArray(c.episodesList)
@@ -204,24 +149,131 @@ function toMediaItem(c: AdminContentItem): MediaItem {
   };
 }
 
-export const KidsView: React.FC = () => {
+// Extract quality badge only when present in real metadata
+function extractRealQualityBadge(item: MediaItem): string | null {
+  const fromSource = item.sources?.find((s) => s.quality)?.quality;
+  if (fromSource) {
+    const q = fromSource.toUpperCase();
+    if (q.includes('4K') || q.includes('UHD')) return '4K';
+    if (q.includes('FHD') || q.includes('1080')) return 'FHD';
+    if (q.includes('HD') || q.includes('720')) return 'HD';
+  }
+  const t = (item.title || '').toUpperCase();
+  if (/\b(4K|UHD)\b/.test(t)) return '4K';
+  if (/\b(FHD|1080P)\b/.test(t)) return 'FHD';
+  if (/\b(HD|720P)\b/.test(t)) return 'HD';
+  return null;
+}
+
+// Friendly colorful icon badge mapping for Kids sidebar
+function getKidsCategoryIconInfo(id: string, name: string) {
+  const key = `${id} ${name}`.toLowerCase();
+  if (id === 'todos') return { Icon: Star, color: 'text-[#FFD93D]', fill: true };
+  if (id === 'lancamentos') return { Icon: Rocket, color: 'text-[#FF70B5]', fill: false };
+  if (id === 'series') return { Icon: Tv, color: 'text-[#65C94A]', fill: false };
+  if (id === 'movies') return { Icon: Film, color: 'text-[#FFD93D]', fill: false };
+  if (id === 'live') return { Icon: Tv, color: 'text-[#5CC8FF]', fill: false };
+  if (key.includes('music') || key.includes('canc')) return { Icon: Music, color: 'text-[#FFD93D]', fill: false };
+  if (key.includes('educat')) return { Icon: BookOpen, color: 'text-[#65C94A]', fill: false };
+  if (key.includes('animac') || key.includes('animaç')) return { Icon: Clapperboard, color: 'text-[#FF70B5]', fill: false };
+  if (key.includes('favorit')) return { Icon: Heart, color: 'text-[#FF70B5]', fill: true };
+  return { Icon: Sparkles, color: 'text-[#FFD93D]', fill: false };
+}
+
+interface KidsCardProps {
+  item: MediaItem;
+  onSelect: (item: MediaItem) => void;
+}
+
+const KidsPosterCard: React.FC<KidsCardProps> = React.memo(({ item, onSelect }) => {
+  const qualityBadge = extractRealQualityBadge(item);
+  const coverSrc = item.posterUrl || item.backdropUrl || './assets/img/icons/favicon.svg';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item)}
+      className="group relative w-full aspect-[4/4.2] sm:aspect-[2/2.3] rounded-2xl overflow-hidden bg-[#07539A] border-2 border-white/30 hover:border-[#FFD93D] shadow-[0_10px_24px_rgba(4,40,80,0.35)] transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] focus:outline-none focus:ring-3 focus:ring-[#FFD93D] cursor-pointer text-left"
+    >
+      {/* Original API Cover with Lazy Loading */}
+      <img
+        src={coverSrc}
+        alt={item.title}
+        loading="lazy"
+        decoding="async"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          if (!target.dataset.fallbackApplied) {
+            target.dataset.fallbackApplied = '1';
+            target.src = './assets/img/icons/favicon.svg';
+          }
+        }}
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+      />
+
+      {/* Soft Bottom Gradient for Legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#053568]/95 via-[#053568]/20 to-transparent opacity-80 group-hover:opacity-95 transition-opacity" />
+
+      {/* Quality Badge (only when real metadata exists) */}
+      {qualityBadge && (
+        <span className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-[#042A52]/85 border border-white/25 text-[10px] font-extrabold tracking-wider text-white">
+          {qualityBadge}
+        </span>
+      )}
+
+      {/* Friendly Centered Play Button */}
+      <div className="absolute inset-x-0 bottom-9 sm:bottom-10 z-10 flex justify-center pointer-events-none transition-transform duration-300 group-hover:-translate-y-1.5">
+        <div className="w-10 h-10 rounded-full bg-[#042A52]/75 group-hover:bg-[#FFD93D] border-2 border-white text-white group-hover:text-[#042A52] flex items-center justify-center shadow-md transition-colors duration-200">
+          <Play className="w-4 h-4 fill-current ml-0.5" />
+        </div>
+      </div>
+
+      {/* Title at Base */}
+      <div className="absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2 pt-1">
+        <h3 className="text-xs font-extrabold text-white truncate text-center drop-shadow">
+          {item.title}
+        </h3>
+      </div>
+    </button>
+  );
+});
+
+export const KidsView: React.FC<KidsViewProps> = ({
+  searchQuery = '',
+  onClearSearch,
+}) => {
   const { playMediaStream, channels, setCurrentChannel, setSelectedMedia } = useApp();
   const { navigateTo } = useNavigation();
-  const [focusedIndex, setFocusedIndex] = useState<number>(0);
   const [catalogRevision, setCatalogRevision] = useState<number>(0);
-  const [searchFilter, setSearchFilter] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'all' | 'series' | 'movies' | 'live'>('all');
-  const catalogRef = useRef<HTMLDivElement | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('todos');
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const catalogScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync catalog from remote database on mount and listen to updates
+  // Sync catalog from remote MySQL API on mount and listen to catalog updates
   useEffect(() => {
-    AdminService.fetchRemoteContents().catch(() => {});
+    const existing = AdminService.getContents();
+    if (!existing || existing.length === 0) {
+      setIsLoading(true);
+    }
+    AdminService.fetchRemoteContents()
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+
     const handleUpdate = () => setCatalogRevision((prev) => prev + 1);
     window.addEventListener('mastertv_catalog_updated', handleUpdate);
     return () => window.removeEventListener('mastertv_catalog_updated', handleUpdate);
   }, []);
 
-  // Synchronize all contents and isolate kids items
+  // Reset pagination when changing category or search
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    if (catalogScrollRef.current) {
+      catalogScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedCategory, searchQuery]);
+
+  // Extract real kids items & live kids channels from synchronized database
   const { kidsMediaItems, kidsLiveChannels } = useMemo(() => {
     const allContents = AdminService.getContents();
     const mediaItems: MediaItem[] = [];
@@ -235,109 +287,89 @@ export const KidsView: React.FC = () => {
       });
     }
 
-    // Filter live channels for kids/desenhos categories
     const liveKids = (channels || []).filter((ch) => isKidsContentItem(ch));
-
     return {
       kidsMediaItems: mediaItems,
       kidsLiveChannels: liveKids,
     };
   }, [channels, catalogRevision]);
 
-  // Match imported items to the 8 UniTV Bento showcase cards
-  const matchedShowcaseItems = useMemo(() => {
-    return SHOWCASE_SLOTS.map((slot, index) => {
-      // 1. Try finding by matching keywords in title
-      const foundByKeyword = kidsMediaItems.find((item) => {
-        const itemTitle = (item.title || '').toLowerCase();
-        return slot.searchKeywords.some((kw) => itemTitle.includes(kw));
-      });
+  const kidsSeries = useMemo(() => kidsMediaItems.filter((i) => i.type === 'series'), [kidsMediaItems]);
+  const kidsMovies = useMemo(() => kidsMediaItems.filter((i) => i.type === 'movie'), [kidsMediaItems]);
 
-      if (foundByKeyword) {
-        return {
-          ...slot,
-          title: foundByKeyword.title,
-          category: foundByKeyword.type === 'series' ? 'Serie Animada' : 'Filme Infantil',
-          tag: slot.defaultTag || (foundByKeyword.type === 'series' ? 'Serie' : 'Filme'),
-          mediaItem: foundByKeyword,
-          streamUrl: foundByKeyword.streamUrl || foundByKeyword.episodeList?.[0]?.streamUrl,
-        };
-      }
-
-      // 2. If slot is Mais or Animes, keep their special shortcut action
-      if (slot.id === 'kids-mais' || slot.id === 'kids-animes') {
-        return {
-          ...slot,
-          title: slot.defaultTitle,
-          category: slot.defaultCategory,
-          tag: slot.defaultTag,
-        };
-      }
-
-      // 3. Fallback to positional imported item if available
-      const fallbackItem = kidsMediaItems[index];
-      if (fallbackItem) {
-        return {
-          ...slot,
-          title: fallbackItem.title,
-          category: fallbackItem.type === 'series' ? 'Serie Animada' : 'Filme Infantil',
-          tag: slot.defaultTag || 'Importado',
-          mediaItem: fallbackItem,
-          streamUrl: fallbackItem.streamUrl || fallbackItem.episodeList?.[0]?.streamUrl,
-        };
-      }
-
-      // 4. Default slot representation
-      return {
-        ...slot,
-        title: slot.defaultTitle,
-        category: slot.defaultCategory,
-        tag: slot.defaultTag,
-      };
-    });
+  // Real recent releases based on actual release years in kids catalog
+  const releasesList = useMemo(() => {
+    if (kidsMediaItems.length === 0) return [];
+    const maxYear = kidsMediaItems.reduce((max, i) => (i.year && i.year > max ? i.year : max), 0);
+    if (maxYear > 0) {
+      const recent = kidsMediaItems.filter((i) => i.year >= maxYear - 1);
+      if (recent.length > 0) return recent;
+    }
+    return kidsMediaItems;
   }, [kidsMediaItems]);
 
-  // Filtered catalog list for the bottom section
-  const filteredCatalog = useMemo(() => {
-    const q = searchFilter.trim().toLowerCase();
-    let list = kidsMediaItems;
+  // Real popular / most watched ordering from existing catalog (no invented metrics)
+  const popularList = useMemo(() => {
+    if (kidsMediaItems.length === 0) return [];
+    const releaseIds = new Set(releasesList.slice(0, 6).map((i) => i.id));
+    const remaining = kidsMediaItems.filter((i) => !releaseIds.has(i.id));
+    const pool = remaining.length >= 6 ? remaining : kidsMediaItems;
+    return [...pool].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  }, [kidsMediaItems, releasesList]);
 
-    if (activeTab === 'series') {
-      list = list.filter((i) => i.type === 'series');
-    } else if (activeTab === 'movies') {
-      list = list.filter((i) => i.type === 'movie');
+  // Build real sidebar categories strictly from actual data present (no empty/fictitious categories)
+  const sidebarCategories = useMemo(() => {
+    const list: { id: string; name: string; count: number }[] = [
+      { id: 'todos', name: 'Todos os Desenhos', count: kidsMediaItems.length },
+    ];
+
+    if (releasesList.length > 0) {
+      list.push({ id: 'lancamentos', name: 'Lançamentos', count: releasesList.length });
+    }
+    if (kidsSeries.length > 0) {
+      list.push({ id: 'series', name: 'Séries Infantis', count: kidsSeries.length });
+    }
+    if (kidsMovies.length > 0) {
+      list.push({ id: 'movies', name: 'Filmes Infantis', count: kidsMovies.length });
+    }
+    if (kidsLiveChannels.length > 0) {
+      list.push({ id: 'live', name: 'Canais Kids', count: kidsLiveChannels.length });
     }
 
-    if (!q) return list;
-
-    return list.filter((i) => {
-      const matchTitle = (i.title || '').toLowerCase().includes(q);
-      const matchGenre = (i.genres || []).some((g) => g.toLowerCase().includes(q));
-      return matchTitle || matchGenre;
+    const genreMap = new Map<string, { label: string; count: number }>();
+    kidsMediaItems.forEach((item) => {
+      item.genres.forEach((raw) => {
+        const clean = raw.trim();
+        if (!clean || clean.toLowerCase() === 'geral') return;
+        const key = clean.toLowerCase();
+        const existing = genreMap.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          genreMap.set(key, { label: clean, count: 1 });
+        }
+      });
     });
-  }, [kidsMediaItems, searchFilter, activeTab]);
 
-  // Handle selecting any card (Bento card or Catalog card)
+    const sortedGenres = Array.from(genreMap.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([key, val]) => ({
+        id: `genre:${key}`,
+        name: val.label,
+        count: val.count,
+      }));
+
+    return [...list, ...sortedGenres];
+  }, [kidsMediaItems, releasesList, kidsSeries, kidsMovies, kidsLiveChannels]);
+
+  // Open existing MediaModal or VOD player preserving seasons, episodes, history and playback
   const handleSelectMediaItem = useCallback(
     (item: MediaItem) => {
-      // If series has episodes, open detail modal for episode selection
-      if (item.type === 'series' && item.episodeList && item.episodeList.length > 0) {
-        setSelectedMedia(item);
-        return;
-      }
-
-      const stream = item.streamUrl || item.episodeList?.[0]?.streamUrl;
-      if (stream) {
-        playMediaStream(stream, item.title, item);
-        navigateTo('vod-player');
-      } else {
-        setSelectedMedia(item);
-      }
+      setSelectedMedia(item);
     },
-    [navigateTo, playMediaStream, setSelectedMedia]
+    [setSelectedMedia]
   );
 
-  // Handle live channel selection
   const handleSelectChannel = useCallback(
     (ch: Channel) => {
       setCurrentChannel(ch);
@@ -347,688 +379,351 @@ export const KidsView: React.FC = () => {
     [navigateTo, playMediaStream, setCurrentChannel]
   );
 
-  // Handle Bento card click
-  const handleSelectBentoSlot = useCallback(
-    (slotIndex: number) => {
-      const slot = matchedShowcaseItems[slotIndex];
-      if (!slot) return;
+  // Filtered list for category or search
+  const activeFilteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let base = kidsMediaItems;
 
-      // Special action: Mais (smooth scroll down to imported catalog)
-      if (slot.id === 'kids-mais') {
-        if (catalogRef.current) {
-          catalogRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-        return;
-      }
+    if (selectedCategory === 'lancamentos') {
+      base = releasesList;
+    } else if (selectedCategory === 'populares') {
+      base = popularList;
+    } else if (selectedCategory === 'series') {
+      base = kidsSeries;
+    } else if (selectedCategory === 'movies') {
+      base = kidsMovies;
+    } else if (selectedCategory.startsWith('genre:')) {
+      const targetGenre = selectedCategory.replace('genre:', '');
+      base = kidsMediaItems.filter((i) =>
+        i.genres.some((g) => g.toLowerCase() === targetGenre)
+      );
+    }
 
-      // Special action: Animes (navigate to anime view)
-      if (slot.id === 'kids-animes') {
-        navigateTo('anime');
-        return;
-      }
+    if (!q) return base;
 
-      // If matched to an imported MediaItem
-      if (slot.mediaItem) {
-        handleSelectMediaItem(slot.mediaItem);
-        return;
-      }
+    return base.filter((i) => {
+      const titleMatch = (i.title || '').toLowerCase().includes(q);
+      const genreMatch = i.genres.some((g) => g.toLowerCase().includes(q));
+      return titleMatch || genreMatch;
+    });
+  }, [kidsMediaItems, releasesList, popularList, kidsSeries, kidsMovies, selectedCategory, searchQuery]);
 
-      // If matched to a live kids channel fallback
-      const fallbackChannel = kidsLiveChannels[0] || channels[0];
-      const targetUrl = slot.streamUrl || fallbackChannel?.streamUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  const isSearching = searchQuery.trim().length > 0;
+  const isOverviewMode = !isSearching && selectedCategory === 'todos';
+  const activeCategoryLabel =
+    selectedCategory === 'populares'
+      ? 'Mais Assistidos'
+      : sidebarCategories.find((c) => c.id === selectedCategory)?.name || 'Desenhos';
 
-      if (fallbackChannel && !slot.streamUrl) {
-        handleSelectChannel(fallbackChannel);
-        return;
-      }
-
-      playMediaStream(targetUrl, slot.title, {
-        id: slot.id,
-        title: slot.title,
-        type: 'movie',
-        genres: ['Kids & Animacao'],
-        rating: 9.6,
-        year: 2026,
-        posterUrl: slot.image,
-        backdropUrl: slot.image,
-        duration: '1h 30m',
-        description: `${slot.title} - Conteudo especial para toda a familia e criancas no MasterTV Kids.`,
-        streamUrl: targetUrl,
-      });
-      navigateTo('vod-player');
-    },
-    [channels, handleSelectChannel, handleSelectMediaItem, kidsLiveChannels, matchedShowcaseItems, navigateTo, playMediaStream]
-  );
-
-  // D-Pad remote control navigation
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'ArrowUp':
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            if (prev === 1 || prev === 2) return 0; // Galinha or DBillions -> Peanuts
-            if (prev === 4) return 3; // Animes -> Mais
-            if (prev === 5) return 4; // Oddbods -> Animes
-            if (prev === 7) return 6; // Evolution -> Snoopy Lar
-            return prev;
-          });
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            if (prev === 0) return 1; // Peanuts -> Galinha
-            if (prev === 3) return 4; // Mais -> Animes
-            if (prev === 4) return 5; // Animes -> Oddbods
-            if (prev === 6) return 7; // Snoopy Lar -> Evolution
-            if (prev === 1 || prev === 2 || prev === 5 || prev === 7) {
-              if (catalogRef.current) {
-                catalogRef.current.scrollIntoView({ behavior: 'smooth' });
-              }
-            }
-            return prev;
-          });
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            if (prev === 2) return 1; // DBillions -> Galinha
-            if (prev === 3 || prev === 4) return 0; // Mais or Animes -> Peanuts
-            if (prev === 5) return 2; // Oddbods -> DBillions
-            if (prev === 6) return 3; // Snoopy Lar -> Mais
-            if (prev === 7) return 5; // Evolution -> Oddbods
-            return prev;
-          });
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            if (prev === 0) return 3; // Peanuts -> Mais
-            if (prev === 1) return 2; // Galinha -> DBillions
-            if (prev === 2) return 5; // DBillions -> Oddbods
-            if (prev === 3 || prev === 4) return 6; // Mais or Animes -> Snoopy Lar
-            if (prev === 5) return 7; // Oddbods -> Evolution
-            return prev;
-          });
-          break;
-        case 'Enter':
-          e.preventDefault();
-          handleSelectBentoSlot(focusedIndex);
-          break;
-        default:
-          break;
-      }
-    },
-    [focusedIndex, handleSelectBentoSlot]
-  );
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
-  const seriesCount = kidsMediaItems.filter((i) => i.type === 'series').length;
-  const moviesCount = kidsMediaItems.filter((i) => i.type === 'movie').length;
-  const liveCount = kidsLiveChannels.length;
-  const totalCount = kidsMediaItems.length + liveCount;
+  const paginatedItems = activeFilteredItems.slice(0, visibleCount);
+  const hasMoreItems = visibleCount < activeFilteredItems.length;
 
   return (
-    <div className="relative w-full flex flex-col justify-start items-center select-none pb-16">
-      {/* Background ambient lighting effects (UniTV red & warm gold glow trails) */}
-      <div className="pointer-events-none absolute -bottom-10 left-0 right-0 h-44 bg-gradient-to-t from-red-600/15 via-red-950/10 to-transparent blur-2xl" />
-      <div className="pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-
-      {/* ========================================================================= */}
-      {/* DESKTOP & TV BOX VIEW (Landscape / TV / Screen width >= 768px)             */}
-      {/* Exact 1:1 UniTV 3-Column Bento Showcase matching screenshot                */}
-      {/* ========================================================================= */}
-      <div className="hidden md:flex w-full max-w-[1720px] mx-auto h-[calc(100vh-6.2rem)] min-h-[500px] max-h-[820px] flex-row gap-3.5 p-2 sm:p-4 shrink-0">
-        
-        {/* COLUMN 1 (LEFT COLUMN - 42% width): Peanuts Hero top + Galinha & DBillions bottom */}
-        <div className="w-[42%] flex flex-col gap-3.5 h-full">
-          {/* Card 0: The Peanuts Movie (Hero Card, ~64% height) */}
-          <div
-            onClick={() => handleSelectBentoSlot(0)}
-            onMouseEnter={() => setFocusedIndex(0)}
-            className={`group relative flex-[64] min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-xl ${
-              focusedIndex === 0
-                ? 'scale-[1.02] border-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] ring-2 ring-cyan-400/50 z-20'
-                : 'border-white/10 hover:border-cyan-400/60'
-            }`}
-          >
-            <img
-              src={matchedShowcaseItems[0].image}
-              alt={matchedShowcaseItems[0].title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            {/* Carousel Dot Indicator at Bottom-Right */}
-            <div className="absolute bottom-3.5 right-4 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm pointer-events-none z-10">
-              <span className="w-4 h-1.5 rounded-full bg-red-500 shadow-sm" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-              <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-            </div>
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4 sm:p-5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/50">
-                  <Play className="w-5 h-5 fill-current ml-0.5" />
-                </div>
-                <div>
-                  <p className="text-white font-black text-sm sm:text-base drop-shadow-md">
-                    {matchedShowcaseItems[0].title}
-                  </p>
-                  <p className="text-cyan-300 font-bold text-xs">Assistir Agora</p>
-                </div>
-              </div>
-            </div>
-            {/* Corner Badge */}
-            <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/15 text-[10px] font-black text-cyan-300 flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span>{matchedShowcaseItems[0].tag}</span>
-            </div>
-          </div>
-
-          {/* Bottom Row of Column 1 (~36% height): Galinha Pintadinha & DBillions Side-by-Side */}
-          <div className="flex-[36] min-h-0 grid grid-cols-2 gap-3.5">
-            {/* Card 1: Galinha Pintadinha */}
-            <div
-              onClick={() => handleSelectBentoSlot(1)}
-              onMouseEnter={() => setFocusedIndex(1)}
-              className={`group relative h-full rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-lg ${
-                focusedIndex === 1
-                  ? 'scale-[1.03] border-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] ring-2 ring-cyan-400/50 z-20'
-                  : 'border-white/10 hover:border-cyan-400/60'
-              }`}
-            >
-              <img
-                src={matchedShowcaseItems[1].image}
-                alt={matchedShowcaseItems[1].title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-md">
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                  </div>
-                  <span className="text-white font-bold text-xs truncate">{matchedShowcaseItems[1].title}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2: DBillions */}
-            <div
-              onClick={() => handleSelectBentoSlot(2)}
-              onMouseEnter={() => setFocusedIndex(2)}
-              className={`group relative h-full rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-lg ${
-                focusedIndex === 2
-                  ? 'scale-[1.03] border-amber-400 shadow-[0_0_25px_rgba(255,210,0,0.45)] ring-2 ring-amber-400/50 z-20'
-                  : 'border-white/10 hover:border-amber-400/60'
-              }`}
-            >
-              <img
-                src={matchedShowcaseItems[2].image}
-                alt={matchedShowcaseItems[2].title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-md">
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                  </div>
-                  <span className="text-white font-bold text-xs truncate">{matchedShowcaseItems[2].title}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* COLUMN 2 (MIDDLE COLUMN - 23% width): Mais, Animes, Oddbods (3 stacked equal cards) */}
-        <div className="w-[23%] flex flex-col gap-3.5 h-full">
-          {/* Card 3: Mais (Explore More Kids) */}
-          <div
-            onClick={() => handleSelectBentoSlot(3)}
-            onMouseEnter={() => setFocusedIndex(3)}
-            className={`group relative flex-1 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-lg ${
-              focusedIndex === 3
-                ? 'scale-[1.03] border-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] ring-2 ring-cyan-400/50 z-20'
-                : 'border-white/10 hover:border-cyan-400/60'
-            }`}
-          >
-            <img
-              src={matchedShowcaseItems[3].image}
-              alt={matchedShowcaseItems[3].title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            {/* Center "Mais" Translucent Pill Badge */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="px-5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 text-white font-black text-xs sm:text-sm tracking-wide shadow-xl group-hover:bg-cyan-500 group-hover:text-slate-950 group-hover:border-cyan-400 transition-colors flex items-center gap-1.5">
-                <span>Mais</span>
-                <ChevronDown className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Animes (Direct shortcut to Anime tab) */}
-          <div
-            onClick={() => handleSelectBentoSlot(4)}
-            onMouseEnter={() => setFocusedIndex(4)}
-            className={`group relative flex-1 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-lg ${
-              focusedIndex === 4
-                ? 'scale-[1.03] border-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] ring-2 ring-cyan-400/50 z-20'
-                : 'border-white/10 hover:border-cyan-400/60'
-            }`}
-          >
-            <img
-              src={matchedShowcaseItems[4].image}
-              alt={matchedShowcaseItems[4].title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            {/* Center "Animes" Translucent Pill Badge */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="px-5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 text-white font-black text-xs sm:text-sm tracking-wide shadow-xl group-hover:bg-cyan-500 group-hover:text-slate-950 group-hover:border-cyan-400 transition-colors">
-                Animes
-              </div>
-            </div>
-          </div>
-
-          {/* Card 5: Oddbods */}
-          <div
-            onClick={() => handleSelectBentoSlot(5)}
-            onMouseEnter={() => setFocusedIndex(5)}
-            className={`group relative flex-1 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-lg ${
-              focusedIndex === 5
-                ? 'scale-[1.03] border-amber-400 shadow-[0_0_25px_rgba(255,210,0,0.45)] ring-2 ring-amber-400/50 z-20'
-                : 'border-white/10 hover:border-amber-400/60'
-            }`}
-          >
-            <img
-              src={matchedShowcaseItems[5].image}
-              alt={matchedShowcaseItems[5].title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-md">
-                  <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                </div>
-                <span className="text-white font-bold text-xs truncate">{matchedShowcaseItems[5].title}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* COLUMN 3 (RIGHT COLUMN - 35% width): Lar, Snoopy top + Evolution bottom */}
-        <div className="w-[35%] flex flex-col gap-3.5 h-full">
-          {/* Card 6: Lar, Snoopy (~50% height) */}
-          <div
-            onClick={() => handleSelectBentoSlot(6)}
-            onMouseEnter={() => setFocusedIndex(6)}
-            className={`group relative flex-1 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-xl ${
-              focusedIndex === 6
-                ? 'scale-[1.02] border-fuchsia-400 shadow-[0_0_25px_rgba(232,121,249,0.45)] ring-2 ring-fuchsia-400/50 z-20'
-                : 'border-white/10 hover:border-fuchsia-400/60'
-            }`}
-          >
-            <img
-              src={matchedShowcaseItems[6].image}
-              alt={matchedShowcaseItems[6].title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-fuchsia-500 text-white flex items-center justify-center shadow-lg shadow-fuchsia-500/40">
-                  <Play className="w-4 h-4 fill-current ml-0.5" />
-                </div>
-                <div>
-                  <p className="text-white font-black text-sm drop-shadow-md">{matchedShowcaseItems[6].title}</p>
-                  <p className="text-fuchsia-300 font-bold text-xs">Assistir Agora</p>
-                </div>
-              </div>
-            </div>
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/15 text-[10px] font-black text-fuchsia-300 flex items-center gap-1 shadow-md">
-              <span>{matchedShowcaseItems[6].tag}</span>
-            </div>
-          </div>
-
-          {/* Card 7: Evolution (~50% height) */}
-          <div
-            onClick={() => handleSelectBentoSlot(7)}
-            onMouseEnter={() => setFocusedIndex(7)}
-            className={`group relative flex-1 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border transition-all duration-300 cursor-pointer shadow-xl ${
-              focusedIndex === 7
-                ? 'scale-[1.02] border-cyan-400 shadow-[0_0_25px_rgba(0,240,255,0.45)] ring-2 ring-cyan-400/50 z-20'
-                : 'border-white/10 hover:border-cyan-400/60'
-            }`}
-          >
-            <img
-              src={matchedShowcaseItems[7].image}
-              alt={matchedShowcaseItems[7].title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-400/40">
-                  <Play className="w-4 h-4 fill-current ml-0.5" />
-                </div>
-                <div>
-                  <p className="text-white font-black text-sm drop-shadow-md">{matchedShowcaseItems[7].title}</p>
-                  <p className="text-cyan-300 font-bold text-xs">Assistir Agora</p>
-                </div>
-              </div>
-            </div>
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/15 text-[10px] font-black text-cyan-300 flex items-center gap-1 shadow-md">
-              <span>{matchedShowcaseItems[7].tag}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* MOBILE / PORTRAIT / SMALL SCREEN VIEW (Screen width < 768px)               */}
-      {/* ========================================================================= */}
-      <div className="flex md:hidden w-full flex-col gap-3.5 px-3 py-2 pb-6">
-        
-        {/* Card 0: The Peanuts Movie (Hero Card) */}
-        <div
-          onClick={() => handleSelectBentoSlot(0)}
-          className="relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-slate-950 border border-white/15 shadow-lg active:scale-95 transition-transform"
-        >
-          <img
-            src={matchedShowcaseItems[0].image}
-            alt={matchedShowcaseItems[0].title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute bottom-2.5 right-3 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm pointer-events-none">
-            <span className="w-3.5 h-1.5 rounded-full bg-red-500 shadow-sm" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-          </div>
-          <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/15 text-[10px] font-black text-cyan-300 flex items-center gap-1 shadow-md">
-            <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span>{matchedShowcaseItems[0].tag}</span>
-          </div>
-        </div>
-
-        {/* Row 2: Galinha Pintadinha & DBillions (2 Columns) */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div
-            onClick={() => handleSelectBentoSlot(1)}
-            className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[1].image}
-              alt={matchedShowcaseItems[1].title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div
-            onClick={() => handleSelectBentoSlot(2)}
-            className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[2].image}
-              alt={matchedShowcaseItems[2].title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-
-        {/* Row 3: Mais, Animes, Oddbods (3 Columns) */}
-        <div className="grid grid-cols-3 gap-2">
-          <div
-            onClick={() => handleSelectBentoSlot(3)}
-            className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[3].image}
-              alt={matchedShowcaseItems[3].title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="px-3 py-1 rounded-full bg-slate-950/75 backdrop-blur-sm border border-white/20 text-white font-black text-[10px]">
-                Mais
-              </span>
-            </div>
-          </div>
-          <div
-            onClick={() => handleSelectBentoSlot(4)}
-            className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[4].image}
-              alt={matchedShowcaseItems[4].title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="px-3 py-1 rounded-full bg-slate-950/75 backdrop-blur-sm border border-white/20 text-white font-black text-[10px]">
-                Animes
-              </span>
-            </div>
-          </div>
-          <div
-            onClick={() => handleSelectBentoSlot(5)}
-            className="relative aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[5].image}
-              alt={matchedShowcaseItems[5].title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-
-        {/* Row 4: Lar Snoopy & Evolution (2 Columns) */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div
-            onClick={() => handleSelectBentoSlot(6)}
-            className="relative aspect-[16/11] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[6].image}
-              alt={matchedShowcaseItems[6].title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div
-            onClick={() => handleSelectBentoSlot(7)}
-            className="relative aspect-[16/11] rounded-xl overflow-hidden bg-slate-950 border border-white/15 shadow-md active:scale-95 transition-transform"
-          >
-            <img
-              src={matchedShowcaseItems[7].image}
-              alt={matchedShowcaseItems[7].title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* SECTION: CATALOGO SINCRONIZADO DE DESENHOS E CONTEUDO KIDS IMPORTADO      */}
-      {/* ========================================================================= */}
-      <div
-        ref={catalogRef}
-        className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 py-6 sm:py-10 flex flex-col gap-6"
-      >
-        {/* Header with Title, Stats and Quick Search */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.7)]" />
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide">
-                Catalogo de Desenhos &amp; Kids
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 font-bold text-xs">
-                {totalCount} disponiveis
-              </span>
-            </div>
-            <p className="text-slate-400 text-xs sm:text-sm">
-              Sincronizado automaticamente com os desenhos, series e filmes infantis importados no seu servidor.
-            </p>
-          </div>
-
-          {/* Search bar inside kids catalog */}
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Buscar desenhos infantis..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-900/80 border border-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'all'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-                : 'bg-slate-900/90 text-slate-300 hover:text-white border border-white/10 hover:border-cyan-400/40'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Todos ({totalCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('series')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'series'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-                : 'bg-slate-900/90 text-slate-300 hover:text-white border border-white/10 hover:border-cyan-400/40'
-            }`}
-          >
-            <Clapperboard className="w-3.5 h-3.5" />
-            <span>Desenhos &amp; Series ({seriesCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('movies')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'movies'
-                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-                : 'bg-slate-900/90 text-slate-300 hover:text-white border border-white/10 hover:border-cyan-400/40'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span>Filmes Infantis ({moviesCount})</span>
-          </button>
-
-          {liveCount > 0 && (
-            <button
-              onClick={() => setActiveTab('live')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                activeTab === 'live'
-                  ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-                  : 'bg-slate-900/90 text-slate-300 hover:text-white border border-white/10 hover:border-cyan-400/40'
-              }`}
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>Canais Ao Vivo ({liveCount})</span>
-            </button>
-          )}
-        </div>
-
-        {/* Content Grid */}
-        {activeTab === 'live' ? (
-          // Live Kids Channels Grid
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4">
-            {kidsLiveChannels.map((ch) => (
-              <div
-                key={ch.id}
-                onClick={() => handleSelectChannel(ch)}
-                className="group relative cursor-pointer flex flex-col gap-2 p-2.5 rounded-2xl bg-slate-900/70 border border-white/10 hover:border-cyan-400/80 transition-all hover:scale-105"
+    <div className="relative z-10 w-full flex-1 min-h-0 flex flex-col md:flex-row gap-4 lg:gap-5 px-4 lg:px-7 pb-5 pt-2 max-w-[1920px] mx-auto overflow-hidden select-none">
+      {/* LEFT COLUMN — KIDS CATEGORIES SIDEBAR (#07539A, friendly icons, #FFD93D selected pill) */}
+      <aside className="hidden md:flex md:w-[23%] lg:w-[21%] xl:w-[20%] min-w-[225px] max-w-[300px] h-full flex-col rounded-3xl bg-[#07539A]/92 border-2 border-white/25 shadow-[0_14px_34px_rgba(4,40,80,0.38)] overflow-hidden shrink-0">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 custom-scroll">
+          {sidebarCategories.map((cat) => {
+            const { Icon, color, fill } = getKidsCategoryIconInfo(cat.id, cat.name);
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`group w-full flex items-center justify-between gap-2.5 px-3.5 py-3 rounded-2xl text-left transition-all duration-200 cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#FFD93D] text-[#053363] font-extrabold shadow-[0_6px_16px_rgba(4,40,80,0.28)]'
+                    : 'bg-[#0861B3]/70 hover:bg-[#0B73D1] text-white font-bold'
+                }`}
               >
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center p-2">
-                  <img
-                    src={ch.logo || './assets/img/icons/favicon.svg'}
-                    alt={ch.name}
-                    className="max-h-full max-w-full object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = './assets/img/icons/favicon.svg';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-lg">
-                      <Play className="w-4 h-4 fill-current ml-0.5" />
-                    </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                      isSelected ? 'bg-[#053363]/10' : 'bg-white/15'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-4 h-4 ${
+                        isSelected ? 'text-[#053363]' : color
+                      } ${fill ? 'fill-current' : ''}`}
+                    />
                   </div>
+                  <span className="text-sm truncate">{cat.name}</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-white font-bold text-xs truncate group-hover:text-cyan-400 transition-colors">
+                <span
+                  className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                    isSelected
+                      ? 'bg-[#053363]/15 text-[#053363]'
+                      : 'bg-white/15 text-white/90'
+                  }`}
+                >
+                  {cat.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* MOBILE / TABLET HORIZONTAL CATEGORY PILLS */}
+      <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1 shrink-0">
+        {sidebarCategories.map((cat) => {
+          const isSelected = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-4 py-2 rounded-full text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer shadow-sm ${
+                isSelected
+                  ? 'bg-[#FFD93D] text-[#053363]'
+                  : 'bg-[#07539A]/90 border border-white/25 text-white'
+              }`}
+            >
+              {cat.name}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* RIGHT COLUMN — KIDS BANNER & REAL CATALOG (Independent vertical scroll) */}
+      <div
+        ref={catalogScrollRef}
+        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden pr-1 space-y-5 custom-scroll"
+      >
+        {/* DECORATIVE KIDS BANNER (Original 3D illustration, static, zero copyrighted characters) */}
+        {!isSearching && (
+          <div className="relative w-full h-[175px] sm:h-[210px] lg:h-[235px] xl:h-[255px] rounded-3xl overflow-hidden bg-[#168FE8] border-2 border-white/35 shadow-[0_14px_34px_rgba(4,40,80,0.35)] shrink-0">
+            <img
+              src="./assets/img/home/banner_kids.png"
+              alt="Kids Filmes e Series Infantis"
+              className="absolute inset-0 w-full h-full object-cover object-left sm:object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#0874CB]/55 pointer-events-none" />
+
+            {/* Right-aligned Colorful Cartoon Typography */}
+            <div className="relative z-10 h-full w-full flex items-center justify-end px-6 sm:px-10 lg:px-14">
+              <div className="flex flex-col items-center text-center">
+                <div className="flex items-center gap-1 text-5xl sm:text-6xl lg:text-7xl font-black tracking-wide drop-shadow-[0_5px_0_rgba(5,51,99,0.55)]">
+                  <span className="text-[#FFD93D]">K</span>
+                  <span className="text-[#FF70B5]">I</span>
+                  <span className="text-[#5CC8FF]">D</span>
+                  <span className="text-[#65C94A]">S</span>
+                </div>
+                <div className="mt-2 px-4 sm:px-5 py-1.5 rounded-full bg-[#FF4D6D] border-2 border-white/80 text-white font-extrabold text-[11px] sm:text-xs tracking-wider uppercase shadow-md flex items-center gap-1.5">
+                  <span>FILMES E SÉRIES INFANTIS</span>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LOADING STATE */}
+        {isLoading && kidsMediaItems.length === 0 && kidsLiveChannels.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#07539A]/85 border-2 border-white/20 text-white">
+            <Loader2 className="w-8 h-8 text-[#FFD93D] animate-spin" />
+            <span className="text-sm font-bold">Carregando desenhos infantis...</span>
+          </div>
+        ) : selectedCategory === 'live' ? (
+          /* LIVE KIDS CHANNELS VIEW */
+          <section className="space-y-4 pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Tv className="w-5 h-5 text-[#FFD93D]" />
+                <h3 className="text-lg font-black text-white drop-shadow-sm">
+                  Canais Kids Ao Vivo ({kidsLiveChannels.length})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('todos')}
+                className="px-3.5 py-1.5 rounded-full bg-[#07539A] hover:bg-[#0A66BC] border border-white/25 text-xs font-bold text-white cursor-pointer"
+              >
+                Voltar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+              {kidsLiveChannels.map((ch) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => handleSelectChannel(ch)}
+                  className="group flex flex-col items-center gap-2 p-3 rounded-2xl bg-[#07539A]/90 hover:bg-[#0A66BC] border-2 border-white/25 hover:border-[#FFD93D] shadow-md transition-all hover:-translate-y-1 cursor-pointer"
+                >
+                  <div className="w-full aspect-video rounded-xl bg-white/10 flex items-center justify-center p-2 overflow-hidden">
+                    <img
+                      src={ch.logo || './assets/img/icons/favicon.svg'}
+                      alt={ch.name}
+                      loading="lazy"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                  <span className="text-xs font-extrabold text-white truncate w-full text-center">
                     {ch.name}
                   </span>
-                  <span className="text-slate-400 text-[10px] truncate">
-                    {ch.category || 'Canal Kids'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredCatalog.length === 0 ? (
-          // Empty State
-          <div className="py-16 text-center flex flex-col items-center justify-center gap-3 bg-slate-900/40 border border-white/5 rounded-3xl p-6">
-            <Clapperboard className="w-12 h-12 text-slate-600" />
-            <h3 className="text-white font-bold text-base sm:text-lg">
-              {searchFilter
-                ? `Nenhum desenho encontrado para "${searchFilter}"`
-                : 'Nenhum desenho sincronizado no banco de dados'}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : kidsMediaItems.length === 0 ? (
+          /* EMPTY STATE */
+          <div className="py-16 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#07539A]/85 border-2 border-white/20 text-center px-6">
+            <Clapperboard className="w-11 h-11 text-[#FFD93D]" />
+            <h3 className="text-base font-extrabold text-white">
+              Nenhum desenho sincronizado no catálogo
             </h3>
-            <p className="text-slate-400 text-xs sm:text-sm max-w-md">
-              {searchFilter
-                ? 'Tente buscar com outro nome de desenho ou limpe a pesquisa.'
-                : 'Importe sua lista M3U no Painel de Administracao para carregar centenas de desenhos, series e filmes infantis automaticamente.'}
+            <p className="text-xs sm:text-sm text-white/85 max-w-md">
+              Importe sua lista de desenhos e filmes infantis no painel administrativo para vê-los automaticamente aqui.
             </p>
           </div>
-        ) : (
-          // Media Items Grid (Series & Movies)
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4">
-            {filteredCatalog.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleSelectMediaItem(item)}
-                className="group relative cursor-pointer flex flex-col gap-2 transition-transform duration-200 hover:-translate-y-1.5"
-              >
-                <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-slate-900 border border-white/10 group-hover:border-cyan-400/80 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.35)] transition-all">
-                  <img
-                    src={item.posterUrl || './assets/img/icons/favicon.svg'}
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = './assets/img/icons/favicon.svg';
-                    }}
-                  />
-                  {/* Subtle Badge */}
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-sm border border-white/15 text-[10px] font-black text-cyan-300">
-                    {item.type === 'series' ? 'Serie' : 'Filme'}
+        ) : isOverviewMode ? (
+          /* OVERVIEW MODE: Lancamentos + Mais Assistidos + Catalogo Paginado */
+          <div className="space-y-6 pb-8">
+            {/* SECTION 1: LANCAMENTOS */}
+            {releasesList.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-[#FFD93D] fill-[#FFD93D] drop-shadow" />
+                    <h3 className="text-lg sm:text-xl font-black text-white drop-shadow-sm">
+                      Lançamentos
+                    </h3>
                   </div>
-                  {/* Play Overlay */}
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-10 h-10 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/50">
-                      <Play className="w-5 h-5 fill-current ml-0.5" />
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('lancamentos')}
+                    className="flex items-center gap-1 px-3.5 py-1 rounded-full bg-[#07539A]/85 hover:bg-[#FFD93D] text-white hover:text-[#053363] border border-white/25 text-xs font-extrabold transition-colors cursor-pointer"
+                  >
+                    <span>Ver todos</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="flex flex-col">
-                  <h4 className="text-xs font-bold text-slate-200 truncate group-hover:text-cyan-400 transition-colors">
-                    {item.title}
-                  </h4>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                    <span>{item.year || 2026}</span>
-                    {item.episodeList && item.episodeList.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span>{item.episodeList.length} eps</span>
-                      </>
-                    )}
-                  </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+                  {releasesList.slice(0, 6).map((item) => (
+                    <KidsPosterCard key={item.id} item={item} onSelect={handleSelectMediaItem} />
+                  ))}
                 </div>
-              </div>
-            ))}
+              </section>
+            )}
+
+            {/* SECTION 2: MAIS ASSISTIDOS */}
+            {popularList.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clapperboard className="w-5 h-5 text-[#FF70B5] drop-shadow" />
+                    <h3 className="text-lg sm:text-xl font-black text-white drop-shadow-sm">
+                      Mais Assistidos
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('populares')}
+                    className="flex items-center gap-1 px-3.5 py-1 rounded-full bg-[#07539A]/85 hover:bg-[#FFD93D] text-white hover:text-[#053363] border border-white/25 text-xs font-extrabold transition-colors cursor-pointer"
+                  >
+                    <span>Ver todos</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+                  {popularList.slice(0, 6).map((item) => (
+                    <KidsPosterCard key={item.id} item={item} onSelect={handleSelectMediaItem} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION 3: TODOS OS DESENHOS (Progressive Pagination) */}
+            {kidsMediaItems.length > 12 && (
+              <section className="space-y-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#FFD93D]" />
+                  <h3 className="text-lg sm:text-xl font-black text-white drop-shadow-sm">
+                    Todos os Desenhos ({kidsMediaItems.length})
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+                  {paginatedItems.map((item) => (
+                    <KidsPosterCard key={item.id} item={item} onSelect={handleSelectMediaItem} />
+                  ))}
+                </div>
+
+                {hasMoreItems && (
+                  <div className="pt-4 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                      className="px-6 py-2.5 rounded-full bg-[#FFD93D] hover:bg-[#FFE46B] text-[#053363] font-extrabold text-xs shadow-md transition-all cursor-pointer"
+                    >
+                      Carregar mais desenhos ({activeFilteredItems.length - visibleCount} restantes)
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
+        ) : (
+          /* FILTERED CATEGORY OR SEARCH RESULTS VIEW */
+          <section className="space-y-4 pb-8">
+            <div className="flex items-center justify-between gap-3 bg-[#07539A]/85 border border-white/25 rounded-2xl px-4 py-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {isSearching && <Search className="w-4 h-4 text-[#FFD93D] shrink-0" />}
+                <h3 className="text-base sm:text-lg font-black text-white truncate">
+                  {isSearching ? `Resultados para "${searchQuery}"` : activeCategoryLabel}
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#FFD93D] text-[#053363] text-xs font-extrabold shrink-0">
+                  {activeFilteredItems.length}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSearching && onClearSearch) {
+                    onClearSearch();
+                  } else {
+                    setSelectedCategory('todos');
+                  }
+                }}
+                className="flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-xs font-bold text-white transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>{isSearching ? 'Limpar busca' : 'Ver todos'}</span>
+              </button>
+            </div>
+
+            {activeFilteredItems.length === 0 ? (
+              <div className="py-16 text-center text-white/90 text-sm font-semibold rounded-3xl bg-[#07539A]/80 border-2 border-white/20">
+                Nenhum desenho encontrado para os critérios selecionados.
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+                  {paginatedItems.map((item) => (
+                    <KidsPosterCard key={item.id} item={item} onSelect={handleSelectMediaItem} />
+                  ))}
+                </div>
+
+                {hasMoreItems && (
+                  <div className="pt-4 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                      className="px-6 py-2.5 rounded-full bg-[#FFD93D] hover:bg-[#FFE46B] text-[#053363] font-extrabold text-xs shadow-md transition-all cursor-pointer"
+                    >
+                      Carregar mais desenhos ({activeFilteredItems.length - visibleCount} restantes)
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
         )}
       </div>
     </div>

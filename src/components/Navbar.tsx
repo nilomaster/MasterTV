@@ -601,6 +601,148 @@ export const Navbar: React.FC<NavbarProps> = ({
     );
   }
 
+  // Dedicated Kids Header (Cheerful blue bar, colorful KIDS letters, no TV icon beside title, no horizontal category menu)
+  if (isKidsActive) {
+    return (
+      <>
+        <header className="z-40 w-full bg-[#064A8E]/92 backdrop-blur-md border-b border-white/15 relative shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 lg:px-7 py-3 max-w-[1920px] mx-auto gap-4">
+            {/* LEFT: MasterTV Logo (returns to Home) + Divider + Colorful KIDS Title */}
+            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+              <div
+                onClick={() => {
+                  setSearchQuery('');
+                  handleNavClick('home');
+                }}
+                className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
+                title="Voltar para a Pagina Inicial"
+              >
+                <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+                  <img
+                    src="./assets/img/icons/logo.png"
+                    alt="MasterTV Logo"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-xl tracking-tight leading-none flex items-center">
+                    <span className="text-white">Master</span>
+                    <span className="text-sky-300">TV</span>
+                  </span>
+                  <span className="text-[9px] font-semibold text-white/75 uppercase tracking-[0.24em] leading-none mt-1 hidden sm:block">
+                    ULTRA HD TV
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-9 w-px bg-white/25 shrink-0" />
+
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-2xl lg:text-[26px] font-black tracking-wide leading-none flex items-center gap-0.5 drop-shadow-[0_2px_0_rgba(4,40,80,0.45)]">
+                  <span className="text-[#FFD93D]">K</span>
+                  <span className="text-[#FF70B5]">I</span>
+                  <span className="text-[#5CC8FF]">D</span>
+                  <span className="text-[#65C94A]">S</span>
+                </h1>
+                <p className="text-xs text-white/90 font-semibold mt-1 truncate hidden sm:block">
+                  Diversão garantida para toda a criançada
+                </p>
+              </div>
+            </div>
+
+            {/* RIGHT: Search, Notifications, User Profile, Divider, Clock & Date */}
+            <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+              <button
+                onClick={() => setSearchBarOpen((prev) => !prev)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-200 cursor-pointer ${
+                  searchBarOpen || searchQuery
+                    ? 'bg-[#FFD93D] border-white text-[#053363]'
+                    : 'bg-[#04366B]/80 hover:bg-[#0857A8] border-white/25 text-white'
+                }`}
+                title="Pesquisar desenhos"
+                aria-label="Pesquisar desenhos"
+              >
+                <Search className="w-[18px] h-[18px]" />
+              </button>
+
+              <button
+                onClick={() => setIsNotificationOpen(true)}
+                className="relative w-10 h-10 rounded-full bg-[#04366B]/80 hover:bg-[#0857A8] border border-white/25 text-white flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Notificacoes"
+                aria-label="Notificacoes"
+              >
+                <Bell className="w-[18px] h-[18px]" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center shadow">
+                    {unreadNotifCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="w-10 h-10 rounded-full bg-[#0D74D1] hover:bg-[#168FE8] border border-white/35 text-white flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Perfil do Usuario"
+                aria-label="Perfil do Usuario"
+              >
+                <User className="w-[18px] h-[18px]" />
+              </button>
+
+              <div className="hidden sm:block h-8 w-px bg-white/25 mx-1" />
+
+              <div className="hidden sm:block">
+                <UniTVClock showDate />
+              </div>
+            </div>
+          </div>
+
+          {/* Expandable Search Input Bar for Kids */}
+          {searchBarOpen && (
+            <div className="px-4 sm:px-6 lg:px-7 pb-3 animate-in fade-in duration-200">
+              <div className="max-w-xl ml-auto relative flex items-center">
+                <Search className="absolute left-4 w-4 h-4 text-[#053363]" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar desenhos, filmes ou series infantis..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full bg-white border-2 border-[#FFD93D] rounded-full pl-11 pr-10 py-2 text-sm text-[#053363] font-semibold placeholder-slate-500 focus:outline-none shadow-lg"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3.5 text-slate-500 hover:text-[#053363] cursor-pointer"
+                    aria-label="Limpar busca"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </header>
+
+        {/* Notification Drawer Component */}
+        <UniTVNotificationDrawer
+          isOpen={isNotificationOpen}
+          onClose={() => setIsNotificationOpen(false)}
+          notifications={notifications}
+          onClearAll={() => setNotifications([])}
+        />
+
+        {/* User Profile & Account Modal */}
+        <UniTVProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          clientSession={clientSession || null}
+          onLogout={onLogout || (() => {})}
+          favoritesCount={favoritesCount}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {/* Top Header Navigation - Internal Pages (Preserved) */}
