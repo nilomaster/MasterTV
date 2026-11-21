@@ -5,6 +5,7 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { NavigationProvider, useNavigation } from './context/NavigationContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { useAndroidBackHandler } from './hooks/useAndroidBackHandler';
 
 // Clean Domain Pages
 import {
@@ -25,6 +26,9 @@ import {
 const AppRouter: React.FC = () => {
   const { clientSession } = useApp();
   const { currentView } = useNavigation();
+
+  // Connect Android hardware/gesture back button to React navigation and modals
+  useAndroidBackHandler();
 
   // Authentication Guard: require login before accessing player and catalog
   if (!clientSession && currentView !== 'admin') {

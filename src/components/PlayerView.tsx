@@ -1162,17 +1162,17 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       }`}
     >
 
-      {/* MAIN TWO-COLUMN DESKTOP WORKSPACE (Mobile falls back cleanly to stacked video + tabs) */}
+      {/* MAIN TWO-COLUMN DESKTOP/TABLET-LANDSCAPE WORKSPACE (Mobile & Tablet Portrait stack video + tabs cleanly) */}
       <div
         className={`relative z-10 w-full flex-1 min-h-0 ${
           isFullscreen
             ? 'h-full w-full'
-            : 'flex flex-col md:flex-row md:gap-4 lg:gap-5 md:px-5 lg:px-7 md:pb-5 md:pt-1 max-w-[1920px] mx-auto overflow-hidden'
+            : 'flex flex-col lg:flex-row lg:gap-5 lg:px-7 lg:pb-5 lg:pt-1 max-w-[1920px] mx-auto overflow-hidden'
         }`}
       >
-        {/* LEFT COLUMN — CHANNEL LIST (Desktop 30%-33% width, independent scroll) */}
+        {/* LEFT COLUMN — CHANNEL LIST (Desktop & Tablet Landscape >= 1024px, independent scroll) */}
         {!isFullscreen && (
-          <aside className="hidden md:flex md:w-[32%] lg:w-[31%] xl:w-[30%] min-w-[290px] max-w-[430px] h-full flex-col rounded-2xl bg-[#0a1120]/90 backdrop-blur-xl border border-sky-400/20 shadow-[0_18px_50px_rgba(0,0,0,0.65)] overflow-hidden shrink-0">
+          <aside className="hidden lg:flex lg:w-[31%] xl:w-[30%] min-w-[290px] max-w-[430px] h-full flex-col rounded-2xl bg-[#0a1120]/90 backdrop-blur-xl border border-sky-400/20 shadow-[0_18px_50px_rgba(0,0,0,0.65)] overflow-hidden shrink-0">
             {/* Search Bar + Filter Dropdown Button */}
             <div className="p-3.5 pb-3 flex items-center gap-2.5 border-b border-white/[0.06] shrink-0">
               <div className="relative flex-1 flex items-center">
@@ -1877,9 +1877,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             )}
           </div>
 
-          {/* BOTTOM 3-SECTION CHANNEL & EPG INFO PANEL (Desktop only, non-fullscreen) */}
+          {/* BOTTOM 3-SECTION CHANNEL & EPG INFO PANEL (Desktop & Tablet Landscape >= 1024px, non-fullscreen) */}
           {!isFullscreen && (
-            <div className="hidden md:grid grid-cols-12 items-center rounded-2xl bg-[#0a1222]/95 backdrop-blur-xl border border-sky-400/20 px-5 py-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.55)] shrink-0">
+            <div className="hidden lg:grid grid-cols-12 items-center rounded-2xl bg-[#0a1222]/95 backdrop-blur-xl border border-sky-400/20 px-5 py-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.55)] shrink-0">
               {/* SECTION 1 — CURRENT CHANNEL */}
               <div className="col-span-4 flex items-center gap-3.5 pr-4 border-r border-white/10 min-w-0">
                 <div className="w-12 h-12 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center p-1.5 shrink-0 overflow-hidden">
@@ -2047,9 +2047,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         </div>
       )}
 
-      {/* MOBILE APP INTERFACE (TiviMate / Smarters style) - Below Video */}
+      {/* MOBILE & TABLET PORTRAIT APP INTERFACE (TiviMate / Smarters style) - Below Video */}
       {!isFullscreen && (
-        <div className="flex-1 min-h-0 flex flex-col w-full bg-[#07090e] md:hidden overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col w-full bg-[#07090e] lg:hidden overflow-hidden">
           {/* Active Channel Strip Header */}
           <div className="shrink-0 p-3 bg-gradient-to-b from-[#0b0e14] to-[#07090e] border-b border-white/10 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -2154,7 +2154,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* TAB 1: CANAIS */}
           {mobileTab === 'channels' && (
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24 pb-mobile-nav">
               {/* Search Bar */}
               <div className="relative flex items-center">
                 <Search className="absolute left-3 w-4 h-4 text-slate-400" />
@@ -2177,13 +2177,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
               {/* Category Pills Horizontal Scroll */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                {categories.map((cat) => {
-                  const isCatActive = selectedCategory === cat.id;
+                {availableCategories.map((cat) => {
+                  const isCatActive = selectedCategory.toLowerCase() === cat.id.toLowerCase();
                   return (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                         isCatActive
                           ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
                           : 'bg-slate-900 border border-white/10 text-slate-300 hover:text-white'
@@ -2195,8 +2195,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 })}
               </div>
 
-              {/* Channel Cards (Zapping Rapido) */}
-              <div className="space-y-2">
+              {/* Channel Cards (Single column on Phone, 2-column grid on Tablet Portrait) */}
+              <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2.5">
                 {filteredChannels.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-xs">
                     Nenhum canal encontrado nesta categoria.
@@ -2301,14 +2301,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* TAB 2: CATEGORIAS */}
           {mobileTab === 'categories' && (
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 grid grid-cols-2 gap-2.5 custom-scroll pb-24">
-              {categories.map((cat) => {
-                const count =
-                  cat.id === 'todos'
-                    ? channels.length
-                    : cat.id === 'favoritos'
-                    ? channels.filter((c) => c.isFavorite).length
-                    : channels.filter((c) => c.category.toLowerCase() === cat.id.toLowerCase()).length;
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 grid grid-cols-2 sm:grid-cols-3 gap-2.5 custom-scroll pb-24 pb-mobile-nav">
+              {availableCategories.map((cat) => {
+                const count = cat.count;
                 return (
                   <button
                     key={cat.id}

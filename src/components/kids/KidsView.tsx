@@ -429,9 +429,9 @@ export const KidsView: React.FC<KidsViewProps> = ({
   const hasMoreItems = visibleCount < activeFilteredItems.length;
 
   return (
-    <div className="relative z-10 w-full flex-1 min-h-0 flex flex-col md:flex-row gap-4 lg:gap-5 px-4 lg:px-7 pb-5 pt-2 max-w-[1920px] mx-auto overflow-hidden select-none">
-      {/* LEFT COLUMN — KIDS CATEGORIES SIDEBAR (#07539A, friendly icons, #FFD93D selected pill) */}
-      <aside className="hidden md:flex md:w-[23%] lg:w-[21%] xl:w-[20%] min-w-[225px] max-w-[300px] h-full flex-col rounded-3xl bg-[#07539A]/92 border-2 border-white/25 shadow-[0_14px_34px_rgba(4,40,80,0.38)] overflow-hidden shrink-0">
+    <div className="relative z-10 w-full flex-1 min-h-0 flex flex-col lg:flex-row gap-4 lg:gap-5 px-3 sm:px-4 lg:px-7 pb-3 lg:pb-5 pt-2 max-w-[1920px] mx-auto overflow-hidden select-none">
+      {/* LEFT COLUMN — KIDS CATEGORIES SIDEBAR (Desktop & Tablet Landscape >= 1024px) */}
+      <aside className="hidden lg:flex lg:w-[21%] xl:w-[20%] min-w-[225px] max-w-[300px] h-full flex-col rounded-3xl bg-[#07539A]/92 border-2 border-white/25 shadow-[0_14px_34px_rgba(4,40,80,0.38)] overflow-hidden shrink-0">
         <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 custom-scroll">
           {sidebarCategories.map((cat) => {
             const { Icon, color, fill } = getKidsCategoryIconInfo(cat.id, cat.name);
@@ -476,8 +476,8 @@ export const KidsView: React.FC<KidsViewProps> = ({
         </div>
       </aside>
 
-      {/* MOBILE / TABLET HORIZONTAL CATEGORY PILLS */}
-      <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1 shrink-0">
+      {/* MOBILE / TABLET PORTRAIT HORIZONTAL CATEGORY PILLS */}
+      <div className="flex lg:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1 shrink-0">
         {sidebarCategories.map((cat) => {
           const isSelected = selectedCategory === cat.id;
           return (
@@ -500,7 +500,7 @@ export const KidsView: React.FC<KidsViewProps> = ({
       {/* RIGHT COLUMN — KIDS BANNER & REAL CATALOG (Independent vertical scroll) */}
       <div
         ref={catalogScrollRef}
-        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden pr-1 space-y-5 custom-scroll"
+        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden pr-1 space-y-5 custom-scroll pb-mobile-nav"
       >
         {/* DECORATIVE KIDS BANNER (Original 3D illustration, static, zero copyrighted characters) */}
         {!isSearching && (

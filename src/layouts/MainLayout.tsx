@@ -7,6 +7,7 @@ import { PlaylistModal } from '../components/PlaylistModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { MediaModal } from '../components/MediaModal';
 import { KidsAnimatedBackground } from '../components/kids/KidsAnimatedBackground';
+import { MobileBottomNav } from '../components/mobile/MobileBottomNav';
 import { useApp } from '../context/AppContext';
 import { useNavigation } from '../context/NavigationContext';
 
@@ -78,8 +79,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Top Navbar */}
-      <header className="relative z-40 shrink-0">
+      {/* Top Navbar with Android/iOS Safe Area Top Padding */}
+      <header className="relative z-40 shrink-0 pt-safe">
         <Navbar
           currentView={currentView}
           vodFilter={vodFilter}
@@ -125,6 +126,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
         </footer>
       )}
+
+      {/* Mobile Fixed Bottom Navigation Bar (hidden on Tablet/Desktop) */}
+      <MobileBottomNav
+        currentView={currentView}
+        vodFilter={vodFilter}
+        favoritesCount={favoritesCount}
+        onNavigate={(v, f) => navigateTo(v, f)}
+      />
 
       {/* Global Modals */}
       <PlaylistModal

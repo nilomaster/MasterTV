@@ -41,8 +41,8 @@ function isAnimeContentItem(c: AdminContentItem): boolean {
   const genres: string[] = Array.isArray(c.genres)
     ? c.genres.map((g) => String(g).toLowerCase())
     : typeof c.genres === 'string'
-    ? String(c.genres).toLowerCase().split(',').map((g) => g.trim())
-    : [];
+      ? String(c.genres).toLowerCase().split(',').map((g) => g.trim())
+      : [];
   const title = (c.title || '').toLowerCase();
   return (
     genres.some((g) => g.includes('anime') || g.includes('shonen') || g.includes('seinen')) ||
@@ -64,8 +64,8 @@ function toAnimeMediaItem(c: AdminContentItem): MediaItem {
     genres: Array.isArray(c.genres)
       ? c.genres.map(String).map((g) => g.trim()).filter(Boolean)
       : typeof c.genres === 'string'
-      ? String(c.genres).split(',').map((g) => g.trim()).filter(Boolean)
-      : [],
+        ? String(c.genres).split(',').map((g) => g.trim()).filter(Boolean)
+        : [],
     posterUrl: String(c.posterUrl || ''),
     backdropUrl: String(c.backdropUrl || c.posterUrl || ''),
     description: String(c.description || ''),
@@ -73,27 +73,27 @@ function toAnimeMediaItem(c: AdminContentItem): MediaItem {
     backupStreamUrl: c.backupStreamUrl ? String(c.backupStreamUrl) : undefined,
     sources: Array.isArray((c as any).sourcesList) && (c as any).sourcesList.length > 0
       ? (c as any).sourcesList.map((s: any, idx: number) => ({
-          id: Number(s.id) || idx + 1,
-          name: String(s.name || `Fonte ${idx + 1}`),
-          quality: s.quality ? String(s.quality) : undefined,
-          streamUrl: String(s.streamUrl || s.url || ''),
-          url: String(s.streamUrl || s.url || ''),
-          backupStreamUrl: s.backupStreamUrl ? String(s.backupStreamUrl) : undefined,
-        }))
+        id: Number(s.id) || idx + 1,
+        name: String(s.name || `Fonte ${idx + 1}`),
+        quality: s.quality ? String(s.quality) : undefined,
+        streamUrl: String(s.streamUrl || s.url || ''),
+        url: String(s.streamUrl || s.url || ''),
+        backupStreamUrl: s.backupStreamUrl ? String(s.backupStreamUrl) : undefined,
+      }))
       : Array.isArray((c as any).sources) && (c as any).sources.length > 0
-      ? (c as any).sources
-      : undefined,
+        ? (c as any).sources
+        : undefined,
     seasons: Number(c.seasons) || undefined,
     episodes: Number(c.episodes) || undefined,
     episodeList: Array.isArray(c.episodesList)
       ? c.episodesList.map((ep) => ({
-          id: String(ep.id || Math.random()),
-          number: Number(ep.number) || 1,
-          title: String(ep.title || 'Episodio'),
-          streamUrl: String(ep.streamUrl || ''),
-          backupStreamUrl: ep.backupStreamUrl ? String(ep.backupStreamUrl) : undefined,
-          duration: ep.duration ? String(ep.duration) : undefined,
-        }))
+        id: String(ep.id || Math.random()),
+        number: Number(ep.number) || 1,
+        title: String(ep.title || 'Episodio'),
+        streamUrl: String(ep.streamUrl || ''),
+        backupStreamUrl: ep.backupStreamUrl ? String(ep.backupStreamUrl) : undefined,
+        duration: ep.duration ? String(ep.duration) : undefined,
+      }))
       : undefined,
   };
 }
@@ -221,7 +221,7 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
       setIsLoading(true);
     }
     AdminService.fetchRemoteContents()
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setIsLoading(false));
 
     const handleUpdate = () => setCatalogRevision((prev) => prev + 1);
@@ -361,9 +361,9 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
   const hasMoreItems = visibleCount < activeFilteredAnimes.length;
 
   return (
-    <div className="anime-theme relative w-full flex-1 min-h-0 bg-[#101116] flex flex-col md:flex-row max-w-[1920px] mx-auto overflow-hidden select-none">
-      {/* LEFT SIDEBAR — #14161B (19%-21% width, independent vertical scroll, ZERO neon) */}
-      <aside className="hidden md:flex md:w-[21%] lg:w-[20%] xl:w-[19%] min-w-[220px] max-w-[290px] h-full flex-col bg-[#14161B] border-r border-[#282B32] relative overflow-hidden shrink-0">
+    <div className="anime-theme relative w-full flex-1 min-h-0 bg-[#101116] flex flex-col lg:flex-row max-w-[1920px] mx-auto overflow-hidden select-none">
+      {/* LEFT SIDEBAR — #14161B (Desktop & Tablet Landscape >= 1024px, ZERO neon) */}
+      <aside className="hidden lg:flex lg:w-[20%] xl:w-[19%] min-w-[220px] max-w-[290px] h-full flex-col bg-[#14161B] border-r border-[#282B32] relative overflow-hidden shrink-0">
         <div className="relative z-10 flex-1 min-h-0 overflow-y-auto p-3.5 space-y-1.5 custom-scroll">
           {sidebarCategories.map((cat) => {
             const Icon = getAnimeCategoryIcon(cat.id, cat.name);
@@ -373,24 +373,21 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-[10px] text-left transition-colors duration-150 cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#FF6400] hover:bg-[#FF8533] text-white font-bold'
-                    : 'bg-transparent hover:bg-[#202229] text-[#B8BBC5] hover:text-white font-medium'
-                }`}
+                className={`w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-[10px] text-left transition-colors duration-150 cursor-pointer ${isSelected
+                  ? 'bg-[#FF6400] hover:bg-[#FF8533] text-white font-bold'
+                  : 'bg-transparent hover:bg-[#202229] text-[#B8BBC5] hover:text-white font-medium'
+                  }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon
-                    className={`w-[18px] h-[18px] shrink-0 ${
-                      isSelected ? 'text-white' : 'text-[#B8BBC5]'
-                    }`}
+                    className={`w-[18px] h-[18px] shrink-0 ${isSelected ? 'text-white' : 'text-[#B8BBC5]'
+                      }`}
                   />
                   <span className="text-sm truncate">{cat.name}</span>
                 </div>
                 <span
-                  className={`text-[11px] font-mono shrink-0 ${
-                    isSelected ? 'text-white/90 font-bold' : 'text-[#B8BBC5]/60'
-                  }`}
+                  className={`text-[11px] font-mono shrink-0 ${isSelected ? 'text-white/90 font-bold' : 'text-[#B8BBC5]/60'
+                    }`}
                 >
                   {cat.count}
                 </span>
@@ -411,8 +408,8 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
         </svg>
       </aside>
 
-      {/* MOBILE / TABLET HORIZONTAL CATEGORY BAR */}
-      <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar px-4 py-2.5 bg-[#14161B] border-b border-[#282B32] shrink-0">
+      {/* MOBILE / TABLET PORTRAIT HORIZONTAL CATEGORY BAR */}
+      <div className="flex lg:hidden items-center gap-2 overflow-x-auto no-scrollbar px-4 py-2.5 bg-[#14161B] border-b border-[#282B32] shrink-0">
         {sidebarCategories.map((cat) => {
           const isSelected = selectedCategory === cat.id;
           return (
@@ -420,11 +417,10 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-[10px] text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                isSelected
-                  ? 'bg-[#FF6400] text-white'
-                  : 'bg-[#202229] text-[#B8BBC5] border border-[#30333B]'
-              }`}
+              className={`px-3.5 py-2 rounded-[10px] text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${isSelected
+                ? 'bg-[#FF6400] text-white'
+                : 'bg-[#202229] text-[#B8BBC5] border border-[#30333B]'
+                }`}
             >
               {cat.name}
             </button>
@@ -435,7 +431,7 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
       {/* RIGHT MAIN AREA — BANNER & REAL ANIME CATALOG (Independent vertical scroll) */}
       <div
         ref={catalogScrollRef}
-        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-7 py-5 space-y-6 custom-scroll"
+        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-7 py-4 sm:py-5 space-y-6 custom-scroll pb-mobile-nav"
       >
         {/* DECORATIVE ANIME BANNER (Static original illustration, zero neon, zero copyrighted characters) */}
         {!isSearching && (

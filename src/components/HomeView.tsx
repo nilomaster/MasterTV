@@ -375,11 +375,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
       ) : (
-        /* 5 LARGE VERTICAL CATEGORY CARDS (Centered horizontally, Desktop optimized) */
-        <div className="relative z-10 flex-1 flex items-center justify-center w-full px-6 sm:px-10 lg:px-14 py-4">
-          <div className="w-full max-w-[1640px] mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 xl:gap-6">
+        /* 5 LARGE VERTICAL CATEGORY CARDS (Balanced Mobile 1+2x2, Tablet 3-col, Desktop 5-col) */
+        <div className="relative z-10 flex-1 flex items-center justify-center w-full px-4 sm:px-8 lg:px-14 py-3 sm:py-4 pb-mobile-nav">
+          <div className="w-full max-w-[1640px] mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 xl:gap-6">
             {HOME_CARDS.map((card, index) => {
               const isFocused = focusedIndex === index;
+              const isMobileFeatured = index === 0;
               return (
                 <button
                   key={card.id}
@@ -388,7 +389,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   onMouseEnter={() => setFocusedIndex(index)}
                   onMouseLeave={() => setFocusedIndex(-1)}
                   onFocus={() => setFocusedIndex(index)}
-                  className={`group relative w-full h-[270px] sm:h-[340px] lg:h-[clamp(370px,58vh,540px)] rounded-2xl overflow-hidden border bg-[#0b101d] cursor-pointer text-center flex flex-col justify-between transition-all duration-300 ease-out shadow-[0_20px_50px_rgba(0,0,0,0.65)] hover:-translate-y-1.5 hover:scale-[1.02] focus:outline-none ${
+                  className={`group relative w-full rounded-2xl overflow-hidden border bg-[#0b101d] cursor-pointer text-center flex transition-all duration-300 ease-out shadow-[0_20px_50px_rgba(0,0,0,0.65)] hover:-translate-y-1.5 hover:scale-[1.02] focus:outline-none ${
+                    isMobileFeatured
+                      ? 'col-span-2 sm:col-span-1 h-[155px] sm:h-[320px] lg:h-[clamp(370px,58vh,540px)] flex-row sm:flex-col items-center sm:items-stretch justify-between'
+                      : 'h-[195px] sm:h-[320px] lg:h-[clamp(370px,58vh,540px)] flex-col justify-between'
+                  } ${
                     isFocused
                       ? `${card.focusRingClass} -translate-y-1.5 scale-[1.02] z-20`
                       : `border-white/15 ${card.hoverBorderClass}`
@@ -406,7 +411,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/10 pointer-events-none" />
 
                   {/* Upper Illustration / Icon Area */}
-                  <div className="relative z-10 flex-1 w-full flex items-center justify-center px-4 pt-5 pb-1 overflow-hidden">
+                  <div
+                    className={`relative z-10 flex items-center justify-center overflow-hidden ${
+                      isMobileFeatured
+                        ? 'w-[42%] sm:w-full h-full sm:flex-1 px-4 sm:pt-5 sm:pb-1'
+                        : 'flex-1 w-full px-3 sm:px-4 pt-3 sm:pt-5 pb-1'
+                    }`}
+                  >
                     <img
                       src={card.iconImage}
                       alt={card.title}
@@ -419,14 +430,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </div>
 
                   {/* Lower Title, Accent Line & Subtitle */}
-                  <div className="relative z-10 w-full px-4 pb-6 sm:pb-7 lg:pb-8 pt-2 flex flex-col items-center">
-                    <h2 className="text-2xl sm:text-3xl xl:text-[34px] font-black tracking-wide text-white uppercase leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]">
+                  <div
+                    className={`relative z-10 flex flex-col ${
+                      isMobileFeatured
+                        ? 'w-[58%] sm:w-full items-start sm:items-center text-left sm:text-center pr-5 sm:px-4 py-4 sm:pb-7 lg:pb-8 sm:pt-2'
+                        : 'w-full items-center px-3 sm:px-4 pb-4 sm:pb-7 lg:pb-8 pt-1 sm:pt-2'
+                    }`}
+                  >
+                    <h2 className="text-xl sm:text-3xl xl:text-[34px] font-black tracking-wide text-white uppercase leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]">
                       {card.title}
                     </h2>
                     <span
-                      className={`block w-12 sm:w-14 h-[3px] rounded-full my-3 transition-all duration-300 group-hover:w-16 ${card.accentBarClass}`}
+                      className={`block w-10 sm:w-14 h-[3px] rounded-full my-2 sm:my-3 transition-all duration-300 group-hover:w-16 ${card.accentBarClass}`}
                     />
-                    <p className="text-[10px] sm:text-[11px] xl:text-xs font-semibold tracking-[0.14em] text-slate-200/90 uppercase leading-snug">
+                    <p className="text-[10px] sm:text-[11px] xl:text-xs font-semibold tracking-[0.12em] sm:tracking-[0.14em] text-slate-200/90 uppercase leading-snug">
                       {card.subtitle}
                     </p>
                   </div>
@@ -437,8 +454,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       )}
 
-      {/* Subtle Bottom-Left Brand Signature (matching reference) */}
-      <div className="relative z-10 w-full max-w-[1920px] mx-auto px-6 sm:px-10 lg:px-14 pb-5 pt-1 flex items-center justify-between pointer-events-none">
+      {/* Subtle Bottom-Left Brand Signature (hidden on small mobile where BottomNav sits) */}
+      <div className="hidden md:flex relative z-10 w-full max-w-[1920px] mx-auto px-6 sm:px-10 lg:px-14 pb-5 pt-1 items-center justify-between pointer-events-none">
         <div className="flex items-center gap-2.5 opacity-45">
           <img
             src="./assets/img/icons/logo.png"

@@ -16,6 +16,7 @@ import {
   X,
   Heart,
   ScreenShare,
+  ArrowLeft,
 } from 'lucide-react';
 import type { ClientSession } from '../types/admin';
 import type { ViewType, VODFilterType } from '../context/NavigationContext';
@@ -215,10 +216,58 @@ export const Navbar: React.FC<NavbarProps> = ({
     );
   }
 
-  // Dedicated Live TV Header (Desktop reference design, no horizontal category menu)
+  // Dedicated Live TV Header (Desktop reference design + compact Mobile back bar)
   if (isTVActive) {
     return (
       <>
+        {/* Compact Mobile Live TV Top Bar (prevents mobile users from being trapped in Live TV) */}
+        <header className="md:hidden z-40 w-full bg-[#060c1a]/95 backdrop-blur-xl border-b border-white/10 relative shrink-0">
+          <div className="flex items-center justify-between px-3 py-2 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => handleNavClick('home')}
+                className="w-10 h-10 rounded-full bg-white/[0.08] active:bg-white/20 border border-white/10 text-white flex items-center justify-center shrink-0"
+                aria-label="Voltar ao inicio"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-extrabold tracking-tight text-white leading-none truncate">
+                  TV AO VIVO
+                </span>
+                <span className="text-[10px] text-sky-400 font-semibold mt-0.5 truncate">
+                  MasterTV Ultra HD
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsNotificationOpen(true)}
+                className="relative w-10 h-10 rounded-full bg-white/[0.08] active:bg-white/20 border border-white/10 text-slate-200 flex items-center justify-center"
+                aria-label="Notificacoes"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center">
+                    {unreadNotifCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsProfileOpen(true)}
+                className="w-10 h-10 rounded-full bg-sky-500/20 active:bg-sky-500/35 border border-sky-400/40 text-sky-300 flex items-center justify-center"
+                aria-label="Perfil do Usuario"
+              >
+                <User className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </header>
+
         <header
           onMouseEnter={() => onNavbarMouseEnter?.()}
           onMouseLeave={() => onNavbarMouseLeave?.()}

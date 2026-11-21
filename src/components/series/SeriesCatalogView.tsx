@@ -347,9 +347,9 @@ export const SeriesCatalogView: React.FC<SeriesCatalogViewProps> = ({
   const hasMoreItems = visibleCount < activeFilteredSeries.length;
 
   return (
-    <div className="relative z-10 w-full flex-1 min-h-0 flex flex-col md:flex-row gap-4 lg:gap-5 px-4 lg:px-7 pb-5 pt-1 max-w-[1920px] mx-auto overflow-hidden select-none">
-      {/* LEFT COLUMN — REAL CATEGORIES SIDEBAR (Desktop 20%-22%, independent vertical scroll) */}
-      <aside className="hidden md:flex md:w-[23%] lg:w-[21%] xl:w-[20%] min-w-[220px] max-w-[300px] h-full flex-col rounded-2xl bg-[#07182B]/85 backdrop-blur-xl border border-[#00BFFF]/20 shadow-[0_18px_50px_rgba(0,0,0,0.6)] overflow-hidden shrink-0">
+    <div className="relative z-10 w-full flex-1 min-h-0 flex flex-col lg:flex-row gap-4 lg:gap-5 px-3 sm:px-4 lg:px-7 pb-3 lg:pb-5 pt-1 max-w-[1920px] mx-auto overflow-hidden select-none">
+      {/* LEFT COLUMN — REAL CATEGORIES SIDEBAR (Desktop & Tablet Landscape >= 1024px) */}
+      <aside className="hidden lg:flex lg:w-[21%] xl:w-[20%] min-w-[220px] max-w-[300px] h-full flex-col rounded-2xl bg-[#07182B]/85 backdrop-blur-xl border border-[#00BFFF]/20 shadow-[0_18px_50px_rgba(0,0,0,0.6)] overflow-hidden shrink-0">
         <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1.5 custom-scroll">
           {sidebarCategories.map((cat) => {
             const Icon = getSeriesCategoryIcon(cat.id, cat.name);
@@ -388,8 +388,8 @@ export const SeriesCatalogView: React.FC<SeriesCatalogViewProps> = ({
         </div>
       </aside>
 
-      {/* MOBILE / TABLET HORIZONTAL CATEGORY PILLS */}
-      <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1 shrink-0">
+      {/* MOBILE / TABLET PORTRAIT HORIZONTAL CATEGORY PILLS */}
+      <div className="flex lg:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1 shrink-0">
         {sidebarCategories.map((cat) => {
           const isSelected = selectedCategory === cat.id;
           return (
@@ -397,7 +397,7 @@ export const SeriesCatalogView: React.FC<SeriesCatalogViewProps> = ({
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all cursor-pointer ${
+              className={`px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all cursor-pointer ${
                 isSelected
                   ? 'bg-[#00BFFF]/20 border-[#00BFFF]/70 text-white'
                   : 'bg-[#07182B]/80 border-white/10 text-[#A9B8CC]'
@@ -412,7 +412,7 @@ export const SeriesCatalogView: React.FC<SeriesCatalogViewProps> = ({
       {/* RIGHT COLUMN — SERIES CATALOG (Independent vertical scroll) */}
       <div
         ref={catalogScrollRef}
-        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden pr-1 space-y-6 custom-scroll"
+        className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden pr-1 space-y-6 custom-scroll pb-mobile-nav"
       >
         {/* DECORATIVE BLUE SERIES BANNER (Static original illustration, zero real series posters) */}
         {!isSearching && (
