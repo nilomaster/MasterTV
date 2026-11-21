@@ -371,26 +371,31 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     video.addEventListener('timeupdate', handleVideoPlaying);
 
     if (isHlsStream) {
-      // Optimized resilient config for all Android devices and desktop browsers
+      // Optimized resilient config for IPTV live HLS streams (prevents segment looping and buffer starvation)
       const hls = new Hls({
         enableWorker: false,
         lowLatencyMode: false,
         startFragPrefetch: true,
-        backBufferLength: 5,
-        maxBufferLength: 10,
-        maxMaxBufferLength: 20,
-        maxBufferSize: 25 * 1000 * 1000,
-        liveSyncDurationCount: 1,
+        backBufferLength: 15,
+        maxBufferLength: 20,
+        maxMaxBufferLength: 40,
+        maxBufferSize: 35 * 1000 * 1000,
+        liveSyncDurationCount: 3,
         liveMaxLatencyDurationCount: 10,
-        initialLiveManifestSize: 1,
+        initialLiveManifestSize: 2,
         maxBufferHole: 1.0,
-        highBufferWatchdogPeriod: 2,
+        highBufferWatchdogPeriod: 3,
         nudgeOffset: 0.2,
         nudgeMaxRetry: 10,
         fragLoadingTimeOut: 25000,
         manifestLoadingTimeOut: 25000,
-        xhrSetup: (xhr) => {
+        xhrSetup: (xhr, url) => {
           xhr.withCredentials = false;
+          // Bust browser/proxy cache on live m3u8 manifest reloads so playlists never loop old segments
+          if (url && (url.includes('.m3u8') || url.includes('m3u8'))) {
+            const sep = url.includes('?') ? '&' : '?';
+            xhr.open('GET', `${url}${sep}_cb=${Date.now()}`, true);
+          }
         },
       });
 
@@ -483,9 +488,9 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
               break;
           }
         } else {
-          // Handle non-fatal buffer stalls immediately by jumping to live sync edge
+          // Handle non-fatal buffer stalls strictly forward (never rewind to replay old scenes)
           if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
-            if (hls.liveSyncPosition) {
+            if (hls.liveSyncPosition && hls.liveSyncPosition > video.currentTime + 0.5) {
               video.currentTime = hls.liveSyncPosition;
             }
             hls.startLoad();
@@ -603,14 +608,12 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         consecutiveFrozenSecondsRef.current += 1;
         const frozen = consecutiveFrozenSecondsRef.current;
 
-        // Stage 1: Fast live catch-up after 4 seconds of stall
-        if (frozen === 4) {
+        // Stage 1: Fast forward live catch-up after 6 seconds of true stall (never seek backward)
+        if (frozen === 6) {
           setIsAutoRecovering(true);
           if (hlsRef.current) {
-            if (hlsRef.current.liveSyncPosition) {
+            if (hlsRef.current.liveSyncPosition && hlsRef.current.liveSyncPosition > vid.currentTime + 0.5) {
               vid.currentTime = hlsRef.current.liveSyncPosition;
-            } else if (Number.isFinite(vid.duration) && vid.duration > 1) {
-              vid.currentTime = Math.max(0, vid.duration - 0.5);
             }
             hlsRef.current.startLoad();
           } else {
@@ -619,8 +622,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           vid.play().catch(() => {});
         }
 
-        // Stage 2: Media Error Recovery at 7 seconds
-        if (frozen === 7) {
+        // Stage 2: Media Error Recovery at 10 seconds
+        if (frozen === 10) {
           setIsAutoRecovering(true);
           if (hlsRef.current) {
             hlsRef.current.recoverMediaError();
@@ -629,8 +632,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           vid.play().catch(() => {});
         }
 
-        // Stage 3: Full Stream Restart at 9 seconds
-        if (frozen >= 9) {
+        // Stage 3: Full Stream Restart at 14 seconds
+        if (frozen >= 14) {
           consecutiveFrozenSecondsRef.current = 0;
           restartAttemptsRef.current += 1;
           const sources = channelSourcesRef.current;
@@ -1325,15 +1328,32 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                           )}
                         </div>
 
-                        {/* Channel Name & Current Program */}
+                        {/* Channel Name, Quality Badge & Current Program */}
                         <div className="flex flex-col min-w-0">
-                          <span
-                            className={`text-sm font-bold truncate leading-tight ${
-                              isSelected ? 'text-white' : 'text-slate-100 group-hover:text-white'
-                            }`}
-                          >
-                            {ch.name}
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className={`text-sm font-bold truncate leading-tight ${
+                                isSelected ? 'text-white' : 'text-slate-100 group-hover:text-white'
+                              }`}
+                            >
+                              {ch.name}
+                            </span>
+                            {ch.quality && (
+                              <span
+                                className={`shrink-0 px-1.5 py-0.2 rounded text-[9px] font-mono font-extrabold tracking-wider border ${
+                                  ch.quality === '4K'
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/40'
+                                    : ch.quality === 'FHD'
+                                    ? 'bg-sky-500/20 text-sky-300 border-sky-400/40'
+                                    : ch.quality === 'SD'
+                                    ? 'bg-slate-700/60 text-slate-300 border-slate-500/40'
+                                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-400/35'
+                                }`}
+                              >
+                                {ch.quality}
+                              </span>
+                            )}
+                          </div>
                           {programLabel && (
                             <span className="text-[11px] text-slate-400 truncate mt-0.5 leading-tight">
                               {programLabel}
@@ -1881,9 +1901,27 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                     <span className="text-slate-300 font-semibold">
                       {currentChannel ? String(currentChannel.number).padStart(3, '0') : '---'}
                     </span>
+                    {currentChannel?.quality && (
+                      <>
+                        <span className="text-white/20">|</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-extrabold ${
+                            currentChannel.quality === '4K'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : currentChannel.quality === 'FHD'
+                              ? 'bg-sky-500/20 text-sky-300'
+                              : currentChannel.quality === 'SD'
+                              ? 'bg-slate-700/60 text-slate-300'
+                              : 'bg-emerald-500/15 text-emerald-300'
+                          }`}
+                        >
+                          {currentChannel.quality}
+                        </span>
+                      </>
+                    )}
                     <span className="text-white/20">|</span>
                     <span className="truncate font-sans uppercase text-[11px] tracking-wide">
-                      {currentChannel?.category || currentChannel?.quality || 'TV Ao Vivo'}
+                      {currentChannel?.category || 'TV Ao Vivo'}
                     </span>
                   </div>
                 </div>

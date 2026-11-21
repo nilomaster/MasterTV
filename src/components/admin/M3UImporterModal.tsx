@@ -262,8 +262,23 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     if (e) e.stopPropagation();
     try {
       setAddingItemId(item.id);
-      const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
-      const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
+      const rawQ = (item.quality || 'HD').toUpperCase();
+      const sourceQuality: '4K' | 'FHD' | 'HD' | 'SD' =
+        rawQ === '4K' || rawQ === 'UHD'
+          ? '4K'
+          : rawQ === 'FHD' || rawQ === '1080P'
+          ? 'FHD'
+          : rawQ === 'SD' || rawQ === '480P'
+          ? 'SD'
+          : 'HD';
+      const cleanQualityLabel =
+        sourceQuality === '4K'
+          ? '4K - UHD'
+          : sourceQuality === 'FHD'
+          ? '1080P - FHD'
+          : sourceQuality === 'SD'
+          ? '480P - SD'
+          : '720P - HD';
 
       const adminItem: AdminContentItem = {
         id: getDeterministicContentId(item.type, item.cleanTitle || item.title, item.streamUrl),
@@ -610,8 +625,23 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
       for (let i = 0; i < itemsToImport.length; i++) {
         const item = itemsToImport[i];
-        const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
-        const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
+        const rawQ = (item.quality || 'HD').toUpperCase();
+        const sourceQuality: '4K' | 'FHD' | 'HD' | 'SD' =
+          rawQ === '4K' || rawQ === 'UHD'
+            ? '4K'
+            : rawQ === 'FHD' || rawQ === '1080P'
+            ? 'FHD'
+            : rawQ === 'SD' || rawQ === '480P'
+            ? 'SD'
+            : 'HD';
+        const cleanQualityLabel =
+          sourceQuality === '4K'
+            ? '4K - UHD'
+            : sourceQuality === 'FHD'
+            ? '1080P - FHD'
+            : sourceQuality === 'SD'
+            ? '480P - SD'
+            : '720P - HD';
 
         // Convert ParsedPlaylistItem to AdminContentItem with deterministic ID
         const adminItem: AdminContentItem = {

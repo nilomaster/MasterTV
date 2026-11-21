@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminService } from '../../services/adminService';
+import { groupSeriesEpisodes } from '../../services/seriesGrouper';
 import type { AdminContentItem } from '../../types/admin';
 import type { MediaItem } from '../../types/iptv';
 
@@ -236,12 +237,12 @@ export const AnimeView: React.FC<AnimeViewProps> = ({
     }
   }, [selectedCategory, searchQuery]);
 
-  // Load real animes from AdminService (strictly no fictitious data)
+  // Load real animes from AdminService grouped into Netflix-style series folders
   const realAnimes: MediaItem[] = useMemo(() => {
     try {
       const all = AdminService.getContents();
       if (!Array.isArray(all)) return [];
-      return all.filter(isAnimeContentItem).map(toAnimeMediaItem);
+      return groupSeriesEpisodes(all.filter(isAnimeContentItem).map(toAnimeMediaItem));
     } catch {
       return [];
     }

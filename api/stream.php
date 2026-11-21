@@ -58,6 +58,8 @@ if ($isM3u8) {
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Accept: */*',
         'Connection: keep-alive',
+        'Cache-Control: no-cache',
+        'Pragma: no-cache',
     ]);
 
     $content = curl_exec($ch);
@@ -133,7 +135,9 @@ if ($isM3u8) {
     $rewrittenM3u8 = implode("\n", $rewrittenLines);
     header('Content-Type: application/vnd.apple.mpegurl; charset=UTF-8');
     header('Content-Length: ' . strlen($rewrittenM3u8));
-    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
     echo $rewrittenM3u8;
     exit;
 }

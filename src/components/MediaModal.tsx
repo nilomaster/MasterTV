@@ -61,11 +61,28 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 }) => {
   const [isFavorited, setIsFavorited] = useState<boolean>(false);
   const [selectedSourceIdx, setSelectedSourceIdx] = useState<number>(0);
+  const [selectedSeason, setSelectedSeason] = useState<number>(1);
 
-  // Reset selected source whenever media item changes
+  // Extract sorted unique seasons available for the active series
+  const availableSeasons = useMemo(() => {
+    const eps = mediaItem?.episodeList || [];
+    if (eps.length === 0) return [1];
+    const set = new Set<number>();
+    eps.forEach((ep) => set.add(ep.season && ep.season > 0 ? ep.season : 1));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [mediaItem]);
+
+  // Reset selected source and default season whenever media item changes
   useEffect(() => {
     setSelectedSourceIdx(0);
-  }, [mediaItem]);
+    setSelectedSeason(availableSeasons[0] || 1);
+  }, [mediaItem, availableSeasons]);
+
+  // Episodes belonging to the selected season
+  const seasonEpisodes = useMemo(() => {
+    const eps = mediaItem?.episodeList || [];
+    return eps.filter((ep) => (ep.season && ep.season > 0 ? ep.season : 1) === selectedSeason);
+  }, [mediaItem, selectedSeason]);
 
   // Close modal on TV remote back button (Escape, Back, Tizen 10009)
   useEffect(() => {
@@ -198,7 +215,15 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 
   const handlePlayCurrentSource = () => {
     const targetUrl = activeTargetUrl;
-    if (hasEpisodes && mediaItem?.episodeList && mediaItem.episodeList.length > 0) {
+    if (hasEpisodes && seasonEpisodes.length > 0 && mediaItem) {
+      const firstEp = seasonEpisodes[0];
+      onPlayMedia(
+        firstEp.streamUrl || targetUrl,
+        `${title} - T${String(firstEp.season || selectedSeason).padStart(2, '0')}E${String(firstEp.number).padStart(2, '0')}`,
+        mediaItem,
+        firstEp
+      );
+    } else if (hasEpisodes && mediaItem?.episodeList && mediaItem.episodeList.length > 0) {
       onPlayMedia(targetUrl, `${title} - ${mediaItem.episodeList[0].title}`, mediaItem, mediaItem.episodeList[0]);
     } else {
       onPlayMedia(targetUrl, title, mediaItem || undefined);
@@ -208,7 +233,13 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 
   const handlePlayEpisode = (episode: EpisodeItem) => {
     if (mediaItem) {
-      onPlayMedia(episode.streamUrl || mediaItem?.streamUrl || mainStreamUrl, `${mediaItem.title} - ${episode.title}`, mediaItem, episode);
+      const seasonPrefix = episode.season ? `T${String(episode.season).padStart(2, '0')} ` : '';
+      onPlayMedia(
+        episode.streamUrl || mediaItem?.streamUrl || mainStreamUrl,
+        `${mediaItem.title} - ${seasonPrefix}${episode.title}`,
+        mediaItem,
+        episode
+      );
     } else {
       onPlayMedia(episode.streamUrl, episode.title);
     }
@@ -423,47 +454,120 @@ export const MediaModal: React.FC<MediaModalProps> = ({
             </div>
           </div>
 
-          {/* Series Episodes List (if available) */}
+          {/* Netflix-Style Seasons & Episodes Organizer */}
           {hasEpisodes && mediaItem?.episodeList && (
-            <div className="px-6 sm:px-8 pb-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Tv className="w-4 h-4 text-blue-400" />
-                  <h3 className="text-sm font-bold text-white">
-                    Episódios ({mediaItem.episodeList.length} disponíveis)
+            <div className="px-6 sm:px-8 pb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <Tv className="w-4 h-4 text-sky-400" />
+                  <h3 className="text-base font-extrabold text-white">
+                    Episódios
                   </h3>
+                  <span className="px-2 py-0.5 rounded-full bg-white/10 text-[11px] font-mono text-slate-300">
+                    {seasonEpisodes.length} {seasonEpisodes.length === 1 ? 'episódio' : 'episódios'}
+                  </span>
                 </div>
-                <span className="text-xs text-slate-400 font-medium">Temporada 1</span>
+
+                {/* Season Selector (Dropdown + Quick Tabs) */}
+                {availableSeasons.length > 1 ? (
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                    {availableSeasons.length <= 6 ? (
+                      availableSeasons.map((seasonNum) => {
+                        const isActive = selectedSeason === seasonNum;
+                        return (
+                          <button
+                            key={seasonNum}
+                            type="button"
+                            onClick={() => setSelectedSeason(seasonNum)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer border ${
+                              isActive
+                                ? 'bg-sky-500 text-slate-950 border-sky-400'
+                                : 'bg-slate-900/90 text-slate-300 border-white/10 hover:bg-slate-800 hover:text-white'
+                            }`}
+                          >
+                            Temporada {seasonNum}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <select
+                        value={selectedSeason}
+                        onChange={(e) => setSelectedSeason(Number(e.target.value))}
+                        className="px-3.5 py-2 rounded-xl bg-slate-900 border border-white/15 text-xs font-bold text-white focus:outline-none focus:border-sky-400 cursor-pointer"
+                      >
+                        {availableSeasons.map((seasonNum) => (
+                          <option key={seasonNum} value={seasonNum}>
+                            Temporada {seasonNum}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-400 font-semibold">
+                    Temporada {selectedSeason}
+                  </span>
+                )}
               </div>
 
-              <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
-                {mediaItem.episodeList.map((ep) => (
+              <div className="flex flex-col gap-2.5 max-h-72 overflow-y-auto pr-1 custom-scroll">
+                {seasonEpisodes.map((ep) => (
                   <div
                     key={ep.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-white/5 transition-all group"
+                    onClick={() => handlePlayEpisode(ep)}
+                    className="flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-xl bg-slate-900/75 hover:bg-slate-800/90 border border-white/10 hover:border-sky-400/50 transition-all group cursor-pointer"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-400">
-                        {ep.number}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Episode Thumbnail or Number Tile */}
+                      {ep.thumbnailUrl ? (
+                        <div className="relative w-24 sm:w-28 aspect-video rounded-lg overflow-hidden bg-slate-950 border border-white/10 shrink-0">
+                          <img
+                            src={ep.thumbnailUrl}
+                            alt={ep.title}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex items-center justify-center transition-colors">
+                            <div className="w-7 h-7 rounded-full bg-black/70 group-hover:bg-sky-500 text-white group-hover:text-slate-950 flex items-center justify-center transition-colors">
+                              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                            </div>
+                          </div>
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-black/80 text-[10px] font-mono font-bold text-white">
+                            E{String(ep.number).padStart(2, '0')}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-400/25 flex items-center justify-center text-xs font-mono font-bold text-sky-400 shrink-0">
+                          E{String(ep.number).padStart(2, '0')}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors truncate">
                           {ep.title}
                         </h4>
-                        {ep.duration && (
-                          <span className="text-[11px] text-slate-400 font-mono">
-                            {ep.duration}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5 font-mono">
+                          <span>T{String(ep.season || selectedSeason).padStart(2, '0')} · E{String(ep.number).padStart(2, '0')}</span>
+                          {ep.duration && (
+                            <>
+                              <span>·</span>
+                              <span>{ep.duration}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     <button
-                      onClick={() => handlePlayEpisode(ep)}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/25 cursor-pointer"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePlayEpisode(ep);
+                      }}
+                      className="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>Assistir</span>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span className="hidden sm:inline">Assistir</span>
                     </button>
                   </div>
                 ))}

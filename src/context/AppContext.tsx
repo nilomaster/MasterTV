@@ -66,28 +66,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!Array.isArray(all)) return [];
       return all
         .filter((c) => c && c.type === 'channel')
-        .map((c, idx) => ({
-          id: String(c.id || `channel-${idx + 1}`),
-          epgId: c.epgId || c.title || undefined,
-          number: Number(c.channelNumber) || idx + 1,
-          name: String(c.title || 'Canal'),
-          logo: c.posterUrl || '',
-          category: c.channelCategory || 'aberta',
-          streamUrl: c.streamUrl || '',
-          backupStreamUrl: c.backupStreamUrl,
-          sources: c.sourcesList && c.sourcesList.length > 0
-            ? c.sourcesList.map((s) => ({
-                id: s.id,
-                name: s.name,
-                url: s.streamUrl,
-                quality: s.quality,
-              }))
-            : undefined,
-          currentProgram: c.currentProgram || 'Transmissao ao Vivo',
-          currentProgramTime: 'Ao Vivo',
-          synopsis: c.description || 'Canal sincronizado no banco de dados MasterTV.',
-          isFavorite: false,
-        }));
+        .map((c, idx) => {
+          // Resolve real channel quality from saved sourcesList or title
+          const srcQ = (c.sourcesList?.[0]?.quality || c.sourcesList?.[0]?.name || '').toUpperCase();
+          const titleUp = String(c.title || '').toUpperCase();
+          let resolvedQuality: string | undefined;
+          if (srcQ.includes('4K') || srcQ.includes('UHD') || /\b(4K|UHD)\b/.test(titleUp)) {
+            resolvedQuality = '4K';
+          } else if (srcQ.includes('FHD') || srcQ.includes('1080') || /\b(FHD|1080P)\b/.test(titleUp)) {
+            resolvedQuality = 'FHD';
+          } else if (srcQ.includes('SD') || srcQ.includes('480') || /\b(SD|480P)\b/.test(titleUp)) {
+            resolvedQuality = 'SD';
+          } else if (srcQ.includes('HD') || srcQ.includes('720') || /\b(HD|720P)\b/.test(titleUp)) {
+            resolvedQuality = 'HD';
+          }
+
+          return {
+            id: String(c.id || `channel-${idx + 1}`),
+            epgId: c.epgId || c.title || undefined,
+            number: Number(c.channelNumber) || idx + 1,
+            name: String(c.title || 'Canal'),
+            logo: c.posterUrl || '',
+            category: c.channelCategory || 'aberta',
+            quality: resolvedQuality,
+            streamUrl: c.streamUrl || '',
+            backupStreamUrl: c.backupStreamUrl,
+            sources: c.sourcesList && c.sourcesList.length > 0
+              ? c.sourcesList.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  url: s.streamUrl,
+                  quality: s.quality,
+                }))
+              : undefined,
+            currentProgram: c.currentProgram || 'Transmissao ao Vivo',
+            currentProgramTime: 'Ao Vivo',
+            synopsis: c.description || 'Canal sincronizado no banco de dados MasterTV.',
+            isFavorite: false,
+          };
+        });
     } catch {
       return [];
     }

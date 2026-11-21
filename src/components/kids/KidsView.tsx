@@ -24,6 +24,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useNavigation } from '../../context/NavigationContext';
 import { AdminService } from '../../services/adminService';
+import { groupSeriesEpisodes } from '../../services/seriesGrouper';
 import type { AdminContentItem } from '../../types/admin';
 import type { MediaItem, Channel } from '../../types/iptv';
 
@@ -221,6 +222,15 @@ const KidsPosterCard: React.FC<KidsCardProps> = React.memo(({ item, onSelect }) 
         </span>
       )}
 
+      {/* Grouped Series Seasons/Episodes Badge */}
+      {item.episodeList && item.episodeList.length > 1 && (
+        <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-[#FFD93D] text-[#053363] text-[10px] font-extrabold shadow-sm">
+          {item.seasons && item.seasons > 1
+            ? `${item.seasons} Temps.`
+            : `${item.episodeList.length} eps`}
+        </span>
+      )}
+
       {/* Friendly Centered Play Button */}
       <div className="absolute inset-x-0 bottom-9 sm:bottom-10 z-10 flex justify-center pointer-events-none transition-transform duration-300 group-hover:-translate-y-1.5">
         <div className="w-10 h-10 rounded-full bg-[#042A52]/75 group-hover:bg-[#FFD93D] border-2 border-white text-white group-hover:text-[#042A52] flex items-center justify-center shadow-md transition-colors duration-200">
@@ -289,7 +299,7 @@ export const KidsView: React.FC<KidsViewProps> = ({
 
     const liveKids = (channels || []).filter((ch) => isKidsContentItem(ch));
     return {
-      kidsMediaItems: mediaItems,
+      kidsMediaItems: groupSeriesEpisodes(mediaItems),
       kidsLiveChannels: liveKids,
     };
   }, [channels, catalogRevision]);

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import type { MediaItem } from '../../types/iptv';
 import { AdminService } from '../../services/adminService';
+import { groupSeriesEpisodes } from '../../services/seriesGrouper';
 
 interface SeriesCatalogViewProps {
   onSelectMedia: (item: MediaItem) => void;
@@ -198,7 +199,7 @@ export const SeriesCatalogView: React.FC<SeriesCatalogViewProps> = ({
     try {
       const all = AdminService.getContents();
       if (!Array.isArray(all)) return [];
-      return all
+      const mapped: MediaItem[] = all
         .filter((c) => c && c.type === 'series')
         .map((c) => ({
           id: String(c.id || `series-${Math.random()}`),
@@ -248,6 +249,7 @@ export const SeriesCatalogView: React.FC<SeriesCatalogViewProps> = ({
               }))
             : undefined,
         }));
+      return groupSeriesEpisodes(mapped);
     } catch {
       return [];
     }
