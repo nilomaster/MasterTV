@@ -1,6 +1,6 @@
-// MasterTV UniTV-Style Navigation Header & Android TV Interface
-// Features UniTV tab system (TV, JOGOS, DESTAQUES, FILMES, SERIES, KIDS, ANIME, EXPLORAR)
-// System circle action buttons (Search, Filter, History, Profile, Notification, Clock)
+// MasterTV Navigation Header
+// Clean premium minimal header on Home view (matching desktop reference design)
+// Preserves full UniTV tab navigation on all internal pages
 // Strictly ASCII comments only as per project guidelines
 
 import React, { useState } from 'react';
@@ -62,12 +62,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
-  // System notifications state for UniTV notification drawer
+  // System notifications state for notification drawer
   const [notifications, setNotifications] = useState<UniTVNotificationItem[]>([
     {
       id: 'notif-1',
-      title: 'Mensagem de atualizacao: MasterTV UniTV Style',
-      message: 'Nova interface de Smart TV instalada com layout UniTV, mosaico e transmissao HLS.',
+      title: 'Mensagem de atualizacao: MasterTV Desktop',
+      message: 'Nova interface inicial instalada com navegacao rapida por cards e transmissao HLS.',
       date: 'Hoje',
       isUnread: true,
       type: 'update',
@@ -103,9 +103,122 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const unreadNotifCount = notifications.filter((n) => n.isUnread).length;
 
+  // Clean Desktop Home Header (No horizontal category bar, faithful to reference)
+  if (isHomeActive) {
+    return (
+      <>
+        <header className="z-40 w-full bg-transparent sticky top-0">
+          <div className="flex items-center justify-between px-6 sm:px-10 lg:px-14 pt-5 pb-3 max-w-[1920px] mx-auto gap-4">
+            {/* LEFT: Original MasterTV Logo + ULTRA HD TV */}
+            <div
+              onClick={() => {
+                setSearchQuery('');
+                handleNavClick('home');
+              }}
+              className="flex items-center gap-3.5 cursor-pointer group select-none shrink-0"
+              title="MasterTV - Inicio"
+            >
+              <div className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center overflow-hidden">
+                <img
+                  src="./assets/img/icons/logo.png"
+                  alt="MasterTV Logo"
+                  className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-xl sm:text-2xl tracking-tight leading-none flex items-center">
+                  <span className="text-white">Master</span>
+                  <span className="text-sky-400">TV</span>
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.26em] leading-none mt-1.5">
+                  ULTRA HD TV
+                </span>
+              </div>
+            </div>
+
+            {/* RIGHT: Clean Circular Actions (Search, Profile, Settings) + Divider + Clock & Date */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+              <button
+                onClick={() => setSearchBarOpen((prev) => !prev)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer border ${
+                  searchBarOpen || searchQuery
+                    ? 'bg-sky-500/25 border-sky-400/60 text-sky-300'
+                    : 'bg-white/[0.08] hover:bg-white/[0.15] border-white/10 text-slate-200'
+                }`}
+                title="Pesquisar conteudos"
+                aria-label="Pesquisar conteudos"
+              >
+                <Search className="w-[18px] h-[18px]" />
+              </button>
+
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Perfil do Usuario"
+                aria-label="Perfil do Usuario"
+              >
+                <User className="w-[18px] h-[18px]" />
+              </button>
+
+              <button
+                onClick={onOpenSettingsModal}
+                className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Configuracoes"
+                aria-label="Configuracoes"
+              >
+                <Settings className="w-[18px] h-[18px]" />
+              </button>
+
+              <div className="hidden sm:block h-8 w-px bg-white/15 mx-1" />
+
+              <div className="hidden sm:block">
+                <UniTVClock showDate />
+              </div>
+            </div>
+          </div>
+
+          {/* Expandable Search Input Bar */}
+          {searchBarOpen && (
+            <div className="px-6 sm:px-10 lg:px-14 pb-3 animate-in fade-in duration-200">
+              <div className="max-w-xl ml-auto relative flex items-center">
+                <Search className="absolute left-4 w-4 h-4 text-sky-400" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar canais, filmes, series ou animes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full bg-[#0d1322]/95 border border-white/15 rounded-full pl-11 pr-10 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-sky-400/70 shadow-xl backdrop-blur-md"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3.5 text-slate-400 hover:text-white cursor-pointer"
+                    aria-label="Limpar busca"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </header>
+
+        {/* User Profile & Account Modal */}
+        <UniTVProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          clientSession={clientSession || null}
+          onLogout={onLogout || (() => {})}
+          favoritesCount={favoritesCount}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      {/* Top Header Navigation - UniTV Style */}
+      {/* Top Header Navigation - Internal Pages (Preserved) */}
       <header
         onMouseEnter={() => {
           if (currentView === 'player') {
@@ -128,11 +241,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         <div className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-3 max-w-[1920px] mx-auto gap-3">
-          {/* LEFT: MasterTV Logo */}
+          {/* LEFT: MasterTV Logo (Click returns to Home) */}
           <div
             onClick={() => handleNavClick('home')}
             className="flex items-center gap-2.5 cursor-pointer group select-none shrink-0"
-            title="MasterTV - Inicio"
+            title="MasterTV - Voltar ao Inicio"
           >
             <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#0b0e14] border border-cyan-500/40 p-1 shadow-[0_0_15px_rgba(0,240,255,0.25)] group-hover:border-cyan-400 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all duration-300 flex items-center justify-center overflow-hidden">
               <img
@@ -151,7 +264,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* CENTER: UniTV Navigation Tabs (TV, JOGOS, DESTAQUES, FILMES, SERIES, KIDS, ANIME, EXPLORAR) */}
+          {/* CENTER: Internal Pages Navigation Tabs */}
           <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
             {/* TV (Ao Vivo) */}
             <button
@@ -173,16 +286,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               JOGOS
             </button>
 
-            {/* DESTAQUES (Home Mosaico - UniTV Hero) */}
+            {/* INICIO */}
             <button
               onClick={() => handleNavClick('home')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
-                isHomeActive
-                  ? 'border-2 border-cyan-400 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(0,240,255,0.35)] scale-105'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
+              className="px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase text-slate-300 hover:text-white hover:bg-white/5 border border-transparent transition-all cursor-pointer"
             >
-              DESTAQUES
+              INICIO
             </button>
 
             {/* FILMES */}
@@ -209,7 +318,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               SÉRIES
             </button>
 
-            {/* KIDS (Colorful UniTV Style Badge) */}
+            {/* KIDS */}
             <button
               onClick={() => handleNavClick('kids')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
@@ -226,7 +335,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            {/* ANIME (UniTV Red Active Highlight) */}
+            {/* ANIME */}
             <button
               onClick={() => handleNavClick('anime')}
               className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
@@ -247,9 +356,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* RIGHT: UniTV Circular Action Buttons & Real-Time Clock */}
+          {/* RIGHT: Circular Action Buttons & Real-Time Clock */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* Search Circle Button */}
             <button
               onClick={() => setSearchBarOpen((prev) => !prev)}
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
@@ -262,7 +370,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Search className="w-4 h-4" />
             </button>
 
-            {/* Filter Circle Button (UniTV Photo 1) */}
             <button
               onClick={() => handleNavClick('vod', 'all')}
               className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all cursor-pointer hidden sm:flex"
@@ -271,7 +378,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <SlidersHorizontal className="w-4 h-4" />
             </button>
 
-            {/* History Circle Button (UniTV Photo 1) */}
             <button
               onClick={() => setIsProfileOpen(true)}
               className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all cursor-pointer hidden sm:flex"
@@ -280,7 +386,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <History className="w-4 h-4" />
             </button>
 
-            {/* User Profile Circle Button with Online Status Dot (UniTV Photo 1 & 3) */}
             <button
               onClick={() => setIsProfileOpen(true)}
               className="relative w-9 h-9 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 flex items-center justify-center transition-all cursor-pointer"
@@ -290,7 +395,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070a10]" />
             </button>
 
-            {/* Notification Bell Circle with Unread Counter (UniTV Photo 1 & 5) */}
             <button
               onClick={() => setIsNotificationOpen(true)}
               className="relative w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all cursor-pointer"
@@ -304,7 +408,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Screen / TV Cast Indicator (UniTV Photo 1) */}
             <div
               className="w-9 h-9 rounded-full bg-white/5 border border-white/10 text-slate-400 items-center justify-center hidden md:flex"
               title="Dispositivo Conectado: Android TV / TV Box"
@@ -312,12 +415,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <ScreenShare className="w-4 h-4" />
             </div>
 
-            {/* Real-time Digital Clock (UniTV Photo 1) */}
             <div className="hidden sm:block border-l border-white/10 pl-2">
               <UniTVClock />
             </div>
 
-            {/* Mobile Hamburger Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               className="w-9 h-9 rounded-full bg-white/10 text-white lg:hidden flex items-center justify-center border border-white/10 cursor-pointer"
@@ -367,7 +468,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => handleNavClick('home')}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-white hover:bg-white/10"
             >
-              <span className="font-bold">DESTAQUES</span>
+              <span className="font-bold">INICIO</span>
             </button>
             <button
               onClick={() => handleNavClick('vod', 'movies')}
@@ -415,13 +516,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-slate-300 hover:bg-white/10"
             >
               <Settings className="w-4 h-4" />
-              <span>Configurações</span>
+              <span>Configuracoes</span>
             </button>
           </div>
         )}
       </header>
 
-      {/* UniTV Notification Drawer Component (Photo 5) */}
+      {/* Notification Drawer Component */}
       <UniTVNotificationDrawer
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
@@ -429,7 +530,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         onClearAll={() => setNotifications([])}
       />
 
-      {/* UniTV Profile & Account Modal Component (Photo 3) */}
+      {/* Profile & Account Modal Component */}
       <UniTVProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
