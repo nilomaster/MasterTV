@@ -51,7 +51,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSearchQuery,
   onOpenSettingsModal,
   favoritesCount,
-  isPlayerControlsVisible = true,
   onNavbarMouseEnter,
   onNavbarMouseLeave,
   clientSession,
@@ -216,29 +215,119 @@ export const Navbar: React.FC<NavbarProps> = ({
     );
   }
 
+  // Dedicated Live TV Header (Desktop reference design, no horizontal category menu)
+  if (isTVActive) {
+    return (
+      <>
+        <header
+          onMouseEnter={() => onNavbarMouseEnter?.()}
+          onMouseLeave={() => onNavbarMouseLeave?.()}
+          className="hidden md:block z-40 w-full bg-transparent relative shrink-0"
+        >
+          <div className="flex items-center justify-between px-5 lg:px-7 py-3 max-w-[1920px] mx-auto gap-4">
+            {/* LEFT: MasterTV Logo (returns to Home) + Divider + Pure White TV AO VIVO Title */}
+            <div className="flex items-center gap-5 min-w-0">
+              <div
+                onClick={() => handleNavClick('home')}
+                className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
+                title="Voltar para a Pagina Inicial"
+              >
+                <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+                  <img
+                    src="./assets/img/icons/logo.png"
+                    alt="MasterTV Logo"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-xl tracking-tight leading-none flex items-center">
+                    <span className="text-white">Master</span>
+                    <span className="text-sky-400">TV</span>
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.24em] leading-none mt-1">
+                    ULTRA HD TV
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-9 w-px bg-white/15 shrink-0" />
+
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-xl lg:text-2xl font-extrabold tracking-tight text-white leading-none">
+                  TV AO VIVO
+                </h1>
+                <p className="text-xs text-slate-400 font-medium mt-1 truncate">
+                  Assista aos seus canais favoritos em tempo real
+                </p>
+              </div>
+            </div>
+
+            {/* RIGHT: Search, Notifications, User Profile, Divider, Clock & Date */}
+            <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('mastertv_focus_channel_search'))}
+                className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Buscar canal"
+                aria-label="Buscar canal"
+              >
+                <Search className="w-[18px] h-[18px]" />
+              </button>
+
+              <button
+                onClick={() => setIsNotificationOpen(true)}
+                className="relative w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Notificacoes"
+                aria-label="Notificacoes"
+              >
+                <Bell className="w-[18px] h-[18px]" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center shadow">
+                    {unreadNotifCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="w-10 h-10 rounded-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-300 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                title="Perfil do Usuario"
+                aria-label="Perfil do Usuario"
+              >
+                <User className="w-[18px] h-[18px]" />
+              </button>
+
+              <div className="h-8 w-px bg-white/15 mx-1" />
+
+              <UniTVClock showDate />
+            </div>
+          </div>
+        </header>
+
+        {/* Notification Drawer Component */}
+        <UniTVNotificationDrawer
+          isOpen={isNotificationOpen}
+          onClose={() => setIsNotificationOpen(false)}
+          notifications={notifications}
+          onClearAll={() => setNotifications([])}
+        />
+
+        {/* User Profile & Account Modal */}
+        <UniTVProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          clientSession={clientSession || null}
+          onLogout={onLogout || (() => {})}
+          favoritesCount={favoritesCount}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {/* Top Header Navigation - Internal Pages (Preserved) */}
       <header
-        onMouseEnter={() => {
-          if (currentView === 'player') {
-            onNavbarMouseEnter?.();
-          }
-        }}
-        onMouseLeave={() => {
-          if (currentView === 'player') {
-            onNavbarMouseLeave?.();
-          }
-        }}
-        className={`z-40 w-full bg-[#070a10]/95 backdrop-blur-xl border-b border-white/10 transition-all duration-300 ease-in-out ${
-          currentView === 'player'
-            ? `hidden md:block fixed top-0 left-0 right-0 ${
-                isPlayerControlsVisible
-                  ? 'translate-y-0 opacity-100 pointer-events-auto'
-                  : '-translate-y-full opacity-0 pointer-events-none'
-              }`
-            : 'sticky top-0'
-        }`}
+        className="z-40 w-full bg-[#070a10]/95 backdrop-blur-xl border-b border-white/10 transition-all duration-300 ease-in-out sticky top-0"
       >
         <div className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-3 max-w-[1920px] mx-auto gap-3">
           {/* LEFT: MasterTV Logo (Click returns to Home) */}

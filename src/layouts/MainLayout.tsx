@@ -42,10 +42,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <div className={`w-full bg-[#070a10] text-slate-100 flex flex-col relative font-sans ${
       currentView === 'player' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-x-hidden'
     }`}>
-      {/* Ambient brand background lighting */}
+      {/* Ambient brand background lighting (or dedicated Live TV backdrop) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-[300px] left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-[140px]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-blue-800/5 blur-[120px]" />
+        {currentView === 'player' ? (
+          <img
+            src="./assets/img/home/fundo_aovivo.png"
+            alt=""
+            aria-hidden="true"
+            className="hidden md:block w-full h-full object-cover"
+          />
+        ) : (
+          <>
+            <div className="absolute -top-[300px] left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-[140px]" />
+            <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-blue-800/5 blur-[120px]" />
+          </>
+        )}
       </div>
 
       {/* Top Navbar */}
