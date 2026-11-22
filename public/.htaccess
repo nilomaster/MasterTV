@@ -46,6 +46,9 @@
   RewriteCond %{HTTP_HOST} ^mastertvhd\.online$ [NC]
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # Pass-through for Xtream Codes, API and downloads
+  RewriteRule ^(player_api\.php|get\.php|MasterTV\.apk) - [L]
+
   # SPA Routing
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
@@ -69,6 +72,7 @@
 
 # MIME Types
 <IfModule mod_mime.c>
+  AddType application/vnd.android.package-archive .apk
   AddType image/svg+xml .svg
   AddType image/webp .webp
   AddType application/vnd.apple.mpegurl .m3u8

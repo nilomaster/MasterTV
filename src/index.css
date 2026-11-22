@@ -52,11 +52,147 @@
   --sar: env(safe-area-inset-right, 0px);
 }
 
+.pt-safe {
+  padding-top: var(--sat);
+}
+
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+
+.pb-mobile-nav {
+  padding-bottom: calc(4.75rem + var(--sab));
+}
+
 /* Hide scrollbar utility for carousels and clean rows */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+}
+
+/* Kids Page Lightweight CSS Animations (transform & opacity only) */
+@keyframes kidsCloudDrift {
+  0% {
+    transform: translate3d(-15vw, 0, 0);
+  }
+  100% {
+    transform: translate3d(115vw, 0, 0);
+  }
+}
+
+@keyframes kidsButterflyFloat {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-4deg);
+  }
+  25% {
+    transform: translate3d(38px, -18px, 0) rotate(5deg);
+  }
+  50% {
+    transform: translate3d(76px, 6px, 0) rotate(-3deg);
+  }
+  75% {
+    transform: translate3d(36px, 16px, 0) rotate(4deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-4deg);
+  }
+}
+
+@keyframes kidsFlowerSway {
+  0%, 100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes kidsStarPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes kidsRainbowFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 0.85;
+    transform: translateY(0);
+  }
+}
+
+.kids-cloud-slow {
+  animation: kidsCloudDrift 72s linear infinite;
+  will-change: transform;
+}
+
+.kids-cloud-medium {
+  animation: kidsCloudDrift 54s linear infinite;
+  will-change: transform;
+}
+
+.kids-cloud-gentle {
+  animation: kidsCloudDrift 86s linear infinite;
+  will-change: transform;
+}
+
+.kids-butterfly {
+  animation: kidsButterflyFloat 14s ease-in-out infinite;
+  will-change: transform;
+}
+
+.kids-flower {
+  transform-origin: bottom center;
+  animation: kidsFlowerSway 4.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.kids-star {
+  animation: kidsStarPulse 5.5s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.kids-rainbow {
+  animation: kidsRainbowFade 1.2s ease-out forwards;
+}
+
+.kids-animations-paused * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kids-cloud-slow,
+  .kids-cloud-medium,
+  .kids-cloud-gentle,
+  .kids-butterfly,
+  .kids-flower,
+  .kids-star,
+  .kids-rainbow {
+    animation: none !important;
+  }
+}
+
+/* Scoped CSS Variables exclusively for the Anime page (Zero neon, Crunchyroll-inspired palette) */
+.anime-theme {
+  --anime-bg-main: #101116;
+  --anime-bg-secondary: #17191F;
+  --anime-bg-sidebar: #14161B;
+  --anime-bg-card: #202229;
+  --anime-orange: #FF6400;
+  --anime-orange-hover: #FF8533;
+  --anime-text-primary: #FFFFFF;
+  --anime-text-secondary: #B8BBC5;
+  --anime-border: #30333B;
+  --anime-divider: #282B32;
 }
 .no-scrollbar {
   -ms-overflow-style: none !important;

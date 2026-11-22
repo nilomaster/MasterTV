@@ -1,14 +1,19 @@
 package com.mastertv.app;
 
+import android.graphics.Color;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
-import android.webkit.WebChromeClient;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 // MasterTV Android Main Activity with hardware acceleration, TV Box D-Pad, modern back navigation and fullscreen
@@ -22,12 +27,26 @@ public class MainActivity extends BridgeActivity {
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
         // Keep screen active during TV playback
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        Window window = getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // Configure dark system bars with light icons for Mobile & Tablet edge-to-edge clarity
+        try {
+            window.setStatusBarColor(Color.parseColor("#060912"));
+            window.setNavigationBarColor(Color.parseColor("#060912"));
+            WindowInsetsControllerCompat insetsController =
+                WindowCompat.getInsetsController(window, window.getDecorView());
+            if (insetsController != null) {
+                insetsController.setAppearanceLightStatusBars(false);
+                insetsController.setAppearanceLightNavigationBars(false);
+            }
+        } catch (Exception ignored) {
+        }
 
         // Enable WebView debugging for remote diagnostics
         WebView.setWebContentsDebuggingEnabled(true);
 
-        // Register modern OnBackPressedCallback for Android 10, 11, 12, 13 and 14 gestures
+        // Register modern OnBackPressedCallback for Android 10, 11, 12, 13, 14, 15 and 16 gestures
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -36,6 +55,7 @@ public class MainActivity extends BridgeActivity {
         });
 
         // Optimize WebView performance for video streaming and TV remote navigation
+        // Preserves Capacitor default BridgeWebChromeClient for proper HTML5 fullscreen and permissions
         try {
             WebView webView = this.bridge.getWebView();
             if (webView != null) {
@@ -46,11 +66,11 @@ public class MainActivity extends BridgeActivity {
                 settings.setDatabaseEnabled(true);
                 settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-                // Enable Fullscreen HTML5 WebChromeClient
-                webView.setWebChromeClient(new WebChromeClient());
-
                 // Force hardware layer for smooth video compositing on budget chipsets
                 webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+                // Expose lightweight native bridge for immersive fullscreen system bars
+                webView.addJavascriptInterface(new MasterTVNativeBridge(), "MasterTVNative");
 
                 // Enable remote control focus for Android TV and TV Boxes
                 webView.setFocusable(true);
@@ -101,5 +121,29 @@ public class MainActivity extends BridgeActivity {
         }
 
         return super.dispatchKeyEvent(event);
+    }
+
+    // Native JS Bridge for immersive fullscreen bar control on Android Mobile and Tablets
+    private class MasterTVNativeBridge {
+        @JavascriptInterface
+        public void setImmersiveFullscreen(final boolean enabled) {
+            runOnUiThread(() -> {
+                try {
+                    Window window = getWindow();
+                    WindowInsetsControllerCompat controller =
+                        WindowCompat.getInsetsController(window, window.getDecorView());
+                    if (controller == null) return;
+                    if (enabled) {
+                        controller.setSystemBarsBehavior(
+                            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        );
+                        controller.hide(WindowInsetsCompat.Type.systemBars());
+                    } else {
+                        controller.show(WindowInsetsCompat.Type.systemBars());
+                    }
+                } catch (Exception ignored) {
+                }
+            });
+        }
     }
 }

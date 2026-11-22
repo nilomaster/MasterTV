@@ -1,32 +1,51 @@
 // Stream URL Resolver for MasterTV
-// Routes IPTV streams through secure backend proxy on web to bypass Mixed Content and CORS
+// Routes IPTV streams through secure backend proxy on Web and Android APK
+// Avoids Mixed Content, CORS, HTTP redirects and IPTV User-Agent blocks in Android WebView
 // Strictly ASCII comments only as per project guidelines
+
+const PRODUCTION_API_BASE = 'https://mastertvhd.online/api';
 
 export function resolvePlayableStreamUrl(rawUrl: string): string {
   if (!rawUrl) return '';
   const clean = rawUrl.trim();
 
-  // If already proxied, return as-is
+  // If already proxied, ensure absolute URL when running inside Capacitor Android APK or localhost
   if (clean.includes('/api/stream') || clean.includes('/api/proxy') || clean.includes('/api/m3u_proxy')) {
+    if (clean.startsWith('./api/') || clean.startsWith('/api/')) {
+      const isNativeOrLocal =
+        typeof window !== 'undefined' &&
+        (Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()) ||
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1');
+      if (isNativeOrLocal) {
+        const suffix = clean.replace(/^\.?\/api/, '');
+        return `${PRODUCTION_API_BASE}${suffix}`;
+      }
+    }
     return clean;
   }
 
-  // Native Android APK (Capacitor) can play direct URLs without browser mixed content or CORS limits
-  if (typeof window !== 'undefined') {
-    const isNative = Boolean((window as any).Capacitor?.isNativePlatform?.());
-    if (isNative) {
-      return clean;
-    }
-  }
-
-  // Public HTTPS CDN streams without port or special IPTV auth can play directly
   const isHttp = clean.startsWith('http://');
-  const isXtreamOrIpTv = clean.includes(':80') || clean.includes('/movie/') || clean.includes('/series/') || clean.includes('.m3u8');
+  const isXtreamOrIpTv =
+    clean.includes(':80') ||
+    clean.includes('/movie/') ||
+    clean.includes('/series/') ||
+    clean.includes('/live/') ||
+    clean.includes('.m3u8') ||
+    clean.includes('.mp4') ||
+    clean.includes('.mkv') ||
+    clean.includes('.ts');
 
-  // If on web (HTTPS origin or local test), route HTTP or IPTV streams through MasterTV secure proxy
+  // Route HTTP or IPTV/VOD streams through MasterTV secure HTTPS proxy (works identically on Web & Android APK)
   if (isHttp || isXtreamOrIpTv) {
-    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const apiBase = isLocal ? 'https://mastertvhd.online/api' : './api';
+    const isNative =
+      typeof window !== 'undefined' &&
+      Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+    const isLocal =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    const apiBase = isNative || isLocal ? PRODUCTION_API_BASE : './api';
     return `${apiBase}/stream.php?url=${encodeURIComponent(clean)}`;
   }
 

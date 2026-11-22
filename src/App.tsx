@@ -5,6 +5,7 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { NavigationProvider, useNavigation } from './context/NavigationContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { useAndroidBackHandler } from './hooks/useAndroidBackHandler';
 
 // Clean Domain Pages
 import {
@@ -12,6 +13,8 @@ import {
   LiveTVPage,
   EPGGuidePage,
   MoviesPage,
+  KidsPage,
+  AnimePage,
   WatchPage,
   FavoritesPage,
   SettingsPage,
@@ -23,6 +26,9 @@ import {
 const AppRouter: React.FC = () => {
   const { clientSession } = useApp();
   const { currentView } = useNavigation();
+
+  // Connect Android hardware/gesture back button to React navigation and modals
+  useAndroidBackHandler();
 
   // Authentication Guard: require login before accessing player and catalog
   if (!clientSession && currentView !== 'admin') {
@@ -53,6 +59,20 @@ const AppRouter: React.FC = () => {
       return (
         <ErrorBoundary fallbackTitle="Catalogo On Demand">
           <MoviesPage />
+        </ErrorBoundary>
+      );
+
+    case 'kids':
+      return (
+        <ErrorBoundary fallbackTitle="Area Kids MasterTV">
+          <KidsPage />
+        </ErrorBoundary>
+      );
+
+    case 'anime':
+      return (
+        <ErrorBoundary fallbackTitle="Area Anime MasterTV">
+          <AnimePage />
         </ErrorBoundary>
       );
 

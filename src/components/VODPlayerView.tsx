@@ -387,16 +387,24 @@ export const VODPlayerView: React.FC<VODPlayerViewProps> = ({
 
     return () => {
       if (connectTimeout) window.clearTimeout(connectTimeout);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
       if (video) {
         video.removeEventListener('playing', handleVideoPlaying);
         video.removeEventListener('timeupdate', handleVideoPlaying);
         video.onloadedmetadata = null;
         video.oncanplay = null;
         video.onerror = null;
-      }
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
+        // Force browser/WebView to close active HTTP/Range socket immediately
+        try {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        } catch {
+          // Ignore media cleanup errors
+        }
       }
     };
   }, [effectiveStreamUrl]);

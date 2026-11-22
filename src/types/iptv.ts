@@ -49,11 +49,13 @@ export interface Category {
 
 export interface EpisodeItem {
   id: string;
+  season?: number;
   number: number;
   title: string;
   streamUrl: string;
   backupStreamUrl?: string;
   duration?: string;
+  thumbnailUrl?: string;
 }
 
 export interface CastMember {

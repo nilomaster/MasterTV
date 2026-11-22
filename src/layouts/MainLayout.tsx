@@ -6,6 +6,8 @@ import { Navbar } from '../components/Navbar';
 import { PlaylistModal } from '../components/PlaylistModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { MediaModal } from '../components/MediaModal';
+import { KidsAnimatedBackground } from '../components/kids/KidsAnimatedBackground';
+import { MobileBottomNav } from '../components/mobile/MobileBottomNav';
 import { useApp } from '../context/AppContext';
 import { useNavigation } from '../context/NavigationContext';
 
@@ -34,22 +36,53 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setSelectedProgramItem,
     playMediaStream,
     setChannels,
+    isSyncingCatalog,
+    syncCatalog,
   } = useApp();
 
   const { currentView, vodFilter, navigateTo } = useNavigation();
 
-  return (
-    <div className={`w-full bg-[#070a10] text-slate-100 flex flex-col relative font-sans ${
-      currentView === 'player' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-x-hidden'
-    }`}>
-      {/* Ambient brand background lighting */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-[300px] left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-[140px]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-blue-800/5 blur-[120px]" />
-      </div>
+  const isMoviesDesktopView = currentView === 'vod' && (vodFilter === 'movies' || vodFilter === 'all' || !vodFilter);
+  const isSeriesDesktopView = currentView === 'vod' && vodFilter === 'series';
+  const isKidsDesktopView = currentView === 'kids';
+  const isAnimeDesktopView = currentView === 'anime';
+  const useWaveBackdrop = currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView;
 
-      {/* Top Navbar */}
-      <header className="relative z-40 shrink-0">
+  return (
+    <div className={`w-full ${
+      isKidsDesktopView
+        ? 'bg-[#0874CB]'
+        : isAnimeDesktopView
+        ? 'bg-[#101116]'
+        : 'bg-[#030A16]'
+    } text-slate-100 flex flex-col relative font-sans ${
+      currentView === 'player' || isMoviesDesktopView || isSeriesDesktopView || isKidsDesktopView || isAnimeDesktopView
+        ? 'h-[100dvh] overflow-hidden'
+        : 'min-h-[100dvh] overflow-x-hidden'
+    }`}>
+      {/* Ambient brand background lighting (suppressed on Anime page for clean neon-free dark backdrop) */}
+      {isKidsDesktopView ? (
+        <KidsAnimatedBackground />
+      ) : isAnimeDesktopView ? null : (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          {useWaveBackdrop ? (
+            <img
+              src="./assets/img/home/fundo_aovivo.png"
+              alt=""
+              aria-hidden="true"
+              className="hidden md:block w-full h-full object-cover"
+            />
+          ) : (
+            <>
+              <div className="absolute -top-[300px] left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-[140px]" />
+              <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-blue-800/5 blur-[120px]" />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Top Navbar with Android/iOS Safe Area Top Padding */}
+      <header className="relative z-40 shrink-0 pt-safe">
         <Navbar
           currentView={currentView}
           vodFilter={vodFilter}
@@ -67,16 +100,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onNavbarMouseLeave={() => setIsNavbarHovered(false)}
           clientSession={clientSession}
           onLogout={handleLogout}
+          isSyncingCatalog={isSyncingCatalog}
+          onSyncCatalog={() => {
+            syncCatalog(true);
+          }}
         />
       </header>
 
       {/* Main Page Content */}
-      <main className={`flex-1 min-h-0 relative z-10 flex flex-col ${currentView === 'player' ? 'h-full overflow-hidden p-0 pb-0' : 'pb-24 sm:pb-8'}`}>
+      <main className={`flex-1 min-h-0 relative z-10 flex flex-col ${
+        currentView === 'player' || currentView === 'vod' || currentView === 'home' || currentView === 'kids' || currentView === 'anime'
+          ? 'h-full overflow-x-hidden p-0 pb-0'
+          : 'pb-24 sm:pb-8'
+      }`}>
         {children}
       </main>
 
-      {/* Professional Footer (Hidden on Live TV player to avoid mobile viewport stretching) */}
-      {currentView !== 'player' && (
+      {/* Professional Footer (Hidden on Live TV, VOD, Kids and Anime to match UniTV screen) */}
+      {currentView !== 'player' && currentView !== 'vod' && currentView !== 'home' && currentView !== 'kids' && currentView !== 'anime' && (
         <footer className="relative z-10 border-t border-white/5 bg-[#05070a]/80 backdrop-blur-md py-6 px-4 text-center text-xs text-slate-500 shrink-0">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -91,6 +132,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
         </footer>
       )}
+
+      {/* Mobile Fixed Bottom Navigation Bar (hidden on Tablet/Desktop) */}
+      <MobileBottomNav
+        currentView={currentView}
+        vodFilter={vodFilter}
+        favoritesCount={favoritesCount}
+        onNavigate={(v, f) => navigateTo(v, f)}
+        isSyncingCatalog={isSyncingCatalog}
+        onSyncCatalog={() => {
+          syncCatalog(true);
+        }}
+      />
 
       {/* Global Modals */}
       <PlaylistModal

@@ -83,7 +83,7 @@ export type ContentType = 'movie' | 'series' | 'channel' | 'anime' | 'dorama';
 export interface ContentSourceItem {
   id: number;
   name: string;
-  quality: 'HD' | 'FHD';
+  quality: '4K' | 'FHD' | 'HD' | 'SD';
   streamUrl: string;
   backupStreamUrl?: string;
 }

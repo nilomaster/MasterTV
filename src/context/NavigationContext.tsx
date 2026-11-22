@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ViewType = 'home' | 'player' | 'epg' | 'vod' | 'favorites' | 'radios' | 'vod-player' | 'admin' | 'settings';
+export type ViewType = 'home' | 'player' | 'epg' | 'vod' | 'kids' | 'anime' | 'favorites' | 'radios' | 'vod-player' | 'admin' | 'settings';
 export type VODFilterType = 'all' | 'movies' | 'series' | 'animes' | 'doramas';
 
 interface NavigationContextType {
@@ -20,6 +20,8 @@ const VIEW_HASH_MAP: Record<ViewType, string> = {
   player: '#/ao-vivo',
   epg: '#/guia',
   vod: '#/filmes',
+  kids: '#/kids',
+  anime: '#/anime',
   favorites: '#/favoritos',
   radios: '#/radios',
   'vod-player': '#/assistir',
@@ -34,10 +36,11 @@ function parseViewFromHash(): ViewType {
   if (hash.includes('assistir') || hash.includes('vod-player')) return 'vod-player';
   if (hash.includes('ao-vivo') || hash.includes('player')) return 'player';
   if (hash.includes('guia') || hash.includes('epg')) return 'epg';
+  if (hash.includes('kids') || hash.includes('infantil')) return 'kids';
+  if (hash.includes('anime') || hash.includes('animes')) return 'anime';
   if (
     hash.includes('filmes') ||
     hash.includes('series') ||
-    hash.includes('animes') ||
     hash.includes('doramas') ||
     hash.includes('dorama') ||
     hash.includes('on-demand') ||
@@ -50,7 +53,7 @@ function parseViewFromHash(): ViewType {
   if (hash.includes('inicio') || hash === '#/' || hash === '#') return 'home';
 
   const saved = localStorage.getItem('mastertv_current_view') as ViewType | null;
-  if (saved && ['home', 'player', 'epg', 'vod', 'favorites', 'radios', 'vod-player', 'admin', 'settings'].includes(saved)) {
+  if (saved && ['home', 'player', 'epg', 'vod', 'kids', 'anime', 'favorites', 'radios', 'vod-player', 'admin', 'settings'].includes(saved)) {
     return saved;
   }
   return 'home';

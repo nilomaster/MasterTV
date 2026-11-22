@@ -15,7 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 @set_time_limit(0);
-@ini_set('memory_limit', '512M');
+@ini_set('memory_limit', '256M');
+@ignore_user_abort(false);
+
+// Prevent Nginx/LiteSpeed/Apache from buffering huge MP4/TS streams in memory
+header('X-Accel-Buffering: no');
 
 $url = '';
 if (isset($_GET['url'])) {
@@ -58,6 +62,8 @@ if ($isM3u8) {
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Accept: */*',
         'Connection: keep-alive',
+        'Cache-Control: no-cache',
+        'Pragma: no-cache',
     ]);
 
     $content = curl_exec($ch);
@@ -133,7 +139,9 @@ if ($isM3u8) {
     $rewrittenM3u8 = implode("\n", $rewrittenLines);
     header('Content-Type: application/vnd.apple.mpegurl; charset=UTF-8');
     header('Content-Length: ' . strlen($rewrittenM3u8));
-    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
     echo $rewrittenM3u8;
     exit;
 }
@@ -176,8 +184,11 @@ curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 curl_setopt($ch, CURLOPT_USERAGENT, 'IPTVSmartersPro');
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+// Do not kill long VOD streams after 120s; abort only if upstream stalls for 30s
+curl_setopt($ch, CURLOPT_TIMEOUT, 0);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 12);
+curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1024);
+curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 30);
 
 // Forward response headers directly to client
 curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($ch, $headerLine) {
@@ -205,13 +216,19 @@ curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($ch, $headerLine) {
     return $len;
 });
 
-// Stream body chunks directly to output buffer
+// Stream body chunks directly to output buffer and abort immediately if client disconnects
 curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $chunk) {
+    if (connection_aborted()) {
+        return 0;
+    }
     echo $chunk;
     if (ob_get_level() > 0) {
-        ob_flush();
+        @ob_flush();
     }
-    flush();
+    @flush();
+    if (connection_aborted()) {
+        return 0;
+    }
     return strlen($chunk);
 });
 

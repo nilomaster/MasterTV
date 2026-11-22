@@ -24,6 +24,8 @@ import {
   Database,
   Check,
   Plus,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   parseAdvancedM3U,
@@ -73,6 +75,7 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
   // Filter and selection state (starts with 0 selected so user can cherry-pick)
   const [typeFilter, setTypeFilter] = useState<'all' | 'channel' | 'movie' | 'series'>('all');
+  const [syncFilter, setSyncFilter] = useState<'all' | 'unimported' | 'imported'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -95,11 +98,15 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
   // Sync existing contents when modal opens to ensure up-to-date catalog check
   useEffect(() => {
     if (isOpen) {
-      AdminService.fetchRemoteContents()
-        .then((remote) => {
-          if (remote && Array.isArray(remote) && remote.length > 0) {
-            setExistingContents(remote);
-          }
+      Promise.all([
+        AdminService.fetchRemoteChannels(),
+        AdminService.fetchRemoteContents(),
+      ])
+        .then(([channels, remote]) => {
+          const merged = new Map<string, AdminContentItem>();
+          channels.forEach((c) => merged.set(c.id, c));
+          remote.forEach((c) => merged.set(c.id, c));
+          setExistingContents(Array.from(merged.values()));
         })
         .catch(() => {
           setExistingContents(AdminService.getContents());
@@ -124,6 +131,46 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     if (item.cleanTitle && savedUrlMap.has(item.cleanTitle.toLowerCase().trim())) return true;
     return false;
   };
+
+  // Pre-calculate synchronization stats per category (Strictly ASCII comments)
+  const categorySyncStatsMap = useMemo(() => {
+    const map = new Map<string, { total: number; synced: number; unsynced: number }>();
+    if (!parsedData) return map;
+
+    const items = parsedData.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const cat = item.groupTitle || 'Geral';
+      const isSaved = isItemAlreadyInCatalog(item);
+
+      let stat = map.get(cat);
+      if (!stat) {
+        stat = { total: 0, synced: 0, unsynced: 0 };
+        map.set(cat, stat);
+      }
+      stat.total++;
+      if (isSaved) {
+        stat.synced++;
+      } else {
+        stat.unsynced++;
+      }
+    }
+    return map;
+  }, [parsedData, savedUrlMap]);
+
+  // Overall sync counts in the currently loaded M3U playlist
+  const { totalSyncedInList, totalUnsyncedInList } = useMemo(() => {
+    if (!parsedData) return { totalSyncedInList: 0, totalUnsyncedInList: 0 };
+    let synced = 0;
+    const items = parsedData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (isItemAlreadyInCatalog(items[i])) synced++;
+    }
+    return {
+      totalSyncedInList: synced,
+      totalUnsyncedInList: items.length - synced,
+    };
+  }, [parsedData, savedUrlMap]);
 
   // Handler to parse from raw text content
   const handleProcessText = (content: string) => {
@@ -215,8 +262,23 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     if (e) e.stopPropagation();
     try {
       setAddingItemId(item.id);
-      const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
-      const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
+      const rawQ = (item.quality || 'HD').toUpperCase();
+      const sourceQuality: '4K' | 'FHD' | 'HD' | 'SD' =
+        rawQ === '4K' || rawQ === 'UHD'
+          ? '4K'
+          : rawQ === 'FHD' || rawQ === '1080P'
+          ? 'FHD'
+          : rawQ === 'SD' || rawQ === '480P'
+          ? 'SD'
+          : 'HD';
+      const cleanQualityLabel =
+        sourceQuality === '4K'
+          ? '4K - UHD'
+          : sourceQuality === 'FHD'
+          ? '1080P - FHD'
+          : sourceQuality === 'SD'
+          ? '480P - SD'
+          : '720P - HD';
 
       const adminItem: AdminContentItem = {
         id: getDeterministicContentId(item.type, item.cleanTitle || item.title, item.streamUrl),
@@ -283,12 +345,28 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     return map;
   }, [parsedData]);
 
-  // Categories filtered by the currently active typeFilter
+  // Categories filtered by the currently active typeFilter AND syncFilter
   const displayedCategories = useMemo(() => {
     if (!parsedData) return [];
-    if (typeFilter === 'all') return parsedData.categories;
-    return parsedData.categories.filter((cat) => cat.type === typeFilter);
-  }, [parsedData, typeFilter]);
+    let cats = parsedData.categories;
+    if (typeFilter !== 'all') {
+      cats = cats.filter((cat) => cat.type === typeFilter);
+    }
+    if (syncFilter === 'unimported') {
+      // Hide categories where all items are already synced in MySQL
+      cats = cats.filter((cat) => {
+        const stat = categorySyncStatsMap.get(cat.name);
+        return !stat || stat.unsynced > 0;
+      });
+    } else if (syncFilter === 'imported') {
+      // Show only categories that have at least 1 synced item in MySQL
+      cats = cats.filter((cat) => {
+        const stat = categorySyncStatsMap.get(cat.name);
+        return stat && stat.synced > 0;
+      });
+    }
+    return cats;
+  }, [parsedData, typeFilter, syncFilter, categorySyncStatsMap]);
 
   // Toggle category in filter
   const toggleCategory = (catName: string) => {
@@ -428,14 +506,45 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
     }
   };
 
-  // Filtered items based on active type filter, selected categories, and search query
+  // Select ONLY unsynced categories of active type
+  const handleSelectOnlyUnsyncedCategories = () => {
+    const unsyncedCats = displayedCategories.filter((c) => {
+      const stat = categorySyncStatsMap.get(c.name);
+      return !stat || stat.unsynced > 0;
+    });
+    const unsyncedCatNames = unsyncedCats.map((c) => c.name);
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      unsyncedCatNames.forEach((c) => next.add(c));
+      return next;
+    });
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      for (let i = 0; i < unsyncedCatNames.length; i++) {
+        const ids = categoryItemIdsMap.get(unsyncedCatNames[i]) || [];
+        for (let j = 0; j < ids.length; j++) {
+          next.add(ids[j]);
+        }
+      }
+      return next;
+    });
+  };
+
+  // Filtered items based on active type filter, syncFilter, selected categories, and search query
   const displayedItems = useMemo(() => {
     if (!parsedData) return [];
     return parsedData.items.filter((item) => {
       // Type match
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
+
+      // Sync status match
+      const isSaved = isItemAlreadyInCatalog(item);
+      if (syncFilter === 'unimported' && isSaved) return false;
+      if (syncFilter === 'imported' && !isSaved) return false;
+
       // Category match: only filter by category if user explicitly selected one or more categories
       if (selectedCategories.size > 0 && !selectedCategories.has(item.groupTitle)) return false;
+
       // Search match
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -445,13 +554,26 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
       }
       return true;
     });
-  }, [parsedData, typeFilter, selectedCategories, searchQuery]);
+  }, [parsedData, typeFilter, syncFilter, selectedCategories, searchQuery, savedUrlMap]);
 
   // Select / Deselect all visible
   const handleSelectAllVisible = () => {
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
       displayedItems.forEach((i) => next.add(i.id));
+      return next;
+    });
+  };
+
+  // Select ONLY unsynced visible items
+  const handleSelectOnlyUnsyncedVisible = () => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      displayedItems.forEach((i) => {
+        if (!isItemAlreadyInCatalog(i)) {
+          next.add(i.id);
+        }
+      });
       return next;
     });
   };
@@ -485,7 +607,14 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
         AdminService.saveContentsLocally([]);
       } else {
         try {
-          currentExisting = await AdminService.fetchRemoteContents();
+          const [remoteChannels, remoteContents] = await Promise.all([
+            AdminService.fetchRemoteChannels(),
+            AdminService.fetchRemoteContents(),
+          ]);
+          const map = new Map<string, AdminContentItem>();
+          remoteChannels.forEach((c) => map.set(c.id, c));
+          remoteContents.forEach((c) => map.set(c.id, c));
+          currentExisting = Array.from(map.values());
         } catch {
           currentExisting = AdminService.getContents();
         }
@@ -496,8 +625,23 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
       for (let i = 0; i < itemsToImport.length; i++) {
         const item = itemsToImport[i];
-        const sourceQuality: 'FHD' | 'HD' = item.quality === 'FHD' || item.quality === '4K' ? 'FHD' : 'HD';
-        const cleanQualityLabel = sourceQuality === 'FHD' ? '1080P - FHD' : '720P - HD';
+        const rawQ = (item.quality || 'HD').toUpperCase();
+        const sourceQuality: '4K' | 'FHD' | 'HD' | 'SD' =
+          rawQ === '4K' || rawQ === 'UHD'
+            ? '4K'
+            : rawQ === 'FHD' || rawQ === '1080P'
+            ? 'FHD'
+            : rawQ === 'SD' || rawQ === '480P'
+            ? 'SD'
+            : 'HD';
+        const cleanQualityLabel =
+          sourceQuality === '4K'
+            ? '4K - UHD'
+            : sourceQuality === 'FHD'
+            ? '1080P - FHD'
+            : sourceQuality === 'SD'
+            ? '480P - SD'
+            : '720P - HD';
 
         // Convert ParsedPlaylistItem to AdminContentItem with deterministic ID
         const adminItem: AdminContentItem = {
@@ -901,6 +1045,60 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                 </div>
               </label>
 
+              {/* Sync Status Filter Bar */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5 mr-1">
+                    <Database className="w-3.5 h-3.5 text-cyan-400" />
+                    Status no Banco:
+                  </span>
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/40 border border-white/10">
+                    <button
+                      onClick={() => setSyncFilter('all')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        syncFilter === 'all'
+                          ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Mostrar Todos</span>
+                    </button>
+                    <button
+                      onClick={() => setSyncFilter('unimported')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        syncFilter === 'unimported'
+                          ? 'bg-emerald-500 text-slate-950 font-black shadow-sm'
+                          : 'text-emerald-400/80 hover:text-emerald-300'
+                      }`}
+                    >
+                      <EyeOff className="w-3 h-3" />
+                      <span>Ocultar Já Sincronizados (Apenas Novos)</span>
+                    </button>
+                    <button
+                      onClick={() => setSyncFilter('imported')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        syncFilter === 'imported'
+                          ? 'bg-purple-500 text-white font-black shadow-sm'
+                          : 'text-purple-300/80 hover:text-purple-200'
+                      }`}
+                    >
+                      <Check className="w-3 h-3" />
+                      <span>Apenas Já Salvos ({totalSyncedInList.toLocaleString('pt-BR')})</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] self-start md:self-auto">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
+                    ✓ {totalSyncedInList.toLocaleString('pt-BR')} no Banco
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-bold">
+                    + {totalUnsyncedInList.toLocaleString('pt-BR')} novos / pendentes
+                  </span>
+                </div>
+              </div>
+
               {/* Action Buttons to Switch / Reload List */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -973,7 +1171,16 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleSelectOnlyUnsyncedCategories}
+                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1"
+                      title="Selecionar apenas categorias que ainda nao foram 100% salvas"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Marcar Apenas Novas</span>
+                    </button>
+                    <span className="text-slate-600">|</span>
                     <button
                       onClick={handleSelectAllCategories}
                       className="text-[11px] font-bold text-cyan-400 hover:underline cursor-pointer"
@@ -990,22 +1197,42 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
                   </div>
                 </div>
 
-                <div className="max-h-36 overflow-y-auto pr-1 flex flex-wrap gap-1.5 scrollbar-thin">
+                <div className="max-h-40 overflow-y-auto pr-1 flex flex-wrap gap-1.5 scrollbar-thin">
                   {displayedCategories.map((cat) => {
                     const isSelected = selectedCategories.has(cat.name);
+                    const stat = categorySyncStatsMap.get(cat.name);
+                    const isFullySaved = stat && stat.synced === stat.total && stat.total > 0;
+                    const isPartiallySaved = stat && stat.synced > 0 && stat.synced < stat.total;
+
                     return (
                       <button
                         key={cat.name}
                         onClick={() => toggleCategory(cat.name)}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                           isSelected
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                            : 'bg-white/5 text-slate-500 border border-white/5 hover:border-white/10'
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                            : isFullySaved
+                            ? 'bg-emerald-950/20 text-slate-400 border border-emerald-500/25 hover:border-emerald-500/40'
+                            : 'bg-white/5 text-slate-300 border border-white/5 hover:border-white/10'
                         }`}
                       >
-                        {isSelected ? <CheckSquare className="w-3 h-3 text-cyan-400" /> : <Square className="w-3 h-3" />}
+                        {isSelected ? (
+                          <CheckSquare className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <Square className={`w-3 h-3 ${isFullySaved ? 'text-emerald-500/60' : 'text-slate-500'}`} />
+                        )}
                         <span className="max-w-[200px] truncate">{cat.name}</span>
-                        <span className="text-[10px] opacity-60">({cat.count})</span>
+                        {isFullySaved ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            ✓ Salvo ({cat.count})
+                          </span>
+                        ) : isPartiallySaved ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                            {stat.synced}/{stat.total}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] opacity-60">({cat.count})</span>
+                        )}
                       </button>
                     );
                   })}
@@ -1014,7 +1241,15 @@ export const M3UImporterModal: React.FC<M3UImporterModalProps> = ({
 
               {/* Items Search and Mass Selection Toolbar */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleSelectOnlyUnsyncedVisible}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-300 hover:text-white cursor-pointer transition-all"
+                    title="Selecionar apenas os itens desta lista que ainda nao existem no banco"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Marcar Apenas Novos</span>
+                  </button>
                   <button
                     onClick={handleSelectAllVisible}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 hover:text-white cursor-pointer transition-all"
