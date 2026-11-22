@@ -42,7 +42,7 @@ import type {
   ContentType,
   CastMemberItem
 } from '../../types/admin';
-import { AdminService } from '../../services/adminService';
+import { AdminService, type AdminAuthSession } from '../../services/adminService';
 import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../services/epgService';
 import { M3UImporterModal } from './M3UImporterModal';
 import { AdminSidebar, type AdminCatalogShortcut, type AdminTabKey } from './layout/AdminSidebar';
@@ -53,9 +53,17 @@ import { AdminEPGView } from './views/AdminEPGView';
 
 interface AdminDashboardProps {
   onBackToPlayer: () => void;
+  authSession?: AdminAuthSession | null;
+  onLogoutAdmin?: () => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({
+  onBackToPlayer,
+  authSession,
+  onLogoutAdmin,
+}) => {
+  const isAuthenticatedMasterAdmin = authSession?.user?.role === 'admin';
+
   // Navigation tabs & sidebar responsive state
   const [activeTab, setActiveTab] = useState<AdminTabKey>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -63,9 +71,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   const [isRefreshingDashboard, setIsRefreshingDashboard] = useState<boolean>(false);
   const [lastCatalogSyncAt, setLastCatalogSyncAt] = useState<Date | null>(null);
 
-  // Simulation mode (Master Admin vs Reseller)
-  const [currentRole, setCurrentRole] = useState<'admin' | 'reseller'>('admin');
-  const [activeResellerId, setActiveResellerId] = useState<string>('reseller-1');
+  // Role state (resellers are strictly locked to 'reseller'; only Master Admin can preview reseller view)
+  const [currentRole, setCurrentRole] = useState<'admin' | 'reseller'>(() =>
+    authSession?.user?.role === 'reseller' ? 'reseller' : 'admin'
+  );
+  const [activeResellerId, setActiveResellerId] = useState<string>(() =>
+    authSession?.user?.role === 'reseller' ? String(authSession.user.id) : 'reseller-1'
+  );
 
   // Content state
   const [contents, setContents] = useState<AdminContentItem[]>(() => {
@@ -297,8 +309,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     };
   }, [contents, catalogCounts, lastCatalogSyncAt]);
 
-  // Handle sidebar role switch ensuring reseller cannot remain on admin-only tabs
+  // Handle sidebar role switch (restricted exclusively to authenticated Master Admin)
   const handleRoleSwitch = (nextRole: 'admin' | 'reseller') => {
+    if (!isAuthenticatedMasterAdmin) return;
     setCurrentRole(nextRole);
     if (
       nextRole === 'reseller' &&
@@ -812,6 +825,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         activeTab={activeTab}
         activeContentFilter={contentFilter}
         currentRole={currentRole}
+        authUserName={authSession?.user?.name}
         activeReseller={activeReseller}
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileSidebarOpen}
@@ -829,6 +843,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onBackToPlayer={onBackToPlayer}
+        onLogoutAdmin={onLogoutAdmin}
       />
 
       {/* Right Main Area (Header + Content) */}
@@ -841,6 +856,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
           activeTab={activeTab}
           activeContentFilter={contentFilter}
           currentRole={currentRole}
+          canSwitchRole={isAuthenticatedMasterAdmin}
           activeReseller={activeReseller}
           isRefreshing={isRefreshingDashboard}
           onChangeRole={handleRoleSwitch}

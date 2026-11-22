@@ -19,6 +19,7 @@ interface AdminHeaderProps {
   activeTab: AdminTabKey;
   activeContentFilter: string;
   currentRole: 'admin' | 'reseller';
+  canSwitchRole?: boolean;
   activeReseller?: Reseller;
   isRefreshing?: boolean;
   onChangeRole: (role: 'admin' | 'reseller') => void;
@@ -90,6 +91,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   activeTab,
   activeContentFilter,
   currentRole,
+  canSwitchRole = false,
   activeReseller,
   isRefreshing = false,
   onChangeRole,
@@ -142,33 +144,35 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#009DFF]' : ''}`} />
         </button>
 
-        {/* Role Switcher (Preserves Master Admin / Reseller permissions) */}
-        <div className="flex items-center gap-1 bg-[#070B16] p-1 rounded-xl border border-[#253247]">
-          <button
-            type="button"
-            onClick={() => onChangeRole('admin')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              currentRole === 'admin'
-                ? 'bg-[#009DFF] text-[#070B16] font-bold'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Admin Master</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeRole('reseller')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              currentRole === 'reseller'
-                ? 'bg-[#0077D9] text-white font-bold'
-                : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-            }`}
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Revendedor</span>
-          </button>
-        </div>
+        {/* Role Switcher (Available exclusively to authenticated Master Admin) */}
+        {canSwitchRole && (
+          <div className="flex items-center gap-1 bg-[#070B16] p-1 rounded-xl border border-[#253247]">
+            <button
+              type="button"
+              onClick={() => onChangeRole('admin')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                currentRole === 'admin'
+                  ? 'bg-[#009DFF] text-[#070B16] font-bold'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Admin Master</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeRole('reseller')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                currentRole === 'reseller'
+                  ? 'bg-[#0077D9] text-white font-bold'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Revendedor</span>
+            </button>
+          </div>
+        )}
 
         {/* Reseller Credits Indicator */}
         {currentRole === 'reseller' && activeReseller && (

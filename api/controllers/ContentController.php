@@ -97,6 +97,8 @@ class ContentController {
                 $this->listContents();
                 break;
             case 'POST':
+                // Catalog write operations (save, delete, clear_all, bulk_import) require Master Admin
+                requireMasterAdmin($this->pdo);
                 $this->handlePost();
                 break;
             default:

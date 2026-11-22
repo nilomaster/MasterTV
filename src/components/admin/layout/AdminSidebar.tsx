@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   FolderTree,
   Calendar,
+  LogOut,
 } from 'lucide-react';
 import type { Reseller } from '../../../types/admin';
 
@@ -40,6 +41,7 @@ interface AdminSidebarProps {
   activeTab: AdminTabKey;
   activeContentFilter: string;
   currentRole: 'admin' | 'reseller';
+  authUserName?: string;
   activeReseller?: Reseller;
   isCollapsed: boolean;
   isMobileOpen: boolean;
@@ -57,12 +59,14 @@ interface AdminSidebarProps {
   onToggleCollapse: () => void;
   onCloseMobile: () => void;
   onBackToPlayer: () => void;
+  onLogoutAdmin?: () => void;
 }
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   activeTab,
   activeContentFilter,
   currentRole,
+  authUserName,
   activeReseller,
   isCollapsed,
   isMobileOpen,
@@ -73,6 +77,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onToggleCollapse,
   onCloseMobile,
   onBackToPlayer,
+  onLogoutAdmin,
 }) => {
   const isAdmin = currentRole === 'admin';
 
@@ -161,11 +166,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-bold text-[#F8FAFC] truncate">
-                {isAdmin ? 'Admin Master' : activeReseller?.name || 'Revendedor'}
+                {authUserName || (isAdmin ? 'Admin Master' : activeReseller?.name || 'Revendedor')}
               </span>
               <span className="text-[11px] text-[#94A3B8] truncate">
                 {isAdmin
-                  ? 'Acesso completo'
+                  ? 'Administrador Master'
                   : `${activeReseller?.credits ?? 0} creditos disponiveis`}
               </span>
             </div>
@@ -402,8 +407,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </div>
       </nav>
 
-      {/* Footer Account Action: Back to Player */}
-      <div className="p-3 border-t border-[#253247] shrink-0">
+      {/* Footer Account Actions: Back to Player & Logout */}
+      <div className="p-3 border-t border-[#253247] shrink-0 space-y-2">
         <button
           type="button"
           onClick={() => handleNav(onBackToPlayer)}
@@ -415,6 +420,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <ArrowLeft className="w-4 h-4 text-[#009DFF] shrink-0" />
           {!isCollapsed && <span className="truncate">Voltar ao Player</span>}
         </button>
+
+        {onLogoutAdmin && (
+          <button
+            type="button"
+            onClick={() => handleNav(onLogoutAdmin)}
+            className={`w-full flex items-center ${
+              isCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
+            } py-2 rounded-xl bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/25 text-xs font-semibold text-[#EF4444] transition-colors cursor-pointer`}
+            title="Sair do Painel"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isCollapsed && <span className="truncate">Sair do Painel</span>}
+          </button>
+        )}
       </div>
     </div>
   );

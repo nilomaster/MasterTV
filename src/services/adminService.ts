@@ -19,8 +19,21 @@ const STORAGE_KEY_RESELLERS = 'mastertv_admin_resellers_v2';
 const STORAGE_KEY_TRANSACTIONS = 'mastertv_admin_transactions_v2';
 const STORAGE_KEY_SETTINGS = 'mastertv_admin_settings_v3';
 const STORAGE_KEY_SESSION = 'mastertv_client_session_v2';
+const STORAGE_KEY_ADMIN_AUTH = 'mastertv_admin_auth_v1';
 const STORAGE_KEY_CONTENTS = 'mastertv_admin_contents_v2';
 const STORAGE_KEY_CHANNELS = 'mastertv_admin_channels_v2';
+
+export interface AdminAuthSession {
+  token: string;
+  expiresAt?: string;
+  user: {
+    id: number;
+    username: string;
+    name: string;
+    role: 'admin' | 'reseller';
+    credits: number;
+  };
+}
 
 const DEFAULT_SETTINGS: AdminSettings = {
   serverName: 'MasterTV IPTV & VOD',
@@ -95,6 +108,139 @@ export class AdminService {
     return 'https://mastertvhd.online/api';
   }
 
+  // Administrative Staff Session Storage & Headers (P0 Security)
+  static getAdminAuthSession(): AdminAuthSession | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_ADMIN_AUTH);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as AdminAuthSession;
+      if (!parsed || !parsed.token || !parsed.user?.role) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  static saveAdminAuthSession(session: AdminAuthSession): void {
+    try {
+      localStorage.setItem(STORAGE_KEY_ADMIN_AUTH, JSON.stringify(session));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+
+  static clearAdminAuthSession(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEY_ADMIN_AUTH);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  static getAdminAuthHeaders(includeJson = true): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (includeJson) {
+      headers['Content-Type'] = 'application/json';
+    }
+    const session = this.getAdminAuthSession();
+    if (session?.token) {
+      headers['Authorization'] = `Bearer ${session.token}`;
+      headers['X-Admin-Token'] = session.token;
+    }
+    return headers;
+  }
+
+  static handleAuthErrorStatus(status?: number): void {
+    if (status === 401 && typeof window !== 'undefined') {
+      this.clearAdminAuthSession();
+      window.dispatchEvent(new Event('mastertv_admin_unauthorized'));
+    }
+  }
+
+  static async loginAdmin(
+    username: string,
+    password: string
+  ): Promise<{ success: boolean; message?: string; session?: AdminAuthSession }> {
+    const apiBase = this.getApiBaseUrl();
+    const res = await fetch(`${apiBase}/auth.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, admin_only: true }),
+    });
+    const data = await res.json().catch(() => null);
+    if (res.ok && data?.success && data.admin_token && data.user) {
+      const session: AdminAuthSession = {
+        token: String(data.admin_token),
+        expiresAt: data.token_expires_at ? String(data.token_expires_at) : undefined,
+        user: {
+          id: Number(data.user.id) || 1,
+          username: String(data.user.username || username),
+          name: String(data.user.name || username),
+          role: data.user.role === 'admin' ? 'admin' : 'reseller',
+          credits: Number(data.user.credits) || 0,
+        },
+      };
+      this.saveAdminAuthSession(session);
+      return { success: true, session };
+    }
+    return {
+      success: false,
+      message: data?.message || 'Usuario ou senha administrativos invalidos.',
+    };
+  }
+
+  static async verifyAdminSession(): Promise<AdminAuthSession | null> {
+    const current = this.getAdminAuthSession();
+    if (!current?.token) return null;
+    try {
+      const apiBase = this.getApiBaseUrl();
+      const res = await fetch(`${apiBase}/auth.php?action=me`, {
+        cache: 'no-store',
+        headers: this.getAdminAuthHeaders(false),
+      });
+      if (res.status === 401 || res.status === 403) {
+        this.clearAdminAuthSession();
+        return null;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data.user) {
+          const updated: AdminAuthSession = {
+            ...current,
+            user: {
+              id: Number(data.user.id) || current.user.id,
+              username: String(data.user.username || current.user.username),
+              name: String(data.user.name || current.user.name),
+              role: data.user.role === 'admin' ? 'admin' : 'reseller',
+              credits: Number(data.user.credits) || 0,
+            },
+          };
+          this.saveAdminAuthSession(updated);
+          return updated;
+        }
+      }
+    } catch {
+      // Keep local session temporarily if network hiccups
+      return current;
+    }
+    return current;
+  }
+
+  static async logoutAdmin(): Promise<void> {
+    try {
+      const apiBase = this.getApiBaseUrl();
+      await fetch(`${apiBase}/auth.php`, {
+        method: 'POST',
+        headers: this.getAdminAuthHeaders(true),
+        body: JSON.stringify({ action: 'logout' }),
+      });
+    } catch {
+      // Ignore network error on logout
+    } finally {
+      this.clearAdminAuthSession();
+    }
+  }
+
   // Fetch clients from PHP MySQL API
   static async fetchRemoteClients(): Promise<ClientLine[]> {
     const apiBase = this.getApiBaseUrl();
@@ -103,17 +249,22 @@ export class AdminService {
 
     try {
       let res: Response;
+      const authHeaders = this.getAdminAuthHeaders(false);
       try {
-        res = await fetch(primaryUrl, { cache: 'no-store' });
-        if (!res.ok && primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl, { cache: 'no-store' });
+        res = await fetch(primaryUrl, { cache: 'no-store', headers: authHeaders });
+        if (!res.ok && res.status !== 401 && res.status !== 403 && primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl, { cache: 'no-store', headers: authHeaders });
         }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl, { cache: 'no-store' });
+          res = await fetch(fallbackUrl, { cache: 'no-store', headers: authHeaders });
         } else {
           throw err;
         }
+      }
+      if (res && res.status === 401) {
+        this.handleAuthErrorStatus(401);
+        return [];
       }
 
       if (res && res.ok) {
@@ -213,7 +364,7 @@ export class AdminService {
       const apiBase = this.getApiBaseUrl();
       const res = await fetch(`${apiBase}/clients.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAdminAuthHeaders(true),
         body: JSON.stringify({
           customer_name: data.customerName.trim(),
           customer_phone: data.customerPhone?.replace(/\D/g, '') || '',
@@ -309,11 +460,14 @@ export class AdminService {
 
     try {
       const apiBase = this.getApiBaseUrl();
-      await fetch(`${apiBase}/clients.php`, {
+      const res = await fetch(`${apiBase}/clients.php`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAdminAuthHeaders(true),
         body: JSON.stringify({ id: clientId, action: 'renew', days }),
       });
+      if (res.status === 401) {
+        this.handleAuthErrorStatus(401);
+      }
     } catch {}
 
     return clients[idx];
@@ -338,11 +492,14 @@ export class AdminService {
 
     try {
       const apiBase = this.getApiBaseUrl();
-      await fetch(`${apiBase}/clients.php`, {
+      const res = await fetch(`${apiBase}/clients.php`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAdminAuthHeaders(true),
         body: JSON.stringify({ id: clientId, action: 'toggle_status', status: nextStatus }),
       });
+      if (res.status === 401) {
+        this.handleAuthErrorStatus(401);
+      }
     } catch {}
 
     return clients[idx];
@@ -355,11 +512,14 @@ export class AdminService {
 
     try {
       const apiBase = this.getApiBaseUrl();
-      await fetch(`${apiBase}/clients.php`, {
+      const res = await fetch(`${apiBase}/clients.php`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAdminAuthHeaders(true),
         body: JSON.stringify({ id: clientId }),
       });
+      if (res.status === 401) {
+        this.handleAuthErrorStatus(401);
+      }
     } catch {}
 
     return true;
@@ -544,25 +704,6 @@ export class AdminService {
 
     if (!cleanUser || !cleanPass) {
       return { success: false, error: 'Por favor, informe o usuario e a senha.' };
-    }
-
-    // Direct master admin login bypass
-    if (
-      (cleanUser === 'admin' || cleanUser === 'masteradmin') &&
-      (cleanPass === 'mastertv123' || cleanPass === 'Senha2026!@#' || cleanPass === 'admin')
-    ) {
-      const adminSession: ClientSession = {
-        clientId: 'admin-master',
-        username: 'admin',
-        customerName: 'Administrador Master',
-        planDuration: '365d',
-        expiresAt: '2099-12-31T23:59:59.000Z',
-        status: 'active',
-        maxScreens: 99,
-        loggedInAt: new Date().toISOString(),
-      };
-      this.saveClientSession(adminSession);
-      return { success: true, client: adminSession };
     }
 
     // 1. Try PHP API first with automatic remote fallback
@@ -919,17 +1060,22 @@ export class AdminService {
 
     try {
       let res: Response;
+      const authHeaders = this.getAdminAuthHeaders(false);
       try {
-        res = await fetch(primaryUrl, { cache: 'no-store' });
-        if (!res.ok && primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl, { cache: 'no-store' });
+        res = await fetch(primaryUrl, { cache: 'no-store', headers: authHeaders });
+        if (!res.ok && res.status !== 401 && res.status !== 403 && primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl, { cache: 'no-store', headers: authHeaders });
         }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl, { cache: 'no-store' });
+          res = await fetch(fallbackUrl, { cache: 'no-store', headers: authHeaders });
         } else {
           throw err;
         }
+      }
+      if (res && res.status === 401) {
+        this.handleAuthErrorStatus(401);
+        return [];
       }
 
       if (res && res.ok) {
@@ -995,17 +1141,22 @@ export class AdminService {
 
     try {
       let res: Response;
+      const authHeaders = this.getAdminAuthHeaders(false);
       try {
-        res = await fetch(primaryUrl, { cache: 'no-store' });
-        if (!res.ok && primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl, { cache: 'no-store' });
+        res = await fetch(primaryUrl, { cache: 'no-store', headers: authHeaders });
+        if (!res.ok && res.status !== 401 && res.status !== 403 && primaryUrl !== fallbackUrl) {
+          res = await fetch(fallbackUrl, { cache: 'no-store', headers: authHeaders });
         }
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
-          res = await fetch(fallbackUrl, { cache: 'no-store' });
+          res = await fetch(fallbackUrl, { cache: 'no-store', headers: authHeaders });
         } else {
           throw err;
         }
+      }
+      if (res && res.status === 401) {
+        this.handleAuthErrorStatus(401);
+        return [];
       }
 
       if (res && res.ok) {
@@ -1142,7 +1293,7 @@ export class AdminService {
 
       const res = await fetch(`${apiBase}/content.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAdminAuthHeaders(true),
         body: JSON.stringify(payload),
       });
 
@@ -1173,7 +1324,7 @@ export class AdminService {
     try {
       const res = await fetch(`${apiBase}/content.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAdminAuthHeaders(true),
         body: JSON.stringify({ action: 'delete', id }),
       });
       if (res.ok) {
@@ -1221,14 +1372,14 @@ export class AdminService {
           try {
             res = await fetch(primaryUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: this.getAdminAuthHeaders(true),
               body: JSON.stringify(payload),
             });
           } catch (err) {
             if (primaryUrl !== fallbackUrl) {
               res = await fetch(fallbackUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getAdminAuthHeaders(true),
                 body: JSON.stringify(payload),
               });
             } else {
@@ -1296,14 +1447,14 @@ export class AdminService {
       try {
         res = await fetch(primaryUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.getAdminAuthHeaders(true),
           body: JSON.stringify(payload),
         });
       } catch (err) {
         if (primaryUrl !== fallbackUrl) {
           res = await fetch(fallbackUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.getAdminAuthHeaders(true),
             body: JSON.stringify(payload),
           });
         } else {
