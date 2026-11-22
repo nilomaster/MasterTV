@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Channel, MediaItem, EpisodeItem, EPGProgram } from '../types/iptv';
 import type { ClientSession } from '../types/admin';
 import { AdminService } from '../services/adminService';
+import { FavoritesService } from '../services/favoritesService';
 import { enrichChannelsWithLiveEPG, initOnlineEPG } from '../services/epgService';
 
 interface ActiveVODState {
@@ -59,11 +60,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isPlayerControlsVisible, setIsPlayerControlsVisible] = useState<boolean>(true);
   const [isNavbarHovered, setIsNavbarHovered] = useState<boolean>(false);
 
-  // Helper to load channels from database
-  const getCustomChannels = (): Channel[] => {
+  // Helper to load channels from database applying synced per-user favorites
+  const getCustomChannels = (favoriteIds?: Set<string>): Channel[] => {
     try {
       const all = AdminService.getChannels();
       if (!Array.isArray(all)) return [];
+      const favSet =
+        favoriteIds || new Set(FavoritesService.getLocalFavorites(clientSession?.username, 'channel'));
       return all
         .filter((c) => c && c.type === 'channel')
         .map((c, idx) => {
@@ -81,8 +84,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             resolvedQuality = 'HD';
           }
 
+          const channelId = String(c.id || `channel-${idx + 1}`);
           return {
-            id: String(c.id || `channel-${idx + 1}`),
+            id: channelId,
             epgId: c.epgId || c.title || undefined,
             number: Number(c.channelNumber) || idx + 1,
             name: String(c.title || 'Canal'),
@@ -102,7 +106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             currentProgram: c.currentProgram || 'Transmissao ao Vivo',
             currentProgramTime: 'Ao Vivo',
             synopsis: c.description || 'Canal sincronizado no banco de dados MasterTV.',
-            isFavorite: false,
+            isFavorite: favSet.has(channelId),
           };
         });
     } catch {
@@ -169,13 +173,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('mastertv_catalog_updated', handleCatalogUpdated);
   }, []);
 
+  // Sync per-user favorites from MySQL whenever user logs in or switches account
+  useEffect(() => {
+    const username = clientSession?.username;
+    if (!username) return;
+    FavoritesService.fetchRemoteFavorites(username, 'channel').then((remoteIds) => {
+      const favSet = new Set(remoteIds);
+      setChannels((prev) => prev.map((ch) => ({ ...ch, isFavorite: favSet.has(ch.id) })));
+      setCurrentChannel((prev) => (prev ? { ...prev, isFavorite: favSet.has(prev.id) } : prev));
+    });
+  }, [clientSession?.username]);
+
   const liveChannels = enrichChannelsWithLiveEPG(channels);
   const favoritesCount = channels.filter((c) => c.isFavorite).length;
 
   const toggleFavorite = (channelId: string) => {
+    let nextState = false;
     setChannels((prev) =>
-      prev.map((ch) => (ch.id === channelId ? { ...ch, isFavorite: !ch.isFavorite } : ch))
+      prev.map((ch) => {
+        if (ch.id === channelId) {
+          nextState = !ch.isFavorite;
+          return { ...ch, isFavorite: nextState };
+        }
+        return ch;
+      })
     );
+    setCurrentChannel((prev) =>
+      prev && prev.id === channelId ? { ...prev, isFavorite: nextState } : prev
+    );
+
+    // Persist favorite state to local cache and MySQL backend for cross-device sync
+    FavoritesService.toggleRemoteFavorite(clientSession?.username, channelId, nextState, 'channel').catch(() => {});
   };
 
   const handleLogout = () => {
