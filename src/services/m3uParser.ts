@@ -4,9 +4,22 @@
 import type { Channel } from '../types/iptv';
 import { AdminService } from './adminService';
 
+export type M3UForcedContentType = 'auto' | 'channel' | 'movie' | 'series';
+
 export interface M3UParseResult {
   channels: Channel[];
   categories: string[];
+}
+
+export function isAdultCategoryName(groupTitle: string): boolean {
+  const normalized = (groupTitle || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+  if (!normalized) return false;
+  return /(\b18\+|\+18\b|\bXXX\b|\bADULT[OA]?S?\b|\bPORN[OA]?\b|\bEROTIC[OA]?\b|\bSEXY?\b|\bONLYFANS\b|\bPLAYBOY\b|\bPROIBID[OA]?\b)/.test(
+    normalized
+  );
 }
 
 export interface ParsedPlaylistItem {
@@ -135,7 +148,10 @@ export function parseM3U(content: string): M3UParseResult {
 }
 
 // Advanced parser supporting Saimon-TV and Xtream IPTV Playlists with full VOD, Series, and Live TV classification
-export function parseAdvancedM3U(content: string): AdvancedM3UResult {
+export function parseAdvancedM3U(
+  content: string,
+  forcedType: M3UForcedContentType = 'auto'
+): AdvancedM3UResult {
   const lines = content.split(/\r?\n/);
   const items: ParsedPlaylistItem[] = [];
 
@@ -183,7 +199,8 @@ export function parseAdvancedM3U(content: string): AdvancedM3UResult {
       const streamUrl = line;
       const rawName = currentMeta.name;
       const groupTitle = currentMeta.groupTitle || 'Geral';
-      const type = detectContentType(groupTitle, rawName, streamUrl);
+      const type =
+        forcedType !== 'auto' ? forcedType : detectContentType(groupTitle, rawName, streamUrl);
       const quality = detectQuality(rawName);
       const cleanTitle = cleanItemTitle(rawName);
       const year = extractYear(rawName);
@@ -269,7 +286,10 @@ export async function fetchAndParseM3U(url: string): Promise<M3UParseResult> {
   return legacy;
 }
 
-export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> {
+export async function fetchAdvancedM3U(
+  url: string,
+  forcedType: M3UForcedContentType = 'auto'
+): Promise<AdvancedM3UResult> {
   let content = '';
 
   // 1. Try our dedicated MasterTV IPTV backend proxy first (requires Master Admin auth + anti-SSRF)
@@ -401,5 +421,5 @@ export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> 
     throw new Error('Nao foi possivel baixar a lista M3U diretamente. O servidor de origem exige conexao de IPTV ou bloqueou o acesso.');
   }
 
-  return parseAdvancedM3U(content);
+  return parseAdvancedM3U(content, forcedType);
 }

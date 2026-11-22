@@ -50,6 +50,11 @@ function getSectionTitle(activeTab: AdminTabKey, contentFilter: string): { title
         title: 'Revendedores',
         subtitle: 'Controle revendas cadastradas, creditos e clientes vinculados',
       };
+    case 'm3u':
+      return {
+        title: 'Importador M3U',
+        subtitle: 'Analise listas M3U, selecione categorias e importe para o catalogo MySQL',
+      };
     case 'contents':
       if (contentFilter === 'channel') {
         return { title: 'TV ao Vivo', subtitle: 'Canais importados e configuracoes de transmissao' };
