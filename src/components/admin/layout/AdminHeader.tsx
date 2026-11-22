@@ -63,6 +63,16 @@ function getSectionTitle(activeTab: AdminTabKey, contentFilter: string): { title
         title: 'Gerenciador de Catalogo',
         subtitle: 'Canais, filmes, series, importacao M3U e sincronizacao',
       };
+    case 'categories':
+      return {
+        title: 'Categorias',
+        subtitle: 'Organizacao das categorias reais importadas no catalogo',
+      };
+    case 'epg':
+      return {
+        title: 'EPG — Guia de Programacao',
+        subtitle: 'Status de mapeamento XMLTV e sincronizacao de grade dos canais',
+      };
     case 'settings':
       return {
         title: 'Configuracoes',

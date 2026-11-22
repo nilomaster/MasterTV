@@ -45,9 +45,11 @@ import type {
 import { AdminService } from '../../services/adminService';
 import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../services/epgService';
 import { M3UImporterModal } from './M3UImporterModal';
-import { AdminSidebar, type AdminCatalogShortcut } from './layout/AdminSidebar';
+import { AdminSidebar, type AdminCatalogShortcut, type AdminTabKey } from './layout/AdminSidebar';
 import { AdminHeader } from './layout/AdminHeader';
 import { AdminCatalogTable } from './views/AdminCatalogTable';
+import { AdminCategoriesView } from './views/AdminCategoriesView';
+import { AdminEPGView } from './views/AdminEPGView';
 
 interface AdminDashboardProps {
   onBackToPlayer: () => void;
@@ -55,7 +57,7 @@ interface AdminDashboardProps {
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }) => {
   // Navigation tabs & sidebar responsive state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'trials' | 'resellers' | 'contents' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<AdminTabKey>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isRefreshingDashboard, setIsRefreshingDashboard] = useState<boolean>(false);
@@ -297,7 +299,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   // Handle sidebar role switch ensuring reseller cannot remain on admin-only tabs
   const handleRoleSwitch = (nextRole: 'admin' | 'reseller') => {
     setCurrentRole(nextRole);
-    if (nextRole === 'reseller' && (activeTab === 'resellers' || activeTab === 'contents')) {
+    if (
+      nextRole === 'reseller' &&
+      (activeTab === 'resellers' || activeTab === 'contents' || activeTab === 'categories' || activeTab === 'epg')
+    ) {
       setActiveTab('dashboard');
     }
   };
@@ -343,10 +348,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
       const q = (contentSearchQuery || '').toLowerCase().trim();
       const title = (c.title || '').toLowerCase();
       const desc = (c.description || '').toLowerCase();
+      const chCat = (c.channelCategory || '').toLowerCase();
       const genres = Array.isArray(c.genres) ? c.genres : [];
       const matchesSearch =
         !q ||
         title.includes(q) ||
+        chCat.includes(q) ||
         genres.some((g) => (g || '').toLowerCase().includes(q)) ||
         desc.includes(q);
       return matchesType && matchesSearch;
@@ -1270,16 +1277,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         {activeTab === 'clients' && (
           <div className="flex flex-col gap-5 animate-in fade-in duration-200">
             {/* Header Controls: Search, Filters & Add Button */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               {/* Search box */}
               <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
                 <input
                   type="text"
-                  placeholder="Buscar por nome, usuário ou WhatsApp..."
+                  placeholder="Buscar por nome, usuario ou WhatsApp..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#0b0e14] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#0F1726] border border-[#253247] rounded-xl pl-10 pr-4 py-2 text-xs text-[#F8FAFC] placeholder-[#94A3B8] focus:outline-none focus:border-[#009DFF]"
                 />
               </div>
 
@@ -1288,7 +1295,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-[#0b0e14] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  className="bg-[#0F1726] border border-[#253247] rounded-xl px-3 py-2 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#009DFF] cursor-pointer"
                 >
                   <option value="all">Todos os Status</option>
                   <option value="active">Ativos</option>
@@ -1299,20 +1306,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
 
                 <button
                   onClick={() => setIsNewClientModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold text-xs shadow-lg shadow-cyan-400/25 transition-all cursor-pointer whitespace-nowrap"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#009DFF] hover:bg-[#0077D9] text-[#070B16] font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  <UserPlus className="w-4 h-4 fill-slate-950" />
+                  <UserPlus className="w-4 h-4" />
                   <span>Novo Cliente</span>
                 </button>
               </div>
             </div>
 
             {/* Clients Table */}
-            <div className="bg-[#0b0e14] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+            <div className="bg-[#0F1726] border border-[#253247] rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-white/10 bg-white/5 text-slate-400">
+                    <tr className="border-b border-[#253247] bg-[#101827] text-[#94A3B8]">
                       <th className="py-3 px-4 font-semibold">Cliente / Telefone</th>
                       <th className="py-3 px-4 font-semibold">Usuário & Senha</th>
                       <th className="py-3 px-4 font-semibold">Plano</th>
@@ -1511,10 +1518,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                         type="button"
                         key={hours}
                         onClick={() => setTrialDurationHours(hours)}
-                        className={`py-3 rounded-xl font-bold text-xs transition-all cursor-pointer border ${
+                        className={`py-3 rounded-xl font-bold text-xs transition-colors cursor-pointer border ${
                           trialDurationHours === hours
-                            ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(0,240,255,0.25)]'
-                            : 'bg-slate-950 border-white/10 text-slate-400 hover:text-white'
+                            ? 'bg-[#009DFF]/15 border-[#009DFF] text-[#F8FAFC]'
+                            : 'bg-[#0F1726] border-[#253247] text-[#94A3B8] hover:text-[#F8FAFC]'
                         }`}
                       >
                         {hours} {hours === 1 ? 'Hora' : 'Horas'}
@@ -1525,29 +1532,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
 
                 <button
                   type="submit"
-                  className="mt-2 w-full py-4 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-sm shadow-xl shadow-cyan-400/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="mt-2 w-full py-3.5 rounded-xl bg-[#009DFF] hover:bg-[#0077D9] text-[#070B16] font-bold text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <Zap className="w-5 h-5 fill-slate-950" />
-                  <span>GERAR TESTE & COPIAR PARA WHATSAPP</span>
+                  <Zap className="w-4 h-4" />
+                  <span>GERAR TESTE &amp; COPIAR PARA WHATSAPP</span>
                 </button>
               </form>
             </div>
 
             {/* Last generated trial badge */}
             {lastGeneratedTrial && (
-              <div className="bg-[#0b0e14] border border-emerald-500/30 rounded-2xl p-5 flex items-center justify-between gap-4 animate-in fade-in duration-200">
+              <div className="bg-[#151E2E] border border-[#16B981]/35 rounded-2xl p-5 flex items-center justify-between gap-4 animate-in fade-in duration-200">
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-6 h-6 text-[#16B981] shrink-0" />
                   <div className="flex flex-col">
-                    <span className="text-xs font-bold text-white">Teste Gerado com Sucesso!</span>
-                    <span className="text-xs text-slate-400 font-mono">
-                      Usuario: <strong className="text-cyan-300">{lastGeneratedTrial.username}</strong> | Senha: <strong>{lastGeneratedTrial.password}</strong>
+                    <span className="text-xs font-bold text-[#F8FAFC]">Teste Gerado com Sucesso!</span>
+                    <span className="text-xs text-[#94A3B8] font-mono">
+                      Usuario: <strong className="text-[#25C4E8]">{lastGeneratedTrial.username}</strong> | Senha: <strong className="text-[#F8FAFC]">{lastGeneratedTrial.password}</strong>
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={() => setWhatsAppModalClient(lastGeneratedTrial)}
-                  className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-bold text-xs border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-[#16B981]/15 text-[#16B981] font-bold text-xs border border-[#16B981]/30 hover:bg-[#16B981]/25 cursor-pointer flex items-center gap-1.5"
                 >
                   <Share2 className="w-4 h-4" />
                   <span>Ver Mensagem</span>
@@ -1560,15 +1567,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         {/* TAB 4: RESELLERS & CREDITS (Only for Master Admin) */}
         {activeTab === 'resellers' && currentRole === 'admin' && (
           <div className="flex flex-col gap-5 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between">
+            <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-black text-white">Gerenciamento de Revendedores</h2>
-                <p className="text-xs text-slate-400">Controle de parceiros, injete creditos e defina precos de custo.</p>
+                <h2 className="text-base font-bold text-[#F8FAFC]">Gerenciamento de Revendedores</h2>
+                <p className="text-xs text-[#94A3B8] mt-0.5">Controle de parceiros, injete creditos e defina precos de custo.</p>
               </div>
 
               <button
                 onClick={() => setIsNewResellerModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-extrabold text-xs shadow-lg shadow-purple-500/25 transition-all cursor-pointer"
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#009DFF] hover:bg-[#0077D9] text-[#070B16] font-bold text-xs transition-colors cursor-pointer shrink-0"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Novo Revendedor</span>
@@ -1581,50 +1588,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                 return (
                   <div
                     key={r.id}
-                    className="bg-[#0b0e14] border border-white/10 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-xl hover:border-purple-500/40 transition-all"
+                    className="bg-[#151E2E] border border-[#253247] rounded-2xl p-5 flex flex-col justify-between gap-4 hover:border-[#009DFF]/45 transition-colors"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-black">
+                        <div className="w-10 h-10 rounded-xl bg-[#009DFF]/15 border border-[#009DFF]/30 flex items-center justify-center text-[#009DFF] font-bold">
                           {r.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex flex-col">
-                          <h3 className="font-bold text-white text-base">{r.name}</h3>
-                          <span className="text-xs text-slate-400 font-mono">@{r.username}</span>
+                          <h3 className="font-bold text-[#F8FAFC] text-base">{r.name}</h3>
+                          <span className="text-xs text-[#94A3B8] font-mono">@{r.username}</span>
                         </div>
                       </div>
 
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                      <span className="px-2.5 py-1 rounded-full bg-[#16B981]/15 text-[#16B981] border border-[#16B981]/30 text-[10px] font-semibold">
                         {r.status === 'active' ? 'Ativo' : 'Bloqueado'}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950 p-3 rounded-xl border border-white/5 text-center">
+                    <div className="grid grid-cols-2 gap-2 bg-[#0F1726] p-3 rounded-xl border border-[#253247] text-center">
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Saldo de Créditos</span>
-                        <span className="text-xl font-black text-purple-400">{r.credits}</span>
+                        <span className="text-[10px] text-[#94A3B8] font-semibold uppercase">Saldo de Creditos</span>
+                        <span className="text-xl font-extrabold text-[#F5B942]">{r.credits}</span>
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Clientes Ativos</span>
-                        <span className="text-xl font-black text-cyan-400">{resellerClientsCount}</span>
+                        <span className="text-[10px] text-[#94A3B8] font-semibold uppercase">Clientes Ativos</span>
+                        <span className="text-xl font-extrabold text-[#009DFF]">{resellerClientsCount}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-400">
+                    <div className="flex items-center justify-between text-xs text-[#94A3B8]">
                       <span>Preco por credito:</span>
-                      <strong className="text-white">R$ {Number(r.pricePerCredit || 0).toFixed(2)}</strong>
+                      <strong className="text-[#F8FAFC]">R$ {Number(r.pricePerCredit || 0).toFixed(2)}</strong>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                    <div className="flex items-center gap-2 pt-2 border-t border-[#253247]">
                       <button
                         onClick={() => {
                           setSelectedResellerForCredit(r);
                           setIsAddCreditModalOpen(true);
                         }}
-                        className="flex-1 py-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2 rounded-xl bg-[#009DFF]/15 hover:bg-[#009DFF]/25 border border-[#009DFF]/35 text-[#009DFF] text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <Coins className="w-4 h-4 text-purple-400" />
-                        <span>Injetar Créditos</span>
+                        <Coins className="w-4 h-4" />
+                        <span>Injetar Creditos</span>
                       </button>
 
                       <button
@@ -1633,10 +1640,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
                           setCurrentRole('reseller');
                           setActiveTab('clients');
                         }}
-                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 cursor-pointer"
-                        title="Simular visualização como este revendedor"
+                        className="p-2 rounded-xl bg-[#0F1726] hover:bg-[#192438] text-[#94A3B8] hover:text-[#F8FAFC] border border-[#253247] cursor-pointer"
+                        title="Simular visualizacao como este revendedor"
                       >
-                        <ExternalLink className="w-4 h-4 text-cyan-400" />
+                        <ExternalLink className="w-4 h-4 text-[#25C4E8]" />
                       </button>
                     </div>
                   </div>
@@ -1677,103 +1684,125 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
           />
         )}
 
+        {/* TAB: CATEGORIES OVERVIEW (Real imported categories grouped by type) */}
+        {activeTab === 'categories' && currentRole === 'admin' && (
+          <AdminCategoriesView
+            contents={contents}
+            onOpenCategoryInCatalog={(typeFilter, categoryName) => {
+              setContentFilter(typeFilter);
+              setContentSearchQuery(categoryName);
+              setActiveTab('contents');
+            }}
+          />
+        )}
+
+        {/* TAB: EPG GUIDE STATUS & XMLTV SYNC */}
+        {activeTab === 'epg' && currentRole === 'admin' && (
+          <AdminEPGView
+            contents={contents}
+            onEditChannel={(item) => openEditContentModal(item)}
+          />
+        )}
+
         {/* TAB 5: SETTINGS */}
         {activeTab === 'settings' && (
           <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 animate-in fade-in duration-200">
-            <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col gap-5 shadow-xl">
+            <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-6 sm:p-8 flex flex-col gap-5">
               <div>
-                <h2 className="text-lg font-black text-white">Configurações Gerais do Sistema</h2>
-                <p className="text-xs text-slate-400">Ajuste o modelo de mensagem WhatsApp e links de download do APK e Web Player.</p>
+                <h2 className="text-lg font-bold text-[#F8FAFC]">Configuracoes Gerais do Sistema</h2>
+                <p className="text-xs text-[#94A3B8] mt-0.5">Ajuste o modelo de mensagem WhatsApp e links de download do APK e Web Player.</p>
               </div>
 
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-300">Nome do Servidor / Painel:</label>
+                  <label className="text-xs font-semibold text-[#F8FAFC]">Nome do Servidor / Painel:</label>
                   <input
                     type="text"
                     value={settings.serverName}
                     onChange={(e) => setSettings({ ...settings, serverName: e.target.value })}
-                    className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                    className="bg-[#0F1726] border border-[#253247] rounded-xl px-4 py-2.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#009DFF]"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-300">URL do Web Player:</label>
+                    <label className="text-xs font-semibold text-[#F8FAFC]">URL do Web Player:</label>
                     <input
                       type="text"
                       value={settings.webPlayerUrl}
                       onChange={(e) => setSettings({ ...settings, webPlayerUrl: e.target.value })}
-                      className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      className="bg-[#0F1726] border border-[#253247] rounded-xl px-4 py-2.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#009DFF]"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-300">Link Direto do APK Android:</label>
+                    <label className="text-xs font-semibold text-[#F8FAFC]">Link Direto do APK Android:</label>
                     <input
                       type="text"
                       value={settings.apkDownloadUrl}
                       onChange={(e) => setSettings({ ...settings, apkDownloadUrl: e.target.value })}
-                      className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+                      className="bg-[#0F1726] border border-[#253247] rounded-xl px-4 py-2.5 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#009DFF]"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-300">
+                  <label className="text-xs font-semibold text-[#F8FAFC]">
                     Modelo de Mensagem para Envio no WhatsApp:
                   </label>
                   <textarea
                     rows={8}
                     value={settings.customWhatsAppTemplate}
                     onChange={(e) => setSettings({ ...settings, customWhatsAppTemplate: e.target.value })}
-                    className="bg-slate-950 border border-white/10 rounded-xl p-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400"
+                    className="bg-[#0F1726] border border-[#253247] rounded-xl p-4 text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#009DFF]"
                   />
-                  <span className="text-[11px] text-slate-500">
-                    Tags dinâmicas: <code>{'{customerName}'}</code>, <code>{'{username}'}</code>, <code>{'{password}'}</code>, <code>{'{expiresAt}'}</code>, <code>{'{maxScreens}'}</code>, <code>{'{apkUrl}'}</code>, <code>{'{webUrl}'}</code>
+                  <span className="text-[11px] text-[#94A3B8]">
+                    Tags dinamicas: <code>{'{customerName}'}</code>, <code>{'{username}'}</code>, <code>{'{password}'}</code>, <code>{'{expiresAt}'}</code>, <code>{'{maxScreens}'}</code>, <code>{'{apkUrl}'}</code>, <code>{'{webUrl}'}</code>
                   </span>
                 </div>
 
                 <button
                   onClick={() => {
                     AdminService.saveSettings(settings);
-                    alert('Configurações salvas com sucesso!');
+                    alert('Configuracoes salvas com sucesso!');
                   }}
-                  className="py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-400/25 transition-all cursor-pointer"
+                  className="py-3 rounded-xl bg-[#009DFF] hover:bg-[#0077D9] text-[#070B16] font-bold text-xs transition-colors cursor-pointer"
                 >
-                  Salvar Alterações
+                  Salvar Alteracoes
                 </button>
               </div>
             </div>
 
-            {/* Danger Zone: Reset Database */}
-            <div className="bg-[#0b0e14] border border-red-500/20 rounded-2xl p-6 flex flex-col gap-3 shadow-xl">
-              <div>
-                <h3 className="text-sm font-black text-red-400">Zerar Dados do Painel</h3>
-                <p className="text-xs text-slate-400">
-                  Limpa todas as linhas de clientes, testes e histórico em cache deste navegador para iniciar 100% limpo.
-                </p>
+            {/* Danger Zone: Reset Local Cache (Restricted to Master Admin only) */}
+            {currentRole === 'admin' && (
+              <div className="bg-[#151E2E] border border-[#EF4444]/30 rounded-2xl p-6 flex flex-col gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[#EF4444]">Zerar Dados do Painel</h3>
+                  <p className="text-xs text-[#94A3B8]">
+                    Limpa todas as linhas de clientes, testes e historico em cache deste navegador para iniciar 100% limpo.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm('Tem certeza de que deseja zerar todos os clientes e revendedores do navegador?')) {
+                      localStorage.removeItem('mastertv_admin_clients_v2');
+                      localStorage.removeItem('mastertv_admin_clients_v1');
+                      localStorage.removeItem('mastertv_admin_resellers_v2');
+                      localStorage.removeItem('mastertv_admin_resellers_v1');
+                      localStorage.removeItem('mastertv_admin_transactions_v2');
+                      localStorage.removeItem('mastertv_admin_transactions_v1');
+                      localStorage.removeItem('mastertv_client_session_v2');
+                      localStorage.removeItem('mastertv_client_session_v1');
+                      setClients([]);
+                      setResellers([]);
+                      alert('Dados zerados com sucesso!');
+                    }
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/30 font-bold text-xs transition-colors w-fit cursor-pointer"
+                >
+                  Zerar Todos os Dados Agora
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  if (confirm('Tem certeza de que deseja zerar todos os clientes e revendedores do navegador?')) {
-                    localStorage.removeItem('mastertv_admin_clients_v2');
-                    localStorage.removeItem('mastertv_admin_clients_v1');
-                    localStorage.removeItem('mastertv_admin_resellers_v2');
-                    localStorage.removeItem('mastertv_admin_resellers_v1');
-                    localStorage.removeItem('mastertv_admin_transactions_v2');
-                    localStorage.removeItem('mastertv_admin_transactions_v1');
-                    localStorage.removeItem('mastertv_client_session_v2');
-                    localStorage.removeItem('mastertv_client_session_v1');
-                    setClients([]);
-                    setResellers([]);
-                    alert('Dados zerados com sucesso!');
-                  }
-                }}
-                className="py-2.5 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-xs transition-all w-fit cursor-pointer"
-              >
-                Zerar Todos os Dados Agora
-              </button>
-            </div>
+            )}
           </div>
         )}
         </main>

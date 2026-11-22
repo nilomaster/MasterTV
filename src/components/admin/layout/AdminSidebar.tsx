@@ -19,6 +19,8 @@ import {
   ChevronRight,
   X,
   ShieldCheck,
+  FolderTree,
+  Calendar,
 } from 'lucide-react';
 import type { Reseller } from '../../../types/admin';
 
@@ -28,6 +30,8 @@ export type AdminTabKey =
   | 'trials'
   | 'resellers'
   | 'contents'
+  | 'categories'
+  | 'epg'
   | 'settings';
 
 export type AdminCatalogShortcut = 'all' | 'channel' | 'movie' | 'series';
@@ -327,6 +331,30 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   {counts.series}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleNav(() => onSelectTab('categories'))}
+              className={navItemClass(activeTab === 'categories')}
+              title="Categorias"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <FolderTree className={iconClass(activeTab === 'categories')} />
+                {!isCollapsed && <span className="truncate">Categorias</span>}
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleNav(() => onSelectTab('epg'))}
+              className={navItemClass(activeTab === 'epg')}
+              title="EPG"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Calendar className={iconClass(activeTab === 'epg')} />
+                {!isCollapsed && <span className="truncate">EPG</span>}
+              </div>
             </button>
           </div>
         )}
