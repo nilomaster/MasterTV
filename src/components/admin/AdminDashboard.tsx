@@ -25,10 +25,8 @@ import {
   Film,
   Plus,
   Star,
-  Edit,
   Tag,
   AlertCircle,
-  Download,
   Database,
   Clapperboard,
   ListVideo,
@@ -49,6 +47,7 @@ import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../services/epgServi
 import { M3UImporterModal } from './M3UImporterModal';
 import { AdminSidebar, type AdminCatalogShortcut } from './layout/AdminSidebar';
 import { AdminHeader } from './layout/AdminHeader';
+import { AdminCatalogTable } from './views/AdminCatalogTable';
 
 interface AdminDashboardProps {
   onBackToPlayer: () => void;
@@ -362,12 +361,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   useEffect(() => {
     setContentPage(1);
   }, [contentFilter, contentSearchQuery]);
-
-  const totalContentPages = Math.max(1, Math.ceil(filteredContents.length / contentItemsPerPage));
-  const paginatedContents = useMemo(() => {
-    const start = (contentPage - 1) * contentItemsPerPage;
-    return filteredContents.slice(start, start + contentItemsPerPage);
-  }, [filteredContents, contentPage]);
 
   // Open modal for new content
   const openAddContentModal = () => {
@@ -1653,376 +1646,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
           </div>
         )}
 
-        {/* TAB: CONTENT & VOD / LIVE CHANNELS MANAGEMENT */}
+        {/* TAB: CONTENT & VOD / LIVE CHANNELS MANAGEMENT (Modern Table + Cards Switch) */}
         {activeTab === 'contents' && currentRole === 'admin' && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-200">
-            {/* Header & Quick Action */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#0b0e14] border border-white/10 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.2)]">
-                  <Film className="w-5 h-5 text-cyan-400" />
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-black text-white">Gerenciador de Catalogo & Conteudo</h2>
-                  <p className="text-xs text-slate-400">
-                    Cadastre filmes, series, canais ao vivo e animes com sincronizacao automatica no banco de dados.
-                  </p>
-                  {syncFeedback && (
-                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold animate-in fade-in">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{syncFeedback}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    AdminService.fetchRemoteContents().then(setContents);
-                  }}
-                  title="Atualizar lista do banco"
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4 text-cyan-400" />
-                </button>
-
-                <button
-                  onClick={handleSaveAllToRemoteDatabase}
-                  disabled={isSyncingDatabase || !contents || contents.length === 0}
-                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 hover:text-emerald-200 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                  title="Salvar todos os conteudos atuais permanentemente no banco de dados MySQL"
-                >
-                  {isSyncingDatabase ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                      <span>Salvando no Banco ({syncProgress}%)</span>
-                    </>
-                  ) : (
-                    <>
-                      <Database className="w-4 h-4 text-emerald-400" />
-                      <span>Salvar no Banco ({contents.length})</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => setIsM3UModalOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:text-cyan-200 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer"
-                  title="Importar lista M3U completa da Saimon-TV ou outros servidores"
-                >
-                  <Download className="w-4 h-4 text-cyan-400" />
-                  <span>Importar M3U</span>
-                </button>
-
-                <button
-                  onClick={handleClearAllContents}
-                  disabled={isClearingCatalog || !contents || contents.length === 0}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                  title="Apagar todos os conteudos do banco de dados para recomecar do zero com uma nova lista limpa"
-                >
-                  <Trash2 className="w-4 h-4 text-red-400" />
-                  <span>{isClearingCatalog ? 'Limpando...' : 'Limpar Catalogo'}</span>
-                </button>
-
-                <button
-                  onClick={openAddContentModal}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-cyan-500/25 transition-all cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 stroke-[3]" />
-                  <span>Adicionar Conteudo</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Filter Pills and Search Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* Filter Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                <button
-                  onClick={() => setContentFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'all'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Todos ({catalogCounts.total > 0 ? catalogCounts.total.toLocaleString('pt-BR') : contents.length.toLocaleString('pt-BR')})
-                </button>
-                <button
-                  onClick={() => setContentFilter('channel')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'channel'
-                      ? 'bg-red-500/20 text-red-300 border border-red-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Canais Ao Vivo ({catalogCounts.channels > 0 ? catalogCounts.channels.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'channel').length})
-                </button>
-                <button
-                  onClick={() => setContentFilter('movie')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'movie'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Filmes ({catalogCounts.movies > 0 ? catalogCounts.movies.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'movie').length})
-                </button>
-                <button
-                  onClick={() => setContentFilter('series')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'series'
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Series ({catalogCounts.series > 0 ? catalogCounts.series.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'series').length})
-                </button>
-                <button
-                  onClick={() => setContentFilter('anime')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'anime'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Animes ({catalogCounts.animes > 0 ? catalogCounts.animes.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'anime').length})
-                </button>
-                <button
-                  onClick={() => setContentFilter('dorama')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    contentFilter === 'dorama'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-400/40 shadow-sm'
-                      : 'bg-white/5 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Doramas ({catalogCounts.doramas > 0 ? catalogCounts.doramas.toLocaleString('pt-BR') : contents.filter((c) => c && c.type === 'dorama').length})
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative min-w-[240px]">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Buscar por titulo ou genero..."
-                  value={contentSearchQuery}
-                  onChange={(e) => setContentSearchQuery(e.target.value)}
-                  className="w-full bg-[#0b0e14] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* Content Cards Grid */}
-            {filteredContents.length === 0 ? (
-              <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3">
-                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500">
-                  <Film className="w-8 h-8" />
-                </div>
-                <h3 className="text-base font-bold text-white">Nenhum conteudo encontrado</h3>
-                <p className="text-xs text-slate-400 max-w-sm">
-                  {contentSearchQuery
-                    ? 'Nenhum resultado corresponde a sua busca. Tente outros termos.'
-                    : 'Nenhum item cadastrado nesta categoria. Clique no botao abaixo para adicionar filmes ou canais.'}
-                </p>
-                <div className="flex items-center gap-3 mt-2">
-                  <button
-                    onClick={() => setIsM3UModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 font-bold text-xs transition-all cursor-pointer flex items-center gap-2"
-                  >
-                    <Download className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Importar Lista M3U</span>
-                  </button>
-                  <button
-                    onClick={openAddContentModal}
-                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
-                  >
-                    + Adicionar Manualmente
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Pagination Controls Top */}
-                {totalContentPages > 1 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0b0e14] border border-white/10 text-xs">
-                    <span className="text-slate-400">
-                      Mostrando <strong className="text-white">{(contentPage - 1) * contentItemsPerPage + 1}</strong> a <strong className="text-white">{Math.min(contentPage * contentItemsPerPage, filteredContents.length)}</strong> de <strong className="text-cyan-400">{filteredContents.length}</strong> itens cadastrados
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setContentPage((p) => Math.max(1, p - 1))}
-                        disabled={contentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
-                      >
-                        Anterior
-                      </button>
-                      <span className="text-cyan-400 font-bold px-2">
-                        Pagina {contentPage} de {totalContentPages}
-                      </span>
-                      <button
-                        onClick={() => setContentPage((p) => Math.min(totalContentPages, p + 1))}
-                        disabled={contentPage === totalContentPages}
-                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
-                      >
-                        Proxima
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {paginatedContents.map((item) => {
-                  const typeBadgeBg =
-                    item.type === 'channel'
-                      ? 'bg-red-500/20 text-red-300 border-red-500/40'
-                      : item.type === 'series'
-                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                      : item.type === 'anime'
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : item.type === 'dorama'
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-400/40'
-                      : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
-
-                  const typeLabel =
-                    item.type === 'channel'
-                      ? 'AO VIVO'
-                      : item.type === 'series'
-                      ? 'SERIE'
-                      : item.type === 'anime'
-                      ? 'ANIME'
-                      : item.type === 'dorama'
-                      ? 'DORAMA'
-                      : 'FILME';
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="bg-[#0b0e14] border border-white/10 hover:border-cyan-400/40 rounded-2xl p-3 sm:p-4 flex gap-3.5 transition-all shadow-md group relative overflow-hidden"
-                    >
-                      {/* Poster / Thumbnail with fallback */}
-                      <div className="w-24 h-36 rounded-xl bg-slate-950 border border-white/10 overflow-hidden shrink-0 relative shadow-inner">
-                        <img
-                          src={item.posterUrl || './assets/img/covers/default.webp'}
-                          alt={item.title}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-md text-[10px] font-bold text-amber-400 border border-white/10">
-                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                          <span>{Number(item.rating || 0).toFixed(1)}</span>
-                        </div>
-                      </div>
-
-                      {/* Content details */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between">
-                        <div className="flex flex-col gap-1">
-                          {/* Type Badge & Year */}
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${typeBadgeBg}`}>
-                              {typeLabel}
-                            </span>
-                            <span className="text-[11px] font-mono text-slate-400">{item.year}</span>
-                            {item.duration && (
-                              <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
-                                <Clock className="w-2.5 h-2.5 text-slate-500" />
-                                {item.duration}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Title */}
-                          <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
-                            {item.title}
-                          </h4>
-
-                          {/* Genres */}
-                          <p className="text-[11px] text-slate-400 line-clamp-1">
-                            {Array.isArray(item.genres) ? item.genres.join(' · ') : item.genres}
-                          </p>
-
-                          {/* Synopsis preview */}
-                          {item.description && (
-                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Stream URL snippet and action buttons */}
-                        <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2 mt-2">
-                          <button
-                            onClick={() => copyToClipboard(item.streamUrl, `url-${item.id}`)}
-                            title="Copiar link do stream"
-                            className="flex items-center gap-1 text-[10px] font-mono text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer truncate max-w-[130px]"
-                          >
-                            {copiedId === `url-${item.id}` ? (
-                              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                            ) : (
-                              <Copy className="w-3 h-3 shrink-0" />
-                            )}
-                            <span className="truncate">{copiedId === `url-${item.id}` ? 'Copiado!' : item.streamUrl}</span>
-                          </button>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => openEditContentModal(item)}
-                              title="Editar conteudo"
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 border border-white/10 hover:border-cyan-400/40 transition-all cursor-pointer"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteContent(item)}
-                              title="Excluir conteudo"
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/10 hover:border-red-500/40 transition-all cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination Controls Bottom */}
-              {totalContentPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#0b0e14] border border-white/10 text-xs">
-                  <span className="text-slate-400">
-                    Pagina <strong className="text-cyan-400">{contentPage}</strong> de <strong className="text-white">{totalContentPages}</strong> (Exibindo 36 itens por pagina)
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setContentPage((p) => Math.max(1, p - 1));
-                        window.scrollTo({ top: 300, behavior: 'smooth' });
-                      }}
-                      disabled={contentPage === 1}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
-                    >
-                      Anterior
-                    </button>
-                    <button
-                      onClick={() => {
-                        setContentPage((p) => Math.min(totalContentPages, p + 1));
-                        window.scrollTo({ top: 300, behavior: 'smooth' });
-                      }}
-                      disabled={contentPage === totalContentPages}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 text-white font-bold cursor-pointer transition-all"
-                    >
-                      Proxima
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          </div>
+          <AdminCatalogTable
+            contents={contents}
+            filteredContents={filteredContents}
+            catalogCounts={catalogCounts}
+            contentFilter={contentFilter}
+            contentSearchQuery={contentSearchQuery}
+            contentPage={contentPage}
+            contentItemsPerPage={contentItemsPerPage}
+            isSyncingDatabase={isSyncingDatabase}
+            syncProgress={syncProgress}
+            syncFeedback={syncFeedback}
+            isClearingCatalog={isClearingCatalog}
+            copiedId={copiedId}
+            onChangeFilter={setContentFilter}
+            onChangeSearch={setContentSearchQuery}
+            onChangePage={setContentPage}
+            onRefreshFromDB={() => {
+              syncDashboardData();
+            }}
+            onSaveAllToDB={handleSaveAllToRemoteDatabase}
+            onOpenM3UImporter={() => setIsM3UModalOpen(true)}
+            onClearAllContents={handleClearAllContents}
+            onAddContent={openAddContentModal}
+            onEditContent={openEditContentModal}
+            onDeleteContent={handleDeleteContent}
+            onCopyUrl={copyToClipboard}
+          />
         )}
 
         {/* TAB 5: SETTINGS */}
