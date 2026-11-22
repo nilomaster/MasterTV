@@ -6,7 +6,6 @@ import {
   Users,
   UserPlus,
   Zap,
-  TrendingUp,
   Clock,
   Search,
   RefreshCw,
@@ -18,14 +17,11 @@ import {
   Unlock,
   PlusCircle,
   Coins,
-  Settings,
-  ArrowLeft,
   Tv,
   CheckCircle2,
   Phone,
   ExternalLink,
   ChevronRight,
-  DollarSign,
   Film,
   Plus,
   Star,
@@ -33,7 +29,10 @@ import {
   Tag,
   AlertCircle,
   Download,
-  Database
+  Database,
+  Clapperboard,
+  ListVideo,
+  FolderKanban
 } from 'lucide-react';
 import type {
   ClientLine,
@@ -48,14 +47,20 @@ import type {
 import { AdminService } from '../../services/adminService';
 import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../services/epgService';
 import { M3UImporterModal } from './M3UImporterModal';
+import { AdminSidebar, type AdminCatalogShortcut } from './layout/AdminSidebar';
+import { AdminHeader } from './layout/AdminHeader';
 
 interface AdminDashboardProps {
   onBackToPlayer: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }) => {
-  // Navigation tabs
+  // Navigation tabs & sidebar responsive state
   const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'trials' | 'resellers' | 'contents' | 'settings'>('dashboard');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [isRefreshingDashboard, setIsRefreshingDashboard] = useState<boolean>(false);
+  const [lastCatalogSyncAt, setLastCatalogSyncAt] = useState<Date | null>(null);
 
   // Simulation mode (Master Admin vs Reseller)
   const [currentRole, setCurrentRole] = useState<'admin' | 'reseller'>('admin');
@@ -206,25 +211,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   // Real-time catalog counts from MySQL
   const [catalogCounts, setCatalogCounts] = useState(() => AdminService.getCatalogCounts());
 
-  // Load remote clients, channels and initial contents from MySQL on mount
-  useEffect(() => {
-    AdminService.fetchRemoteClients().then((loaded) => {
-      setClients(loaded);
+  // Unified real data refresh handler (used on mount and header refresh button)
+  const syncDashboardData = async () => {
+    setIsRefreshingDashboard(true);
+    try {
+      const [loadedClients, counts, channels, loadedContents] = await Promise.all([
+        AdminService.fetchRemoteClients().catch(() => AdminService.getClients()),
+        AdminService.fetchCatalogCounts().catch(() => AdminService.getCatalogCounts()),
+        AdminService.fetchRemoteChannels().catch(() => []),
+        AdminService.fetchRemoteContents().catch(() => []),
+      ]);
+      setClients(loadedClients);
       setMetrics(AdminService.getMetrics());
-    });
-    AdminService.fetchCatalogCounts().then((counts) => {
       setCatalogCounts(counts);
-    });
-    Promise.all([
-      AdminService.fetchRemoteChannels(),
-      AdminService.fetchRemoteContents(),
-    ]).then(([channels, loadedContents]) => {
       const mergedMap = new Map<string, AdminContentItem>();
       channels.forEach((c) => mergedMap.set(c.id, c));
       loadedContents.forEach((c) => mergedMap.set(c.id, c));
       setContents(Array.from(mergedMap.values()));
-    });
+      setLastCatalogSyncAt(new Date());
+    } finally {
+      setIsRefreshingDashboard(false);
+    }
+  };
+
+  // Load remote clients, channels and initial contents from MySQL on mount
+  useEffect(() => {
+    syncDashboardData();
   }, []);
+
+  // Derived real catalog metrics for Sidebar and Dashboard Overview
+  const realCatalogStats = useMemo(() => {
+    const channelsInMemory = contents.filter((c) => c && c.type === 'channel').length;
+    const moviesInMemory = contents.filter((c) => c && c.type === 'movie').length;
+    const seriesInMemory = contents.filter((c) => c && c.type === 'series').length;
+
+    const channelsCount = Math.max(catalogCounts.channels || 0, channelsInMemory);
+    const moviesCount = Math.max(catalogCounts.movies || 0, moviesInMemory);
+    const seriesCount = Math.max(catalogCounts.series || 0, seriesInMemory);
+    const totalCount = Math.max(
+      catalogCounts.total || 0,
+      contents.length,
+      channelsCount + moviesCount + seriesCount
+    );
+
+    // Top real categories from loaded contents
+    const catMap = new Map<string, number>();
+    contents.forEach((item) => {
+      if (!item) return;
+      if (item.type === 'channel') {
+        const cat = (item.channelCategory || 'TV ao Vivo').trim();
+        if (cat) catMap.set(cat, (catMap.get(cat) || 0) + 1);
+      } else if (Array.isArray(item.genres) && item.genres.length > 0) {
+        const firstGenre = String(item.genres[0] || '').trim();
+        if (firstGenre && firstGenre.toLowerCase() !== 'geral') {
+          catMap.set(firstGenre, (catMap.get(firstGenre) || 0) + 1);
+        }
+      }
+    });
+
+    const topCategories = Array.from(catMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    // Latest real catalog update timestamp from content records
+    let latestUpdateMs = 0;
+    contents.forEach((item) => {
+      const rawDate = item?.updatedAt || item?.createdAt;
+      if (!rawDate) return;
+      const ms = new Date(rawDate).getTime();
+      if (!isNaN(ms) && ms > latestUpdateMs) {
+        latestUpdateMs = ms;
+      }
+    });
+
+    return {
+      channelsCount,
+      moviesCount,
+      seriesCount,
+      totalCount,
+      topCategories,
+      latestUpdateDate: latestUpdateMs > 0 ? new Date(latestUpdateMs) : lastCatalogSyncAt,
+    };
+  }, [contents, catalogCounts, lastCatalogSyncAt]);
+
+  // Handle sidebar role switch ensuring reseller cannot remain on admin-only tabs
+  const handleRoleSwitch = (nextRole: 'admin' | 'reseller') => {
+    setCurrentRole(nextRole);
+    if (nextRole === 'reseller' && (activeTab === 'resellers' || activeTab === 'contents')) {
+      setActiveTab('dashboard');
+    }
+  };
+
+  // Handle sidebar catalog shortcut
+  const handleSelectCatalogShortcut = (filter: AdminCatalogShortcut) => {
+    setContentFilter(filter);
+    setActiveTab('contents');
+  };
 
   // Dynamically load content by type if not present in memory
   useEffect(() => {
@@ -721,332 +804,474 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   };
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-sans select-none antialiased">
-      {/* Top Main Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#0b0e14]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        {/* Left: Brand & Back to Player */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <button
-            onClick={onBackToPlayer}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-all cursor-pointer text-xs font-bold"
-          >
-            <ArrowLeft className="w-4 h-4 text-cyan-400" />
-            <span className="hidden sm:inline">Voltar ao Player</span>
-          </button>
+    <div className="min-h-screen bg-[#070B16] text-[#F8FAFC] flex font-sans select-none antialiased">
+      {/* Fixed / Collapsible Left Sidebar */}
+      <AdminSidebar
+        activeTab={activeTab}
+        activeContentFilter={contentFilter}
+        currentRole={currentRole}
+        activeReseller={activeReseller}
+        isCollapsed={isSidebarCollapsed}
+        isMobileOpen={isMobileSidebarOpen}
+        counts={{
+          clients: filteredClients.length,
+          resellers: resellers.length,
+          channels: realCatalogStats.channelsCount,
+          movies: realCatalogStats.moviesCount,
+          series: realCatalogStats.seriesCount,
+          totalContents: realCatalogStats.totalCount,
+        }}
+        onSelectTab={(tab) => setActiveTab(tab)}
+        onSelectCatalogShortcut={handleSelectCatalogShortcut}
+        onOpenM3UImporter={() => setIsM3UModalOpen(true)}
+        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onBackToPlayer={onBackToPlayer}
+      />
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.35)]">
-              <Tv className="w-5 h-5 text-slate-950 font-black" />
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black text-white tracking-tight">MasterTV</span>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
-                  Painel Pro
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-400 font-medium">Gestao de Clientes & Revendedores</span>
-            </div>
-          </div>
-        </div>
+      {/* Right Main Area (Header + Content) */}
+      <div
+        className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-200 ${
+          isSidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[240px]'
+        }`}
+      >
+        <AdminHeader
+          activeTab={activeTab}
+          activeContentFilter={contentFilter}
+          currentRole={currentRole}
+          activeReseller={activeReseller}
+          isRefreshing={isRefreshingDashboard}
+          onChangeRole={handleRoleSwitch}
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          onRefreshData={syncDashboardData}
+          onBackToPlayer={onBackToPlayer}
+        />
 
-        {/* Right: Role Switcher & Balance */}
-        <div className="flex items-center gap-3">
-          {/* Simulation Role Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-white/10">
-            <button
-              onClick={() => setCurrentRole('admin')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                currentRole === 'admin'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              👑 Admin Master
-            </button>
-            <button
-              onClick={() => setCurrentRole('reseller')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                currentRole === 'reseller'
-                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              🤝 Visao Revendedor
-            </button>
-          </div>
-
-          {/* Credits pill when in reseller view */}
-          {currentRole === 'reseller' && activeReseller && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold">
-              <Coins className="w-4 h-4 text-purple-400" />
-              <span>{activeReseller.credits} Créditos</span>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
-        {/* Navigation Tabs Bar */}
-        <nav className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-white/10">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'dashboard'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>Visao Geral</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('clients')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'clients'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Clientes & Linhas ({filteredClients.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('trials')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'trials'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Zap className="w-4 h-4 text-amber-400" />
-            <span>Gerador de Testes (1 Clique)</span>
-          </button>
-
-          {currentRole === 'admin' && (
-            <button
-              onClick={() => setActiveTab('resellers')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'resellers'
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Coins className="w-4 h-4 text-purple-400" />
-              <span>Revendedores ({resellers.length})</span>
-            </button>
-          )}
-
-          {currentRole === 'admin' && (
-            <button
-              onClick={() => setActiveTab('contents')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'contents'
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Film className="w-4 h-4 text-cyan-400" />
-              <span>Conteudo (Filmes, Canais, Series) ({Array.isArray(contents) ? contents.length : 0})</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'settings'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span>Configuracoes</span>
-          </button>
-        </nav>
-
-        {/* TAB 1: DASHBOARD OVERVIEW */}
-        {activeTab === 'dashboard' && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-200">
-            {/* Quick KPI Stat Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xl">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-400">Total de Clientes</span>
-                  <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-cyan-400" />
-                  </div>
-                </div>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-black text-white">{metrics.totalClients}</span>
-                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                    {metrics.activeClients} ativos
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xl">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-400">Testes Ativos</span>
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                    <Zap className="w-4 h-4 text-amber-400" />
-                  </div>
-                </div>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-black text-amber-400">{metrics.trialClients}</span>
-                  <span className="text-[11px] font-bold text-slate-400">em andamento</span>
-                </div>
-              </div>
-
-              <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xl">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-400">Vencem em 7 Dias</span>
-                  <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-rose-400" />
-                  </div>
-                </div>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-black text-rose-400">{metrics.expiringIn7Days}</span>
-                  <span className="text-[11px] font-bold text-slate-400">precisam renovar</span>
-                </div>
-              </div>
-
-              <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xl">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-400">Faturamento Estimado</span>
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
-                  </div>
-                </div>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-2xl sm:text-3xl font-black text-emerald-400">
-                    R$ {metrics.monthlyRevenueEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400">/mês</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions Strip */}
-            <div className="bg-gradient-to-r from-cyan-950/40 via-slate-900/60 to-purple-950/40 border border-cyan-500/30 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-xl bg-cyan-400 text-slate-950 flex items-center justify-center font-black shadow-[0_0_25px_rgba(0,240,255,0.4)]">
-                  <Zap className="w-6 h-6 fill-slate-950" />
-                </div>
-                <div className="flex flex-col">
-                  <h3 className="text-base font-bold text-white">Criar Teste Rápido em 1 Segundo</h3>
-                  <p className="text-xs text-slate-400">Gere um acesso de teste gratuito e copie a mensagem pronta para enviar no WhatsApp.</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        {/* Main Content Container */}
+        <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 flex flex-col gap-6">
+          {/* TAB 1: MODERN DASHBOARD OVERVIEW (MasterX-inspired, real MasterTV data, zero excess neon) */}
+          {activeTab === 'dashboard' && (
+            <div className="flex flex-col gap-6 animate-in fade-in duration-200">
+              {/* Row 1 & Row 2: 8 Real System KPI Stat Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+                {/* 1. Clientes Cadastrados */}
                 <button
-                  onClick={() => setActiveTab('trials')}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold text-xs shadow-lg shadow-cyan-400/25 transition-all cursor-pointer"
-                >
-                  <Zap className="w-4 h-4 fill-slate-950" />
-                  <span>Gerar Teste Agora</span>
-                </button>
-                <button
-                  onClick={() => setIsNewClientModalOpen(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition-all cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4 text-cyan-400" />
-                  <span>Novo Cliente Oficial</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Recent Clients Table Preview */}
-            <div className="bg-[#0b0e14] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col gap-4 shadow-xl">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-base text-white">Ultimas Linhas Adicionadas</h3>
-                <button
+                  type="button"
                   onClick={() => setActiveTab('clients')}
-                  className="text-cyan-400 hover:text-cyan-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
                 >
-                  <span>Ver Todos</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Clientes Cadastrados</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#009DFF]/15 text-[#009DFF] flex items-center justify-center">
+                      <Users className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {currentRole === 'reseller' ? filteredClients.length : metrics.totalClients}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#16B981]">
+                      {metrics.activeClients} ativos
+                    </span>
+                  </div>
                 </button>
+
+                {/* 2. Linhas Ativas & Testes */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('trials')}
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Linhas Ativas</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#16B981]/15 text-[#16B981] flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {metrics.activeClients}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#F5B942]">
+                      {metrics.trialClients} testes
+                    </span>
+                  </div>
+                </button>
+
+                {/* 3. Revendedores / Vencimentos */}
+                <button
+                  type="button"
+                  onClick={() => (currentRole === 'admin' ? setActiveTab('resellers') : setActiveTab('clients'))}
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">
+                      {currentRole === 'admin' ? 'Revendedores' : 'Vencem em 7 Dias'}
+                    </span>
+                    <div className="w-8 h-8 rounded-lg bg-[#F5B942]/15 text-[#F5B942] flex items-center justify-center">
+                      {currentRole === 'admin' ? <Coins className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {currentRole === 'admin' ? resellers.length : metrics.expiringIn7Days}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#94A3B8]">
+                      {currentRole === 'admin'
+                        ? `${metrics.expiringIn7Days} vencem em 7d`
+                        : 'precisam renovar'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* 4. Canais ao Vivo */}
+                <button
+                  type="button"
+                  onClick={() => currentRole === 'admin' && handleSelectCatalogShortcut('channel')}
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Canais ao Vivo</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#16B981]/15 text-[#16B981] flex items-center justify-center">
+                      <Tv className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {realCatalogStats.channelsCount.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#94A3B8]">no catalogo</span>
+                  </div>
+                </button>
+
+                {/* 5. Filmes */}
+                <button
+                  type="button"
+                  onClick={() => currentRole === 'admin' && handleSelectCatalogShortcut('movie')}
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Filmes</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#25C4E8]/15 text-[#25C4E8] flex items-center justify-center">
+                      <Film className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {realCatalogStats.moviesCount.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#94A3B8]">titulos VOD</span>
+                  </div>
+                </button>
+
+                {/* 6. Series */}
+                <button
+                  type="button"
+                  onClick={() => currentRole === 'admin' && handleSelectCatalogShortcut('series')}
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Series</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#F5B942]/15 text-[#F5B942] flex items-center justify-center">
+                      <Clapperboard className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {realCatalogStats.seriesCount.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#94A3B8]">cadastradas</span>
+                  </div>
+                </button>
+
+                {/* 7. Total de Conteudos */}
+                <button
+                  type="button"
+                  onClick={() => currentRole === 'admin' && handleSelectCatalogShortcut('all')}
+                  className="bg-[#151E2E] hover:bg-[#192438] border border-[#253247] rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Total de Conteudos</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#009DFF]/15 text-[#009DFF] flex items-center justify-center">
+                      <Database className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-[#F8FAFC]">
+                      {realCatalogStats.totalCount.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#94A3B8]">itens totais</span>
+                  </div>
+                </button>
+
+                {/* 8. Ultima Atualizacao do Catalogo */}
+                <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#94A3B8]">Ultima Atualizacao</span>
+                    <div className="w-8 h-8 rounded-lg bg-[#0077D9]/15 text-[#25C4E8] flex items-center justify-center">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3.5 flex flex-col">
+                    <span className="text-base sm:text-lg font-bold text-[#F8FAFC] leading-tight">
+                      {realCatalogStats.latestUpdateDate
+                        ? realCatalogStats.latestUpdateDate.toLocaleDateString('pt-BR')
+                        : 'Sincronizado'}
+                    </span>
+                    <span className="text-[11px] text-[#94A3B8] mt-0.5">
+                      {realCatalogStats.latestUpdateDate
+                        ? realCatalogStats.latestUpdateDate.toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Banco MySQL ativo'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 text-slate-400">
-                      <th className="pb-3 font-semibold">Cliente</th>
-                      <th className="pb-3 font-semibold">Usuario / Senha</th>
-                      <th className="pb-3 font-semibold">Plano</th>
-                      <th className="pb-3 font-semibold">Vencimento</th>
-                      <th className="pb-3 font-semibold">Status</th>
-                      <th className="pb-3 font-semibold text-right">Acao</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 font-medium">
-                    {clients.slice(0, 5).map((c) => {
-                      const exp = new Date(c.expiresAt);
-                      const isExpired = exp.getTime() < Date.now();
-                      return (
-                        <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                          <td className="py-3 font-bold text-white flex items-center gap-2">
-                            <span>{c.customerName}</span>
-                          </td>
-                          <td className="py-3">
-                            <span className="font-mono text-cyan-300 font-bold">{c.username}</span>
-                            <span className="text-slate-500 mx-1">/</span>
-                            <span className="font-mono text-slate-300">{c.password}</span>
-                          </td>
-                          <td className="py-3">
-                            <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/10 font-mono font-bold text-[10px]">
-                              {c.planDuration}
-                            </span>
-                          </td>
-                          <td className="py-3 text-slate-300">
-                            {exp.toLocaleDateString('pt-BR')} {exp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="py-3">
-                            {c.status === 'active' && !isExpired && (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[10px]">
-                                Ativo
-                              </span>
-                            )}
-                            {c.status === 'trial' && !isExpired && (
-                              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold text-[10px]">
-                                Teste
-                              </span>
-                            )}
-                            {(c.status === 'expired' || isExpired) && (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold text-[10px]">
-                                Vencido
-                              </span>
-                            )}
-                            {c.status === 'blocked' && (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-bold text-[10px]">
-                                Bloqueado
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 text-right">
-                            <button
-                              onClick={() => setWhatsAppModalClient(c)}
-                              className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all cursor-pointer inline-flex items-center gap-1 font-bold text-[11px]"
-                              title="Copiar dados para WhatsApp"
-                            >
-                              <Share2 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">WhatsApp</span>
-                            </button>
-                          </td>
+              {/* Quick Actions Panel */}
+              <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-[#F8FAFC]">Acoes Rapidas</h2>
+                  <span className="text-[11px] text-[#94A3B8]">Atalhos para operacoes principais</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                  {currentRole === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => setIsM3UModalOpen(true)}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#009DFF] hover:bg-[#0077D9] text-[#070B16] font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      <ListVideo className="w-4 h-4 shrink-0" />
+                      <span className="truncate">Importar M3U</span>
+                    </button>
+                  )}
+
+                  {currentRole === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCatalogShortcut('all')}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F1726] hover:bg-[#192438] border border-[#253247] text-[#F8FAFC] font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      <FolderKanban className="w-4 h-4 text-[#009DFF] shrink-0" />
+                      <span className="truncate">Gerenciar Catalogo</span>
+                    </button>
+                  )}
+
+                  {currentRole === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={openAddContentModal}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F1726] hover:bg-[#192438] border border-[#253247] text-[#F8FAFC] font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-[#16B981] shrink-0" />
+                      <span className="truncate">Adicionar Conteudo</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setIsNewClientModalOpen(true)}
+                    className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F1726] hover:bg-[#192438] border border-[#253247] text-[#F8FAFC] font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4 text-[#25C4E8] shrink-0" />
+                    <span className="truncate">Criar Cliente</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('trials')}
+                    className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F1726] hover:bg-[#192438] border border-[#253247] text-[#F8FAFC] font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 text-[#F5B942] shrink-0" />
+                    <span className="truncate">Gerar Teste</span>
+                  </button>
+
+                  {currentRole === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('resellers')}
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F1726] hover:bg-[#192438] border border-[#253247] text-[#F8FAFC] font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      <Coins className="w-4 h-4 text-[#F5B942] shrink-0" />
+                      <span className="truncate">Revendedores</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Middle Split: Catalog Distribution + Recent Clients Table */}
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+                {/* Catalog Breakdown Card */}
+                <div className="xl:col-span-4 bg-[#151E2E] border border-[#253247] rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-[#F8FAFC]">Resumo do Catalogo</h3>
+                    <button
+                      type="button"
+                      onClick={syncDashboardData}
+                      className="text-[#009DFF] hover:text-[#25C4E8] text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingDashboard ? 'animate-spin' : ''}`} />
+                      <span>Sincronizar</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#0F1726] border border-[#253247]/70 text-xs">
+                      <span className="text-[#94A3B8] font-medium">Canais ao Vivo</span>
+                      <span className="font-mono font-bold text-[#16B981]">
+                        {realCatalogStats.channelsCount.toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#0F1726] border border-[#253247]/70 text-xs">
+                      <span className="text-[#94A3B8] font-medium">Filmes VOD</span>
+                      <span className="font-mono font-bold text-[#25C4E8]">
+                        {realCatalogStats.moviesCount.toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#0F1726] border border-[#253247]/70 text-xs">
+                      <span className="text-[#94A3B8] font-medium">Series</span>
+                      <span className="font-mono font-bold text-[#F5B942]">
+                        {realCatalogStats.seriesCount.toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {realCatalogStats.topCategories.length > 0 && (
+                    <div className="pt-2 border-t border-[#253247]/70 space-y-2.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                        Principais Categorias Carregadas
+                      </span>
+                      <div className="space-y-2">
+                        {realCatalogStats.topCategories.map((cat) => {
+                          const maxCount = realCatalogStats.topCategories[0]?.count || 1;
+                          const pct = Math.max(8, Math.round((cat.count / maxCount) * 100));
+                          return (
+                            <div key={cat.name} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[#F8FAFC] font-medium truncate pr-2">{cat.name}</span>
+                                <span className="font-mono text-[#94A3B8] shrink-0">{cat.count}</span>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-[#0F1726] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-[#009DFF]"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent Clients Table */}
+                <div className="xl:col-span-8 bg-[#151E2E] border border-[#253247] rounded-2xl p-4 sm:p-5 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#F8FAFC]">Ultimas Linhas Cadastradas</h3>
+                      <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                        Registros reais sincronizados do banco de dados
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('clients')}
+                      className="text-[#009DFF] hover:text-[#25C4E8] text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Ver todos</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-[#253247] bg-[#0F1726]">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-[#253247] text-[#94A3B8] bg-[#101827]">
+                          <th className="py-3 px-4 font-semibold">Cliente</th>
+                          <th className="py-3 px-4 font-semibold">Credenciais</th>
+                          <th className="py-3 px-4 font-semibold">Plano</th>
+                          <th className="py-3 px-4 font-semibold">Vencimento</th>
+                          <th className="py-3 px-4 font-semibold">Status</th>
+                          <th className="py-3 px-4 font-semibold text-right">Acao</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-[#253247]/60 font-medium">
+                        {filteredClients.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-10 text-center text-[#94A3B8]">
+                              Nenhum cliente cadastrado ate o momento.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredClients.slice(0, 6).map((c) => {
+                            const exp = new Date(c.expiresAt);
+                            const isExpired = exp.getTime() < Date.now();
+                            return (
+                              <tr key={c.id} className="hover:bg-[#151E2E] transition-colors">
+                                <td className="py-3 px-4 font-semibold text-[#F8FAFC]">
+                                  {c.customerName}
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <span className="font-mono text-[#25C4E8] font-semibold">{c.username}</span>
+                                  <span className="text-[#94A3B8]/50 mx-1">/</span>
+                                  <span className="font-mono text-[#94A3B8]">{c.password}</span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="px-2 py-0.5 rounded-md bg-[#151E2E] text-[#F8FAFC] border border-[#253247] font-mono text-[11px]">
+                                    {c.planDuration}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-[#94A3B8] whitespace-nowrap">
+                                  {exp.toLocaleDateString('pt-BR')}{' '}
+                                  {exp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {c.status === 'active' && !isExpired && (
+                                    <span className="px-2 py-0.5 rounded-full bg-[#16B981]/15 text-[#16B981] border border-[#16B981]/30 font-semibold text-[10px]">
+                                      Ativo
+                                    </span>
+                                  )}
+                                  {c.status === 'trial' && !isExpired && (
+                                    <span className="px-2 py-0.5 rounded-full bg-[#F5B942]/15 text-[#F5B942] border border-[#F5B942]/30 font-semibold text-[10px]">
+                                      Teste
+                                    </span>
+                                  )}
+                                  {(c.status === 'expired' || isExpired) && (
+                                    <span className="px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30 font-semibold text-[10px]">
+                                      Vencido
+                                    </span>
+                                  )}
+                                  {c.status === 'blocked' && (
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-500/15 text-[#94A3B8] border border-[#253247] font-semibold text-[10px]">
+                                      Bloqueado
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => setWhatsAppModalClient(c)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-[#16B981]/15 hover:bg-[#16B981]/25 text-[#16B981] transition-colors cursor-pointer inline-flex items-center gap-1 font-semibold text-[11px]"
+                                    title="Copiar dados para WhatsApp"
+                                  >
+                                    <Share2 className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">WhatsApp</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* TAB 2: CLIENTS & LINES */}
         {activeTab === 'clients' && (
@@ -1899,6 +2124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             </div>
           </div>
         )}
+        </main>
       </div>
 
       {/* MODAL 1: NEW CLIENT */}
