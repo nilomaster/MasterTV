@@ -298,6 +298,10 @@ export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> 
           const errBody = await res.json().catch(() => null);
           throw new Error(errBody?.message || 'Acesso negado ou URL bloqueada pela politica de seguranca.');
         }
+        if (res.status === 413) {
+          const errBody = await res.json().catch(() => null);
+          throw new Error(errBody?.message || 'A lista M3U excede o limite maximo permitido pelo servidor.');
+        }
         if (res.ok) {
           const text = await res.text();
           if (text && text.includes('#EXTINF')) {
@@ -306,14 +310,26 @@ export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> 
           }
         }
       } catch (err) {
-        if (err instanceof Error && (err.message.includes('Sessao administrativa') || err.message.includes('bloqueada') || err.message.includes('Acesso negado'))) {
+        if (
+          err instanceof Error &&
+          (err.message.includes('Sessao administrativa') ||
+            err.message.includes('bloqueada') ||
+            err.message.includes('Acesso negado') ||
+            err.message.includes('limite maximo'))
+        ) {
           throw err;
         }
         // Continue to next candidate
       }
     }
   } catch (err) {
-    if (err instanceof Error && (err.message.includes('Sessao administrativa') || err.message.includes('bloqueada') || err.message.includes('Acesso negado'))) {
+    if (
+      err instanceof Error &&
+      (err.message.includes('Sessao administrativa') ||
+        err.message.includes('bloqueada') ||
+        err.message.includes('Acesso negado') ||
+        err.message.includes('limite maximo'))
+    ) {
       throw err;
     }
     // Continue to next fallbacks

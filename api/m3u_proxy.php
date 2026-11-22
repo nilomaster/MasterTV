@@ -15,9 +15,9 @@ if (!isset($pdo) || $pdo === null) {
 }
 requireMasterAdmin($pdo);
 
-// Increase memory and time limits for large M3U playlists within safe bounds
-@set_time_limit(120);
-@ini_set('memory_limit', '256M');
+// Increase memory and time limits for large full Xtream/M3U playlists within safe bounds
+@set_time_limit(180);
+@ini_set('memory_limit', '512M');
 
 $url = '';
 if (isset($_GET['url'])) {
@@ -40,9 +40,9 @@ if ($url === '') {
 
 $result = safeFetchExternalM3u($url, [
     'max_redirects' => 4,
-    'max_bytes' => 52428800, // 50 MB max playlist size
+    'max_bytes' => 157286400, // 150 MB max playlist size
     'connect_timeout' => 15,
-    'timeout' => 90,
+    'timeout' => 150,
 ]);
 
 if (empty($result['ok'])) {
