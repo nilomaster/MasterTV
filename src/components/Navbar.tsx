@@ -17,6 +17,7 @@ import {
   Heart,
   ScreenShare,
   ArrowLeft,
+  RefreshCw,
 } from 'lucide-react';
 import type { ClientSession } from '../types/admin';
 import type { ViewType, VODFilterType } from '../context/NavigationContext';
@@ -42,6 +43,8 @@ interface NavbarProps {
   onNavbarMouseLeave?: () => void;
   clientSession?: ClientSession | null;
   onLogout?: () => void;
+  isSyncingCatalog?: boolean;
+  onSyncCatalog?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -57,6 +60,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavbarMouseLeave,
   clientSession,
   onLogout,
+  isSyncingCatalog = false,
+  onSyncCatalog,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [searchBarOpen, setSearchBarOpen] = useState<boolean>(false);
@@ -138,8 +143,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* RIGHT: Clean Circular Actions (Search, Profile, Settings) + Divider + Clock & Date */}
+            {/* RIGHT: Clean Circular Actions (Sync, Search, Profile, Settings) + Divider + Clock & Date */}
             <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+              {onSyncCatalog && (
+                <button
+                  onClick={onSyncCatalog}
+                  disabled={isSyncingCatalog}
+                  className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                  title="Sincronizar catalogo"
+                  aria-label="Sincronizar catalogo"
+                >
+                  <RefreshCw className={`w-[18px] h-[18px] ${isSyncingCatalog ? 'animate-spin text-sky-400' : ''}`} />
+                </button>
+              )}
+
               <button
                 onClick={() => setSearchBarOpen((prev) => !prev)}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer border ${
@@ -248,6 +265,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                {onSyncCatalog && (
+                  <button
+                    type="button"
+                    onClick={onSyncCatalog}
+                    disabled={isSyncingCatalog}
+                    className="w-10 h-10 rounded-full bg-[#142136] active:bg-[#1e3150] border border-[#293A50] text-slate-200 flex items-center justify-center cursor-pointer"
+                    title="Sincronizar catalogo"
+                    aria-label="Sincronizar catalogo"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncingCatalog ? 'animate-spin text-[#00BFFF]' : ''}`} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent('mastertv_focus_channel_search'))}
@@ -324,8 +353,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* RIGHT: Search, Notifications, User Profile, Divider, Clock & Date */}
+            {/* RIGHT: Sync, Search, Notifications, User Profile, Divider, Clock & Date */}
             <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+              {onSyncCatalog && (
+                <button
+                  onClick={onSyncCatalog}
+                  disabled={isSyncingCatalog}
+                  className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                  title="Sincronizar catalogo"
+                  aria-label="Sincronizar catalogo"
+                >
+                  <RefreshCw className={`w-[18px] h-[18px] ${isSyncingCatalog ? 'animate-spin text-sky-400' : ''}`} />
+                </button>
+              )}
+
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('mastertv_focus_channel_search'))}
                 className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 flex items-center justify-center transition-all duration-200 cursor-pointer"

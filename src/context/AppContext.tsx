@@ -1,7 +1,7 @@
 // Global Application State Context
 // Strictly ASCII comments only
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { Channel, MediaItem, EpisodeItem, EPGProgram } from '../types/iptv';
 import type { ClientSession } from '../types/admin';
 import { AdminService } from '../services/adminService';
@@ -44,6 +44,9 @@ interface AppContextType {
   handleLogout: () => void;
   handleClearCache: () => void;
   playMediaStream: (streamUrl: string, title: string, mediaItem?: MediaItem, episode?: EpisodeItem) => void;
+  isSyncingCatalog: boolean;
+  lastSyncedAt: number | null;
+  syncCatalog: (force?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -59,6 +62,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isPlayerControlsVisible, setIsPlayerControlsVisible] = useState<boolean>(true);
   const [isNavbarHovered, setIsNavbarHovered] = useState<boolean>(false);
+  const [isSyncingCatalog, setIsSyncingCatalog] = useState<boolean>(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const syncInFlightRef = useRef<boolean>(false);
+  const lastSyncTimestampRef = useRef<number>(0);
 
   // Helper to load channels from database applying synced per-user favorites
   const getCustomChannels = (favoriteIds?: Set<string>): Channel[] => {
@@ -147,31 +154,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
 
-  // Sync with remote database on mount
+  // Unified catalog and favorites sync (used on mount, manual button and app resume)
+  const syncCatalog = useCallback(
+    async (force = false): Promise<void> => {
+      const now = Date.now();
+      if (syncInFlightRef.current) return;
+      // Throttle automatic background resumes to once every 30 seconds
+      if (!force && now - lastSyncTimestampRef.current < 30000) return;
+
+      syncInFlightRef.current = true;
+      setIsSyncingCatalog(true);
+
+      try {
+        const username = clientSession?.username;
+        const [, , remoteFavIds] = await Promise.all([
+          AdminService.fetchRemoteChannels().catch(() => []),
+          AdminService.fetchRemoteContents().catch(() => []),
+          username
+            ? FavoritesService.fetchRemoteFavorites(username, 'channel').catch(() =>
+                FavoritesService.getLocalFavorites(username, 'channel')
+              )
+            : Promise.resolve(FavoritesService.getLocalFavorites(username, 'channel')),
+        ]);
+
+        const favSet = new Set(remoteFavIds);
+        const refreshed = getCustomChannels(favSet);
+        setChannels(refreshed);
+        setCurrentChannel((prev) => {
+          if (prev) {
+            const updatedCurrent = refreshed.find((c) => c.id === prev.id);
+            if (updatedCurrent) return updatedCurrent;
+          }
+          return refreshed[0] || null;
+        });
+
+        const completedAt = Date.now();
+        lastSyncTimestampRef.current = completedAt;
+        setLastSyncedAt(completedAt);
+        window.dispatchEvent(new Event('mastertv_catalog_updated'));
+      } finally {
+        syncInFlightRef.current = false;
+        setIsSyncingCatalog(false);
+      }
+    },
+    [clientSession?.username]
+  );
+
+  // Sync with remote database on mount and auto-sync when returning from background or reconnecting
   useEffect(() => {
-    AdminService.fetchRemoteChannels().then(() => {
-      const refreshed = getCustomChannels();
-      setChannels(refreshed);
-      setCurrentChannel((prev) => {
-        if (prev && refreshed.some((c) => c.id === prev.id)) return prev;
-        return refreshed[0] || null;
-      });
-    });
-    // Also fetch general contents in background
-    AdminService.fetchRemoteContents().catch(() => {});
+    syncCatalog(true);
     initOnlineEPG();
 
     const handleCatalogUpdated = () => {
       const refreshed = getCustomChannels();
       setChannels(refreshed);
       setCurrentChannel((prev) => {
-        if (prev && refreshed.some((c) => c.id === prev.id)) return prev;
+        if (prev) {
+          const updatedCurrent = refreshed.find((c) => c.id === prev.id);
+          if (updatedCurrent) return updatedCurrent;
+        }
         return refreshed[0] || null;
       });
     };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncCatalog(false);
+      }
+    };
+
+    const handleResumeOrOnline = () => {
+      syncCatalog(false);
+    };
+
     window.addEventListener('mastertv_catalog_updated', handleCatalogUpdated);
-    return () => window.removeEventListener('mastertv_catalog_updated', handleCatalogUpdated);
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('resume', handleResumeOrOnline);
+    window.addEventListener('online', handleResumeOrOnline);
+
+    return () => {
+      window.removeEventListener('mastertv_catalog_updated', handleCatalogUpdated);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('resume', handleResumeOrOnline);
+      window.removeEventListener('online', handleResumeOrOnline);
+    };
+  }, [syncCatalog]);
 
   // Sync per-user favorites from MySQL whenever user logs in or switches account
   useEffect(() => {
@@ -287,6 +354,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         handleLogout,
         handleClearCache,
         playMediaStream,
+        isSyncingCatalog,
+        lastSyncedAt,
+        syncCatalog,
       }}
     >
       {children}

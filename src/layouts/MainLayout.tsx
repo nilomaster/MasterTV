@@ -36,6 +36,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setSelectedProgramItem,
     playMediaStream,
     setChannels,
+    isSyncingCatalog,
+    syncCatalog,
   } = useApp();
 
   const { currentView, vodFilter, navigateTo } = useNavigation();
@@ -98,6 +100,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           onNavbarMouseLeave={() => setIsNavbarHovered(false)}
           clientSession={clientSession}
           onLogout={handleLogout}
+          isSyncingCatalog={isSyncingCatalog}
+          onSyncCatalog={() => {
+            syncCatalog(true);
+          }}
         />
       </header>
 
@@ -133,6 +139,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         vodFilter={vodFilter}
         favoritesCount={favoritesCount}
         onNavigate={(v, f) => navigateTo(v, f)}
+        isSyncingCatalog={isSyncingCatalog}
+        onSyncCatalog={() => {
+          syncCatalog(true);
+        }}
       />
 
       {/* Global Modals */}

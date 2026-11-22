@@ -15,6 +15,7 @@ import {
   Calendar,
   Settings,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import type { ViewType, VODFilterType } from '../../context/NavigationContext';
 import { useDeviceLayout } from '../../hooks/useDeviceLayout';
@@ -24,6 +25,8 @@ interface MobileBottomNavProps {
   vodFilter: VODFilterType;
   favoritesCount: number;
   onNavigate: (view: ViewType, filter?: VODFilterType) => void;
+  isSyncingCatalog?: boolean;
+  onSyncCatalog?: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -31,6 +34,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   vodFilter,
   favoritesCount,
   onNavigate,
+  isSyncingCatalog = false,
+  onSyncCatalog,
 }) => {
   const [moreOpen, setMoreOpen] = useState<boolean>(false);
   const [isPlayerFullscreen, setIsPlayerFullscreen] = useState<boolean>(false);
@@ -174,6 +179,30 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <span className="block text-[10px] text-slate-400 truncate">Programacao TV</span>
                 </div>
               </button>
+
+              {onSyncCatalog && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSyncCatalog();
+                    setMoreOpen(false);
+                  }}
+                  disabled={isSyncingCatalog}
+                  className="col-span-2 flex items-center gap-3 p-3.5 rounded-2xl border bg-[#008DFF]/15 border-[#00BFFF]/35 text-white active:bg-[#008DFF]/25 text-left transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#008DFF]/25 text-[#00BFFF] flex items-center justify-center shrink-0">
+                    <RefreshCw className={`w-5 h-5 ${isSyncingCatalog ? 'animate-spin' : ''}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-sm font-bold">
+                      {isSyncingCatalog ? 'Sincronizando Catalogo...' : 'Sincronizar Catalogo'}
+                    </span>
+                    <span className="block text-[10px] text-slate-300">
+                      Atualiza canais, filmes, series e favoritos do servidor
+                    </span>
+                  </div>
+                </button>
+              )}
 
               <button
                 type="button"
