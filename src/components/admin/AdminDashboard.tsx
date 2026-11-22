@@ -73,6 +73,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     return Array.isArray(loaded) ? loaded : [];
   });
   const [contentFilter, setContentFilter] = useState<'all' | 'movie' | 'series' | 'channel' | 'anime' | 'dorama'>('all');
+  const [contentCategoryFilter, setContentCategoryFilter] = useState<string>('all');
   const [contentSearchQuery, setContentSearchQuery] = useState<string>('');
   const [isContentModalOpen, setIsContentModalOpen] = useState<boolean>(false);
   const [isM3UModalOpen, setIsM3UModalOpen] = useState<boolean>(false);
@@ -310,6 +311,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   // Handle sidebar catalog shortcut
   const handleSelectCatalogShortcut = (filter: AdminCatalogShortcut) => {
     setContentFilter(filter);
+    setContentCategoryFilter('all');
     setActiveTab('contents');
   };
 
@@ -1660,6 +1662,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             filteredContents={filteredContents}
             catalogCounts={catalogCounts}
             contentFilter={contentFilter}
+            selectedCategoryFilter={contentCategoryFilter}
             contentSearchQuery={contentSearchQuery}
             contentPage={contentPage}
             contentItemsPerPage={contentItemsPerPage}
@@ -1669,6 +1672,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             isClearingCatalog={isClearingCatalog}
             copiedId={copiedId}
             onChangeFilter={setContentFilter}
+            onChangeCategoryFilter={setContentCategoryFilter}
             onChangeSearch={setContentSearchQuery}
             onChangePage={setContentPage}
             onRefreshFromDB={() => {
@@ -1690,7 +1694,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             contents={contents}
             onOpenCategoryInCatalog={(typeFilter, categoryName) => {
               setContentFilter(typeFilter);
-              setContentSearchQuery(categoryName);
+              setContentSearchQuery('');
+              setContentCategoryFilter(categoryName);
               setActiveTab('contents');
             }}
           />

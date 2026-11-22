@@ -1,11 +1,11 @@
 // MasterTV Admin EPG Guide Status & XMLTV Sync View
-// Uses real epgService functions and real channel records without inventing programming
+// Uses real epgService diagnostic status (xmltv vs static vs fallback) without false positives
 // Strictly ASCII comments only
 
 import React, { useMemo, useState } from 'react';
-import { Calendar, RefreshCw, CheckCircle2, AlertCircle, Tv, Edit, Search } from 'lucide-react';
+import { Calendar, RefreshCw, CheckCircle2, AlertCircle, Tv, Edit, Search, Radio } from 'lucide-react';
 import type { AdminContentItem } from '../../../types/admin';
-import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../../services/epgService';
+import { fetchAndSyncXMLTV, getLiveEPGForChannel, getChannelEPGStatus } from '../../../services/epgService';
 
 interface AdminEPGViewProps {
   contents: AdminContentItem[];
@@ -14,8 +14,8 @@ interface AdminEPGViewProps {
 
 export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChannel }) => {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [lastSyncFeedback, setLastSyncFeedback] = useState<string | null>(null);
-  const [filterMode, setFilterMode] = useState<'all' | 'mapped' | 'unmapped'>('all');
+  const [lastSyncFeedback, setLastSyncFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [filterMode, setFilterMode] = useState<'all' | 'xmltv' | 'static' | 'unmapped'>('all');
   const [search, setSearch] = useState<string>('');
   const [epgTick, setEpgTick] = useState<number>(0);
 
@@ -24,9 +24,9 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
     return contents
       .filter((c) => c && c.type === 'channel')
       .map((ch) => {
-        const liveInfo = getLiveEPGForChannel({
+        const channelObj = {
           id: ch.id,
-          epgId: ch.epgId || ch.title,
+          epgId: ch.epgId || undefined,
           number: ch.channelNumber || 1,
           name: ch.title,
           logo: ch.posterUrl || '',
@@ -36,20 +36,18 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
           currentProgramTime: '',
           synopsis: ch.description || '',
           isFavorite: false,
-        });
+        };
 
-        const hasRealProgram = Boolean(
-          liveInfo?.currentProgram &&
-            liveInfo.currentProgram !== 'Programacao Normal' &&
-            liveInfo.currentProgram !== 'Programacao ao Vivo' &&
-            liveInfo.currentProgram !== 'Transmissao ao Vivo'
-        );
+        const status = getChannelEPGStatus(channelObj, ch.title);
+        const liveInfo = status.source !== 'fallback' ? getLiveEPGForChannel(channelObj) : null;
 
         return {
           item: ch,
-          hasEpgId: Boolean(ch.epgId && ch.epgId.trim().length > 0),
-          hasRealProgram,
-          currentProgram: hasRealProgram ? liveInfo.currentProgram : null,
+          source: status.source,
+          canonicalId: status.canonicalId,
+          hasExplicitEpgId: status.hasExplicitEpgId,
+          xmltvProgramsCount: status.xmltvProgramsCount,
+          currentProgram: liveInfo?.currentProgram || null,
           currentTime: liveInfo?.currentProgramTime || '',
         };
       });
@@ -57,10 +55,11 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
 
   const stats = useMemo(() => {
     const total = channelItems.length;
-    const mapped = channelItems.filter((c) => c.hasRealProgram || c.hasEpgId).length;
-    const withLiveProgram = channelItems.filter((c) => c.hasRealProgram).length;
-    const unmapped = total - mapped;
-    return { total, mapped, withLiveProgram, unmapped };
+    const explicitId = channelItems.filter((c) => c.hasExplicitEpgId).length;
+    const xmltvActive = channelItems.filter((c) => c.source === 'xmltv').length;
+    const staticMatched = channelItems.filter((c) => c.source === 'static').length;
+    const unmapped = channelItems.filter((c) => c.source === 'fallback').length;
+    return { total, explicitId, xmltvActive, staticMatched, unmapped };
   }, [channelItems]);
 
   const filteredChannels = useMemo(() => {
@@ -69,13 +68,17 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
       const matchesFilter =
         filterMode === 'all'
           ? true
-          : filterMode === 'mapped'
-          ? entry.hasRealProgram || entry.hasEpgId
-          : !entry.hasRealProgram && !entry.hasEpgId;
+          : filterMode === 'xmltv'
+          ? entry.source === 'xmltv'
+          : filterMode === 'static'
+          ? entry.source === 'static'
+          : entry.source === 'fallback';
+
       const matchesSearch =
         !q ||
         entry.item.title.toLowerCase().includes(q) ||
-        (entry.item.epgId || '').toLowerCase().includes(q);
+        (entry.item.epgId || '').toLowerCase().includes(q) ||
+        (entry.canonicalId || '').toLowerCase().includes(q);
       return matchesFilter && matchesSearch;
     });
   }, [channelItems, filterMode, search]);
@@ -84,16 +87,27 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
     setIsSyncing(true);
     setLastSyncFeedback(null);
     try {
-      await fetchAndSyncXMLTV();
+      const ok = await fetchAndSyncXMLTV();
       setEpgTick((t) => t + 1);
-      setLastSyncFeedback(
-        `Sincronizacao XMLTV concluida as ${new Date().toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}.`
-      );
+      if (ok) {
+        setLastSyncFeedback({
+          type: 'success',
+          text: `Sincronizacao XMLTV concluida as ${new Date().toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}.`,
+        });
+      } else {
+        setLastSyncFeedback({
+          type: 'error',
+          text: 'Fonte XMLTV indisponivel no momento. Mantendo grades locais ja carregadas.',
+        });
+      }
     } catch {
-      setLastSyncFeedback('Nao foi possivel sincronizar a fonte XMLTV neste momento.');
+      setLastSyncFeedback({
+        type: 'error',
+        text: 'Erro de rede ao tentar sincronizar a fonte XMLTV.',
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -110,12 +124,22 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
           <div>
             <h2 className="text-base font-bold text-[#F8FAFC]">Guia de Programacao (EPG / XMLTV)</h2>
             <p className="text-xs text-[#94A3B8] mt-0.5">
-              Acompanhe o mapeamento real de EPG dos canais cadastrados e dispare sincronizacao manual XMLTV.
+              Status real por canal: diferencia XMLTV sincronizado, grade local por nome e canais sem EPG.
             </p>
             {lastSyncFeedback && (
-              <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#16B981]/15 border border-[#16B981]/30 text-[#16B981] text-xs font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{lastSyncFeedback}</span>
+              <div
+                className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${
+                  lastSyncFeedback.type === 'success'
+                    ? 'bg-[#16B981]/15 border-[#16B981]/30 text-[#16B981]'
+                    : 'bg-[#F5B942]/15 border-[#F5B942]/30 text-[#F5B942]'
+                }`}
+              >
+                {lastSyncFeedback.type === 'success' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5" />
+                )}
+                <span>{lastSyncFeedback.text}</span>
               </div>
             )}
           </div>
@@ -132,39 +156,44 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
         </button>
       </div>
 
-      {/* Real EPG KPI Cards */}
+      {/* Real EPG KPI Cards (Honest separation between XMLTV, Static and Unmapped) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4">
           <span className="text-xs font-semibold text-[#94A3B8]">Total de Canais</span>
           <p className="text-2xl font-extrabold text-[#F8FAFC] mt-2">{stats.total}</p>
+          <span className="text-[11px] text-[#94A3B8]">{stats.explicitId} com EPG ID salvo</span>
         </div>
         <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4">
-          <span className="text-xs font-semibold text-[#94A3B8]">Canais Mapeados (EPG ID)</span>
-          <p className="text-2xl font-extrabold text-[#009DFF] mt-2">{stats.mapped}</p>
+          <span className="text-xs font-semibold text-[#94A3B8]">XMLTV Online Ativo</span>
+          <p className="text-2xl font-extrabold text-[#16B981] mt-2">{stats.xmltvActive}</p>
+          <span className="text-[11px] text-[#94A3B8]">grade real sincronizada</span>
         </div>
         <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4">
-          <span className="text-xs font-semibold text-[#94A3B8]">Com Programacao Ativa</span>
-          <p className="text-2xl font-extrabold text-[#16B981] mt-2">{stats.withLiveProgram}</p>
+          <span className="text-xs font-semibold text-[#94A3B8]">Grade Local (Auto)</span>
+          <p className="text-2xl font-extrabold text-[#009DFF] mt-2">{stats.staticMatched}</p>
+          <span className="text-[11px] text-[#94A3B8]">correspondencia por nome/ID</span>
         </div>
         <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-4">
-          <span className="text-xs font-semibold text-[#94A3B8]">Sem Mapeamento</span>
+          <span className="text-xs font-semibold text-[#94A3B8]">Sem Programacao</span>
           <p className="text-2xl font-extrabold text-[#F5B942] mt-2">{stats.unmapped}</p>
+          <span className="text-[11px] text-[#94A3B8]">apenas fallback generico</span>
         </div>
       </div>
 
       {/* Filter Bar */}
       <div className="bg-[#151E2E] border border-[#253247] rounded-2xl p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {[
             { id: 'all' as const, label: `Todos (${stats.total})` },
-            { id: 'mapped' as const, label: `Mapeados (${stats.mapped})` },
+            { id: 'xmltv' as const, label: `XMLTV Online (${stats.xmltvActive})` },
+            { id: 'static' as const, label: `Grade Local (${stats.staticMatched})` },
             { id: 'unmapped' as const, label: `Sem EPG (${stats.unmapped})` },
           ].map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setFilterMode(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer border ${
                 filterMode === tab.id
                   ? 'bg-[#009DFF]/15 text-[#F8FAFC] border-[#009DFF]/50'
                   : 'bg-[#0F1726] text-[#94A3B8] border-[#253247] hover:text-[#F8FAFC]'
@@ -194,9 +223,9 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
             <thead>
               <tr className="bg-[#101827] border-b border-[#253247] text-[#94A3B8]">
                 <th className="py-3 px-4 font-semibold">Canal</th>
-                <th className="py-3 px-4 font-semibold">EPG ID</th>
-                <th className="py-3 px-4 font-semibold">Programa Atual (Real)</th>
-                <th className="py-3 px-4 font-semibold">Status</th>
+                <th className="py-3 px-4 font-semibold">EPG ID (Salvo / Detectado)</th>
+                <th className="py-3 px-4 font-semibold">Programa Atual</th>
+                <th className="py-3 px-4 font-semibold">Origem / Status</th>
                 <th className="py-3 px-4 font-semibold text-right">Mapear</th>
               </tr>
             </thead>
@@ -208,62 +237,72 @@ export const AdminEPGView: React.FC<AdminEPGViewProps> = ({ contents, onEditChan
                   </td>
                 </tr>
               ) : (
-                filteredChannels.map(({ item, hasEpgId, hasRealProgram, currentProgram, currentTime }) => (
-                  <tr key={item.id} className="hover:bg-[#151E2E] transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-8 rounded-lg bg-[#151E2E] border border-[#253247] p-1 flex items-center justify-center shrink-0">
-                          {item.posterUrl ? (
-                            <img src={item.posterUrl} alt={item.title} className="w-full h-full object-contain" />
-                          ) : (
-                            <Tv className="w-4 h-4 text-[#94A3B8]" />
-                          )}
+                filteredChannels.map(
+                  ({ item, source, canonicalId, hasExplicitEpgId, xmltvProgramsCount, currentProgram, currentTime }) => (
+                    <tr key={item.id} className="hover:bg-[#151E2E] transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-8 rounded-lg bg-[#151E2E] border border-[#253247] p-1 flex items-center justify-center shrink-0">
+                            {item.posterUrl ? (
+                              <img src={item.posterUrl} alt={item.title} className="w-full h-full object-contain" />
+                            ) : (
+                              <Tv className="w-4 h-4 text-[#94A3B8]" />
+                            )}
+                          </div>
+                          <span className="font-semibold text-[#F8FAFC]">{item.title}</span>
                         </div>
-                        <span className="font-semibold text-[#F8FAFC]">{item.title}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-mono text-[#25C4E8]">
-                      {item.epgId || <span className="text-[#94A3B8]">Nao definido</span>}
-                    </td>
-                    <td className="py-3 px-4 text-[#F8FAFC]">
-                      {currentProgram ? (
-                        <div>
-                          <span className="font-medium">{currentProgram}</span>
-                          {currentTime && (
-                            <span className="ml-2 font-mono text-[11px] text-[#94A3B8]">{currentTime}</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[#94A3B8]">Sem programacao XMLTV no momento</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      {hasRealProgram ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#16B981]/15 text-[#16B981] border border-[#16B981]/30 text-[10px] font-semibold">
-                          <CheckCircle2 className="w-3 h-3" /> Sincronizado
-                        </span>
-                      ) : hasEpgId ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#009DFF]/15 text-[#25C4E8] border border-[#009DFF]/30 text-[10px] font-semibold">
-                          Mapeado
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5B942]/15 text-[#F5B942] border border-[#F5B942]/30 text-[10px] font-semibold">
-                          <AlertCircle className="w-3 h-3" /> Sem EPG
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onEditChannel(item)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151E2E] hover:bg-[#009DFF]/20 border border-[#253247] hover:border-[#009DFF]/50 text-[#94A3B8] hover:text-[#009DFF] font-semibold text-[11px] transition-colors cursor-pointer"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        <span>Editar EPG</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-3 px-4 font-mono">
+                        {hasExplicitEpgId ? (
+                          <span className="text-[#25C4E8]">{item.epgId}</span>
+                        ) : canonicalId ? (
+                          <span className="text-[#94A3B8]" title="Detectado automaticamente pelo nome do canal">
+                            auto: {canonicalId}
+                          </span>
+                        ) : (
+                          <span className="text-[#94A3B8]/70">Nao definido</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-[#F8FAFC]">
+                        {currentProgram ? (
+                          <div>
+                            <span className="font-medium">{currentProgram}</span>
+                            {currentTime && (
+                              <span className="ml-2 font-mono text-[11px] text-[#94A3B8]">{currentTime}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[#94A3B8]">Sem programacao mapeada</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {source === 'xmltv' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#16B981]/15 text-[#16B981] border border-[#16B981]/30 text-[10px] font-semibold">
+                            <CheckCircle2 className="w-3 h-3" /> XMLTV ({xmltvProgramsCount} prog.)
+                          </span>
+                        ) : source === 'static' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#009DFF]/15 text-[#25C4E8] border border-[#009DFF]/30 text-[10px] font-semibold">
+                            <Radio className="w-3 h-3" /> Grade Local
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5B942]/15 text-[#F5B942] border border-[#F5B942]/30 text-[10px] font-semibold">
+                            <AlertCircle className="w-3 h-3" /> Sem EPG
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => onEditChannel(item)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151E2E] hover:bg-[#009DFF]/20 border border-[#253247] hover:border-[#009DFF]/50 text-[#94A3B8] hover:text-[#009DFF] font-semibold text-[11px] transition-colors cursor-pointer"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Editar EPG</span>
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )
               )}
             </tbody>
           </table>

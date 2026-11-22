@@ -42,6 +42,7 @@ interface AdminCatalogTableProps {
   catalogCounts: CatalogCounts;
   contentFilter: 'all' | 'movie' | 'series' | 'channel' | 'anime' | 'dorama';
   contentSearchQuery: string;
+  selectedCategoryFilter?: string;
   contentPage: number;
   contentItemsPerPage: number;
   isSyncingDatabase: boolean;
@@ -50,6 +51,7 @@ interface AdminCatalogTableProps {
   isClearingCatalog: boolean;
   copiedId: string | null;
   onChangeFilter: (filter: 'all' | 'movie' | 'series' | 'channel' | 'anime' | 'dorama') => void;
+  onChangeCategoryFilter?: (category: string) => void;
   onChangeSearch: (query: string) => void;
   onChangePage: (page: number) => void;
   onRefreshFromDB: () => void;
@@ -90,6 +92,7 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
   catalogCounts,
   contentFilter,
   contentSearchQuery,
+  selectedCategoryFilter,
   contentPage,
   contentItemsPerPage,
   isSyncingDatabase,
@@ -98,6 +101,7 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
   isClearingCatalog,
   copiedId,
   onChangeFilter,
+  onChangeCategoryFilter,
   onChangeSearch,
   onChangePage,
   onRefreshFromDB,
@@ -110,8 +114,14 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
   onCopyUrl,
 }) => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [internalCategoryFilter, setInternalCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'title_asc' | 'title_desc' | 'year_desc'>('recent');
+
+  const categoryFilter = selectedCategoryFilter !== undefined ? selectedCategoryFilter : internalCategoryFilter;
+  const setCategoryFilter = (nextCat: string) => {
+    setInternalCategoryFilter(nextCat);
+    onChangeCategoryFilter?.(nextCat);
+  };
 
   // Available categories derived from filteredContents
   const availableCategories = useMemo(() => {
