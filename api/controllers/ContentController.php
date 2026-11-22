@@ -59,6 +59,9 @@ class ContentController {
         $method = $_SERVER['REQUEST_METHOD'];
 
         if (isset($_GET['action']) && $_GET['action'] === 'fetch_m3u') {
+            // M3U external import proxy requires authenticated Master Admin
+            requireMasterAdmin($this->pdo);
+            $pdo = $this->pdo;
             require_once __DIR__ . '/../m3u_proxy.php';
             exit;
         }

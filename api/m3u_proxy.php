@@ -1,76 +1,59 @@
 <?php
-// MasterTV High-Performance M3U and IPTV Stream Proxy
-// Bypasses CORS and sets IPTV User-Agent (IPTVSmartersPro)
+// MasterTV Authenticated & Anti-SSRF M3U Import Proxy
 // Strictly ASCII comments only as per project rules
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+if (!function_exists('requireMasterAdmin')) {
+    require_once __DIR__ . '/config/app.php';
+}
+if (!function_exists('safeFetchExternalM3u')) {
+    require_once __DIR__ . '/helpers/ssrf_guard.php';
 }
 
-// Disable script timeout and increase memory for large 30MB+ playlists
-@set_time_limit(180);
-@ini_set('memory_limit', '512M');
+// Require active database connection and Master Admin authentication
+if (!isset($pdo) || $pdo === null) {
+    sendResponse(['success' => false, 'message' => 'Servidor de banco de dados offline.'], 503);
+}
+requireMasterAdmin($pdo);
+
+// Increase memory and time limits for large M3U playlists within safe bounds
+@set_time_limit(120);
+@ini_set('memory_limit', '256M');
 
 $url = '';
 if (isset($_GET['url'])) {
-    $url = trim($_GET['url']);
+    $url = trim((string)$_GET['url']);
 } elseif (isset($_POST['url'])) {
-    $url = trim($_POST['url']);
+    $url = trim((string)$_POST['url']);
 } else {
     $rawInput = file_get_contents('php://input');
     if (!empty($rawInput)) {
         $json = json_decode($rawInput, true);
-        if (isset($json['url'])) {
-            $url = trim($json['url']);
+        if (is_array($json) && isset($json['url'])) {
+            $url = trim((string)$json['url']);
         }
     }
 }
 
-if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
-    http_response_code(400);
-    header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode(['success' => false, 'message' => 'URL invalida ou nao informada.']);
-    exit;
+if ($url === '') {
+    sendResponse(['success' => false, 'message' => 'URL invalida ou nao informada.'], 400);
 }
 
-// Initialize cURL with IPTV Smarters Pro user agent
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 20);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-curl_setopt($ch, CURLOPT_USERAGENT, 'IPTVSmartersPro');
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Accept: */*',
-    'Connection: keep-alive',
+$result = safeFetchExternalM3u($url, [
+    'max_redirects' => 4,
+    'max_bytes' => 52428800, // 50 MB max playlist size
+    'connect_timeout' => 15,
+    'timeout' => 90,
 ]);
 
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curlError = curl_error($ch);
-curl_close($ch);
-
-if ($response === false || $httpCode < 200 || $httpCode >= 400) {
-    http_response_code($httpCode >= 400 ? $httpCode : 502);
-    header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode([
-        'success' => false,
-        'message' => 'Erro ao baixar lista M3U do servidor de origem: ' . ($curlError ?: 'Codigo HTTP ' . $httpCode),
-    ]);
-    exit;
+if (empty($result['ok'])) {
+    $statusCode = isset($result['http_code']) ? (int)$result['http_code'] : 400;
+    $message = isset($result['message']) ? (string)$result['message'] : 'Erro ao baixar lista M3U.';
+    sendResponse(['success' => false, 'message' => $message], $statusCode);
 }
 
 // Return raw playlist content directly
 header('Content-Type: text/plain; charset=UTF-8');
 header('Content-Disposition: inline; filename="playlist.m3u"');
-echo $response;
+header('X-Content-Type-Options: nosniff');
+echo $result['body'];
 exit;

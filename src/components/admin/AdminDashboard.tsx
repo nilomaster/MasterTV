@@ -1,7 +1,7 @@
 // MasterTV Modern Admin & Reseller Dashboard Component
 // Strictly ASCII comments only
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users,
   UserPlus,
@@ -709,67 +709,99 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  // Operation-scoped idempotency tracking (prevents duplicate charges on retries/network drops)
+  const pendingCreateOpRef = useRef<{ signature: string; key: string } | null>(null);
+  const pendingRenewOpsRef = useRef<Map<string, string>>(new Map());
+  const [isSubmittingClient, setIsSubmittingClient] = useState<boolean>(false);
+  const [renewingClientId, setRenewingClientId] = useState<string | null>(null);
+
   // Handle client creation
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientName.trim()) return;
+    if (!newClientName.trim() || isSubmittingClient) return;
 
-    // Check reseller credits if in reseller mode
-    if (currentRole === 'reseller') {
-      const isTrial = ['1h', '2h', '4h', '24h'].includes(newClientDuration);
-      if (!isTrial) {
-        if (!activeReseller || activeReseller.credits < 1) {
-          alert('Saldo de creditos insuficiente para ativar este cliente! Recarregue seus creditos.');
-          return;
-        }
-        AdminService.addCredits(activeReseller.id, -1, `Ativacao de cliente: ${newClientName}`);
-      }
+    const opSignature = `${newClientName.trim()}|${newClientUsername.trim().toLowerCase()}|${newClientDuration}`;
+    if (!pendingCreateOpRef.current || pendingCreateOpRef.current.signature !== opSignature) {
+      pendingCreateOpRef.current = {
+        signature: opSignature,
+        key: AdminService.generateIdempotencyKey('create'),
+      };
     }
 
-    const created = await AdminService.addClient({
-      customerName: newClientName,
-      customerPhone: newClientPhone,
-      username: newClientUsername,
-      password: newClientPassword,
-      planDuration: newClientDuration,
-      maxScreens: newClientScreens,
-      notes: newClientNotes,
-      createdBy: currentRole === 'reseller' ? activeReseller.id : 'admin',
-      resellerName: currentRole === 'reseller' ? activeReseller.name : undefined,
-    });
+    try {
+      setIsSubmittingClient(true);
+      const created = await AdminService.addClient({
+        customerName: newClientName,
+        customerPhone: newClientPhone,
+        username: newClientUsername,
+        password: newClientPassword,
+        planDuration: newClientDuration,
+        maxScreens: newClientScreens,
+        notes: newClientNotes,
+        createdBy: currentRole === 'reseller' ? activeReseller?.id : 'admin',
+        resellerName: currentRole === 'reseller' ? activeReseller?.name : undefined,
+        idempotencyKey: pendingCreateOpRef.current.key,
+      });
 
-    refreshAll();
-    setIsNewClientModalOpen(false);
-    // Reset fields
-    setNewClientName('');
-    setNewClientPhone('');
-    setNewClientUsername('');
-    setNewClientPassword('');
-    setNewClientNotes('');
-    setWhatsAppModalClient(created);
+      pendingCreateOpRef.current = null;
+      await AdminService.verifyAdminSession().catch(() => null);
+      refreshAll();
+      setIsNewClientModalOpen(false);
+      // Reset fields
+      setNewClientName('');
+      setNewClientPhone('');
+      setNewClientUsername('');
+      setNewClientPassword('');
+      setNewClientNotes('');
+      setWhatsAppModalClient(created);
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao cadastrar cliente. Tente novamente.');
+    } finally {
+      setIsSubmittingClient(false);
+    }
   };
 
   // Handle quick trial creation
   const handleCreateQuickTrial = async (e: React.FormEvent) => {
     e.preventDefault();
-    const created = await AdminService.generateQuickTrial(trialName || undefined, trialDurationHours);
-    refreshAll();
-    setLastGeneratedTrial(created);
-    setTrialName('');
-    setWhatsAppModalClient(created);
+    try {
+      const created = await AdminService.generateQuickTrial(trialName || undefined, trialDurationHours);
+      refreshAll();
+      setLastGeneratedTrial(created);
+      setTrialName('');
+      setWhatsAppModalClient(created);
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao gerar teste rapido.');
+    }
   };
 
   // Handle client renewal
   const handleRenew = async (client: ClientLine, duration: PlanDuration) => {
-    if (currentRole === 'reseller') {
-      if (!activeReseller || activeReseller.credits < 1) {
-        alert('Saldo de creditos insuficiente para renovar! Recarregue seus creditos.');
-        return;
-      }
-      AdminService.addCredits(activeReseller.id, -1, `Renovacao de cliente: ${client.customerName}`);
+    if (renewingClientId === client.id) return;
+
+    const renewSig = `${client.id}:${duration}`;
+    let idemKey = pendingRenewOpsRef.current.get(renewSig);
+    if (!idemKey) {
+      idemKey = AdminService.generateIdempotencyKey('renew');
+      pendingRenewOpsRef.current.set(renewSig, idemKey);
     }
-    await AdminService.renewClient(client.id, duration);
-    refreshAll();
+
+    try {
+      setRenewingClientId(client.id);
+      await AdminService.renewClient(client.id, duration, idemKey);
+      pendingRenewOpsRef.current.delete(renewSig);
+      await AdminService.verifyAdminSession().catch(() => null);
+      refreshAll();
+    } catch (err: any) {
+      const msg = err?.message || 'Erro ao renovar assinatura.';
+      // Clear key on definitive business rejection; preserve key on network errors for safe retry
+      if (msg.includes('Saldo') || msg.includes('Acesso negado') || msg.includes('conflito')) {
+        pendingRenewOpsRef.current.delete(renewSig);
+      }
+      alert(msg);
+    } finally {
+      setRenewingClientId(null);
+    }
   };
 
   // Handle client delete

@@ -303,6 +303,14 @@ export class AdminService {
     localStorage.setItem(STORAGE_KEY_CLIENTS, JSON.stringify(clients));
   }
 
+  static generateIdempotencyKey(prefix = 'op'): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+    const rand = Math.random().toString(36).slice(2, 12);
+    return `${prefix}-${Date.now()}-${rand}`;
+  }
+
   // Add client
   static async addClient(data: {
     customerName: string;
@@ -314,6 +322,7 @@ export class AdminService {
     notes?: string;
     createdBy?: string;
     resellerName?: string;
+    idempotencyKey?: string;
   }): Promise<ClientLine> {
     const clients = this.getClients();
     const now = new Date();
@@ -356,35 +365,44 @@ export class AdminService {
         .slice(0, 10) + Math.floor(100 + Math.random() * 900);
 
     const cleanPass = data.password?.trim() || String(Math.floor(100000 + Math.random() * 900000));
+    const idemKey = data.idempotencyKey || this.generateIdempotencyKey('create');
 
     let createdId = 'cli-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
-    // Sync to remote MySQL API
-    try {
-      const apiBase = this.getApiBaseUrl();
-      const res = await fetch(`${apiBase}/clients.php`, {
-        method: 'POST',
-        headers: this.getAdminAuthHeaders(true),
-        body: JSON.stringify({
-          customer_name: data.customerName.trim(),
-          customer_phone: data.customerPhone?.replace(/\D/g, '') || '',
-          username: cleanUser,
-          password: cleanPass,
-          plan_duration: data.planDuration,
-          notes: data.notes || '',
-        }),
-      });
-      if (res.ok) {
-        const resData = await res.json();
-        if (resData && resData.client_id) {
-          createdId = String(resData.client_id);
-          if (resData.expires_at) {
-            expires = new Date(resData.expires_at);
-          }
-        }
+    // Sync to remote MySQL API with transactional idempotency key
+    const apiBase = this.getApiBaseUrl();
+    const headers = this.getAdminAuthHeaders(true);
+    headers['X-Idempotency-Key'] = idemKey;
+
+    const res = await fetch(`${apiBase}/clients.php`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        customer_name: data.customerName.trim(),
+        customer_phone: data.customerPhone?.replace(/\D/g, '') || '',
+        username: cleanUser,
+        password: cleanPass,
+        plan_duration: data.planDuration,
+        notes: data.notes || '',
+        idempotency_key: idemKey,
+      }),
+    });
+
+    if (res.status === 401) {
+      this.handleAuthErrorStatus(401);
+      throw new Error('Sessao administrativa expirada. Faca login novamente.');
+    }
+
+    const resData = await res.json().catch(() => null);
+    if (!res.ok || !resData?.success) {
+      throw new Error(resData?.message || 'Erro ao cadastrar cliente no servidor.');
+    }
+
+    if (resData.client_id) {
+      createdId = String(resData.client_id);
+      if (resData.expires_at) {
+        expires = new Date(resData.expires_at);
       }
-    } catch {
-      // Offline fallback
     }
 
     const newClient: ClientLine = {
@@ -404,7 +422,12 @@ export class AdminService {
       notes: data.notes || '',
     };
 
-    clients.unshift(newClient);
+    const existingIdx = clients.findIndex((c) => c.id === createdId);
+    if (existingIdx >= 0) {
+      clients[existingIdx] = newClient;
+    } else {
+      clients.unshift(newClient);
+    }
     this.saveClients(clients);
     return newClient;
   }
@@ -421,7 +444,11 @@ export class AdminService {
   }
 
   // Renew client
-  static async renewClient(clientId: string, duration: PlanDuration): Promise<ClientLine | null> {
+  static async renewClient(
+    clientId: string,
+    duration: PlanDuration,
+    idempotencyKey?: string
+  ): Promise<ClientLine | null> {
     const clients = this.getClients();
     const idx = clients.findIndex((c) => c.id === clientId);
     if (idx === -1) return null;
@@ -431,7 +458,6 @@ export class AdminService {
     // If client is still active, extend from previous expiration date; if expired, renew from now
     const baseDate = new Date(current.expiresAt).getTime() > now.getTime() ? new Date(current.expiresAt) : now;
 
-    let expires = new Date(baseDate);
     let days = 30;
     switch (duration) {
       case '30d':
@@ -447,7 +473,33 @@ export class AdminService {
         days = 365;
         break;
     }
-    expires = new Date(baseDate.getTime() + days * 86400000);
+    const expires = new Date(baseDate.getTime() + days * 86400000);
+    const idemKey = idempotencyKey || this.generateIdempotencyKey('renew');
+
+    const apiBase = this.getApiBaseUrl();
+    const headers = this.getAdminAuthHeaders(true);
+    headers['X-Idempotency-Key'] = idemKey;
+
+    const res = await fetch(`${apiBase}/clients.php`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        id: clientId,
+        action: 'renew',
+        days,
+        idempotency_key: idemKey,
+      }),
+    });
+
+    if (res.status === 401) {
+      this.handleAuthErrorStatus(401);
+      throw new Error('Sessao administrativa expirada. Faca login novamente.');
+    }
+
+    const resData = await res.json().catch(() => null);
+    if (!res.ok || !resData?.success) {
+      throw new Error(resData?.message || 'Erro ao renovar assinatura no servidor.');
+    }
 
     clients[idx] = {
       ...current,
@@ -457,19 +509,6 @@ export class AdminService {
     };
 
     this.saveClients(clients);
-
-    try {
-      const apiBase = this.getApiBaseUrl();
-      const res = await fetch(`${apiBase}/clients.php`, {
-        method: 'PUT',
-        headers: this.getAdminAuthHeaders(true),
-        body: JSON.stringify({ id: clientId, action: 'renew', days }),
-      });
-      if (res.status === 401) {
-        this.handleAuthErrorStatus(401);
-      }
-    } catch {}
-
     return clients[idx];
   }
 

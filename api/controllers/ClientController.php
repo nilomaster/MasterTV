@@ -70,6 +70,7 @@ class ClientController {
         $password = trim($data['password'] ?? '');
         $duration = $data['plan_duration'] ?? '30d';
         $notes = trim($data['notes'] ?? '');
+        $idempotencyKey = extractIdempotencyKey($data);
 
         // Prevent reseller ID spoofing: resellers can only create clients under their own user_id
         $resellerId = $staff['role'] === 'reseller'
@@ -82,19 +83,18 @@ class ClientController {
 
         $isTrial = in_array($duration, ['1h', '2h', '4h', '24h'], true);
 
-        // Enforce server-side credit balance for non-trial reseller activations
-        if ($staff['role'] === 'reseller' && !$isTrial) {
-            if ($staff['credits'] < 1) {
-                sendResponse(['success' => false, 'message' => 'Saldo de creditos insuficiente para ativar este cliente.'], 402);
-            }
+        if ($idempotencyKey !== null) {
+            ensureIdempotencyTable($this->pdo);
         }
 
-        // Check unique username
-        $chk = $this->pdo->prepare("SELECT id FROM `clients` WHERE `username` = :u LIMIT 1");
-        $chk->execute([':u' => $username]);
-        if ($chk->fetch()) {
-            sendResponse(['success' => false, 'message' => 'Este nome de usuario ja esta em uso.'], 409);
-        }
+        $requestHash = $idempotencyKey !== null
+            ? buildIdempotencyRequestHash('client_create', [
+                'customer_name' => $name,
+                'username' => $username,
+                'plan_duration' => $duration,
+                'reseller_id' => $resellerId,
+            ])
+            : null;
 
         // Calculate expires_at
         $now = new DateTime();
@@ -115,12 +115,33 @@ class ClientController {
         try {
             $this->pdo->beginTransaction();
 
+            $idempotencyRowId = null;
+            if ($idempotencyKey !== null) {
+                $claim = claimIdempotencyKey(
+                    $this->pdo,
+                    $staff['user_id'],
+                    'client_create',
+                    $idempotencyKey,
+                    $requestHash,
+                    'username:' . $username
+                );
+                $idempotencyRowId = $claim['id'];
+            }
+
+            // Check unique username inside transaction after idempotency check
+            $chk = $this->pdo->prepare("SELECT id FROM `clients` WHERE `username` = :u LIMIT 1");
+            $chk->execute([':u' => $username]);
+            if ($chk->fetch()) {
+                $this->pdo->rollBack();
+                sendResponse(['success' => false, 'message' => 'Este nome de usuario ja esta em uso.'], 409);
+            }
+
             if ($staff['role'] === 'reseller' && !$isTrial) {
                 $deb = $this->pdo->prepare("UPDATE `users` SET `credits` = `credits` - 1 WHERE `id` = :id AND `credits` >= 1");
                 $deb->execute([':id' => $staff['user_id']]);
                 if ($deb->rowCount() < 1) {
                     $this->pdo->rollBack();
-                    sendResponse(['success' => false, 'message' => 'Saldo de creditos insuficiente.'], 402);
+                    sendResponse(['success' => false, 'message' => 'Saldo de creditos insuficiente para ativar este cliente.'], 402);
                 }
                 try {
                     $tx = $this->pdo->prepare("INSERT INTO `credit_transactions` (`reseller_id`, `amount`, `transaction_type`, `description`) VALUES (:r, -1, 'client_created', :d)");
@@ -143,16 +164,22 @@ class ClientController {
                 ':notes' => $notes,
             ]);
             $newId = (int)$this->pdo->lastInsertId();
-            $this->pdo->commit();
 
-            sendResponse([
+            $responsePayload = [
                 'success' => true,
                 'message' => 'Cliente cadastrado com sucesso.',
                 'client_id' => $newId,
                 'username' => $username,
                 'password' => $password,
                 'expires_at' => $expiresAt,
-            ]);
+            ];
+
+            if ($idempotencyRowId !== null) {
+                completeIdempotencyKey($this->pdo, $idempotencyRowId, 200, $responsePayload);
+            }
+
+            $this->pdo->commit();
+            sendResponse($responsePayload);
         } catch (Exception $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -186,8 +213,34 @@ class ClientController {
             if ($action === 'renew') {
                 $days = (int)($data['days'] ?? 30);
                 if ($days <= 0) $days = 30;
+                $idempotencyKey = extractIdempotencyKey($data);
+
+                if ($idempotencyKey !== null) {
+                    ensureIdempotencyTable($this->pdo);
+                }
+
+                $requestHash = $idempotencyKey !== null
+                    ? buildIdempotencyRequestHash('client_renew', [
+                        'client_id' => $clientId,
+                        'action' => 'renew',
+                        'days' => $days,
+                    ])
+                    : null;
 
                 $this->pdo->beginTransaction();
+
+                $idempotencyRowId = null;
+                if ($idempotencyKey !== null) {
+                    $claim = claimIdempotencyKey(
+                        $this->pdo,
+                        $staff['user_id'],
+                        'client_renew',
+                        $idempotencyKey,
+                        $requestHash,
+                        'client:' . $clientId
+                    );
+                    $idempotencyRowId = $claim['id'];
+                }
 
                 if ($staff['role'] === 'reseller') {
                     // Atomic server-side credit check and deduction (prevents negative balance under concurrency)
@@ -207,9 +260,20 @@ class ClientController {
 
                 $stmt = $this->pdo->prepare("UPDATE `clients` SET `expires_at` = DATE_ADD(GREATEST(`expires_at`, NOW()), INTERVAL :days DAY), `status` = 'active' WHERE `id` = :id");
                 $stmt->execute([':days' => $days, ':id' => $clientId]);
-                $this->pdo->commit();
 
-                sendResponse(['success' => true, 'message' => "Assinatura renovada por {$days} dias."]);
+                $responsePayload = [
+                    'success' => true,
+                    'message' => "Assinatura renovada por {$days} dias.",
+                    'client_id' => $clientId,
+                    'days' => $days,
+                ];
+
+                if ($idempotencyRowId !== null) {
+                    completeIdempotencyKey($this->pdo, $idempotencyRowId, 200, $responsePayload);
+                }
+
+                $this->pdo->commit();
+                sendResponse($responsePayload);
             }
 
             if ($action === 'toggle_status') {
