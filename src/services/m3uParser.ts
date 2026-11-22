@@ -272,19 +272,32 @@ export async function fetchAndParseM3U(url: string): Promise<M3UParseResult> {
 export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> {
   let content = '';
 
-  // 1. Try our dedicated MasterTV IPTV backend proxy first (handles IPTV User-Agent, mixed content, and 30MB+ playlists)
+  // 1. Try our dedicated MasterTV IPTV backend proxy first (requires Master Admin auth + anti-SSRF)
   try {
     const apiBase = AdminService.getApiBaseUrl();
+    const authHeaders = AdminService.getAdminAuthHeaders(false);
     const proxyCandidates = [
       `${apiBase}/m3u_proxy.php?url=${encodeURIComponent(url)}`,
+      `${apiBase}/content.php?action=fetch_m3u&url=${encodeURIComponent(url)}`,
       `https://mastertvhd.online/api/m3u_proxy.php?url=${encodeURIComponent(url)}`,
       `https://mastertvhd.online/api/content.php?action=fetch_m3u&url=${encodeURIComponent(url)}`,
-      `https://mastertvhd.online/api/routes/m3u_proxy.php?url=${encodeURIComponent(url)}`,
     ];
 
-    for (const pUrl of proxyCandidates) {
+    const uniqueCandidates = Array.from(new Set(proxyCandidates));
+    for (const pUrl of uniqueCandidates) {
       try {
-        const res = await fetch(pUrl);
+        const res = await fetch(pUrl, {
+          cache: 'no-store',
+          headers: authHeaders,
+        });
+        if (res.status === 401) {
+          AdminService.handleAuthErrorStatus(401);
+          throw new Error('Sessao administrativa expirada. Faca login novamente para importar listas M3U.');
+        }
+        if (res.status === 403) {
+          const errBody = await res.json().catch(() => null);
+          throw new Error(errBody?.message || 'Acesso negado ou URL bloqueada pela politica de seguranca.');
+        }
         if (res.ok) {
           const text = await res.text();
           if (text && text.includes('#EXTINF')) {
@@ -292,11 +305,17 @@ export async function fetchAdvancedM3U(url: string): Promise<AdvancedM3UResult> 
             break;
           }
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && (err.message.includes('Sessao administrativa') || err.message.includes('bloqueada') || err.message.includes('Acesso negado'))) {
+          throw err;
+        }
         // Continue to next candidate
       }
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && (err.message.includes('Sessao administrativa') || err.message.includes('bloqueada') || err.message.includes('Acesso negado'))) {
+      throw err;
+    }
     // Continue to next fallbacks
   }
 

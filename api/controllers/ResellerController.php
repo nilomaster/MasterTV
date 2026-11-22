@@ -14,6 +14,9 @@ class ResellerController {
             sendResponse(['success' => false, 'message' => 'Servidor de banco de dados offline.'], 503);
         }
 
+        // Reseller management is strictly restricted to Master Admin
+        requireMasterAdmin($this->pdo);
+
         $method = $_SERVER['REQUEST_METHOD'];
 
         switch ($method) {

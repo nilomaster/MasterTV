@@ -42,6 +42,7 @@ interface AdminCatalogTableProps {
   catalogCounts: CatalogCounts;
   contentFilter: 'all' | 'movie' | 'series' | 'channel' | 'anime' | 'dorama';
   contentSearchQuery: string;
+  selectedCategoryFilter?: string;
   contentPage: number;
   contentItemsPerPage: number;
   isSyncingDatabase: boolean;
@@ -50,6 +51,7 @@ interface AdminCatalogTableProps {
   isClearingCatalog: boolean;
   copiedId: string | null;
   onChangeFilter: (filter: 'all' | 'movie' | 'series' | 'channel' | 'anime' | 'dorama') => void;
+  onChangeCategoryFilter?: (category: string) => void;
   onChangeSearch: (query: string) => void;
   onChangePage: (page: number) => void;
   onRefreshFromDB: () => void;
@@ -90,6 +92,7 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
   catalogCounts,
   contentFilter,
   contentSearchQuery,
+  selectedCategoryFilter,
   contentPage,
   contentItemsPerPage,
   isSyncingDatabase,
@@ -98,6 +101,7 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
   isClearingCatalog,
   copiedId,
   onChangeFilter,
+  onChangeCategoryFilter,
   onChangeSearch,
   onChangePage,
   onRefreshFromDB,
@@ -110,8 +114,14 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
   onCopyUrl,
 }) => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [internalCategoryFilter, setInternalCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'title_asc' | 'title_desc' | 'year_desc'>('recent');
+
+  const categoryFilter = selectedCategoryFilter !== undefined ? selectedCategoryFilter : internalCategoryFilter;
+  const setCategoryFilter = (nextCat: string) => {
+    setInternalCategoryFilter(nextCat);
+    onChangeCategoryFilter?.(nextCat);
+  };
 
   // Available categories derived from filteredContents
   const availableCategories = useMemo(() => {
@@ -196,10 +206,10 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
               {contentFilter === 'channel'
                 ? 'Canais de TV ao Vivo'
                 : contentFilter === 'movie'
-                ? 'Catalogo de Filmes'
-                : contentFilter === 'series'
-                ? 'Catalogo de Series'
-                : 'Gerenciador de Catalogo & Conteudo'}
+                  ? 'Catalogo de Filmes'
+                  : contentFilter === 'series'
+                    ? 'Catalogo de Series'
+                    : 'Gerenciador de Catalogo & Conteudo'}
             </h2>
             <p className="text-xs text-[#94A3B8] mt-0.5">
               Gerencie filmes, series, canais ao vivo e importacoes M3U sincronizados com o banco MySQL.
@@ -335,11 +345,10 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
                   onChangeFilter(tab.id);
                   setCategoryFilter('all');
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer border ${
-                  isSelected
-                    ? 'bg-[#009DFF]/15 text-[#F8FAFC] border-[#009DFF]/50'
-                    : 'bg-[#0F1726] text-[#94A3B8] border-[#253247] hover:text-[#F8FAFC]'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer border ${isSelected
+                  ? 'bg-[#009DFF]/15 text-[#F8FAFC] border-[#009DFF]/50'
+                  : 'bg-[#0F1726] text-[#94A3B8] border-[#253247] hover:text-[#F8FAFC]'
+                  }`}
               >
                 {tab.label}{' '}
                 <span className="font-mono text-[11px] opacity-80">
@@ -407,11 +416,10 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  viewMode === 'table'
-                    ? 'bg-[#009DFF] text-[#070B16]'
-                    : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-                }`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${viewMode === 'table'
+                  ? 'bg-[#009DFF] text-[#070B16]'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                  }`}
                 title="Visualizacao em Tabela"
               >
                 <Table2 className="w-3.5 h-3.5" />
@@ -420,11 +428,10 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('cards')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  viewMode === 'cards'
-                    ? 'bg-[#009DFF] text-[#070B16]'
-                    : 'text-[#94A3B8] hover:text-[#F8FAFC]'
-                }`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${viewMode === 'cards'
+                  ? 'bg-[#009DFF] text-[#070B16]'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+                  }`}
                 title="Visualizacao em Cards"
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -534,8 +541,8 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
                         item.type === 'channel'
                           ? item.channelCategory || 'TV ao Vivo'
                           : Array.isArray(item.genres) && item.genres.length > 0
-                          ? item.genres.slice(0, 2).join(', ')
-                          : 'Geral';
+                            ? item.genres.slice(0, 2).join(', ')
+                            : 'Geral';
                       const safeHost = getSafeSourceHost(item.streamUrl);
 
                       return (
@@ -547,20 +554,18 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3 min-w-[210px] max-w-[340px]">
                               <div
-                                className={`${
-                                  item.type === 'channel'
-                                    ? 'w-11 h-9 p-1 bg-[#151E2E]'
-                                    : 'w-9 h-12 bg-[#151E2E]'
-                                } rounded-lg border border-[#253247] overflow-hidden shrink-0 flex items-center justify-center`}
+                                className={`${item.type === 'channel'
+                                  ? 'w-11 h-9 p-1 bg-[#151E2E]'
+                                  : 'w-9 h-12 bg-[#151E2E]'
+                                  } rounded-lg border border-[#253247] overflow-hidden shrink-0 flex items-center justify-center`}
                               >
                                 {item.posterUrl ? (
                                   <img
                                     src={item.posterUrl}
                                     alt={item.title}
                                     loading="lazy"
-                                    className={`w-full h-full ${
-                                      item.type === 'channel' ? 'object-contain' : 'object-cover'
-                                    }`}
+                                    className={`w-full h-full ${item.type === 'channel' ? 'object-contain' : 'object-cover'
+                                      }`}
                                     onError={(e) => {
                                       (e.target as HTMLElement).style.display = 'none';
                                     }}
@@ -625,11 +630,10 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
                           {/* Status */}
                           <td className="py-3 px-4 whitespace-nowrap">
                             <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                item.status === 'inactive'
-                                  ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30'
-                                  : 'bg-[#16B981]/15 text-[#16B981] border-[#16B981]/30'
-                              }`}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${item.status === 'inactive'
+                                ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30'
+                                : 'bg-[#16B981]/15 text-[#16B981] border-[#16B981]/30'
+                                }`}
                             >
                               {item.status === 'inactive' ? 'Oculto' : 'Ativo'}
                             </span>
@@ -690,9 +694,8 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
                         src={item.posterUrl || './assets/img/covers/default.webp'}
                         alt={item.title}
                         loading="lazy"
-                        className={`w-full h-full ${
-                          item.type === 'channel' ? 'object-contain p-1.5' : 'object-cover'
-                        }`}
+                        className={`w-full h-full ${item.type === 'channel' ? 'object-contain p-1.5' : 'object-cover'
+                          }`}
                         onError={(e) => {
                           (e.target as HTMLElement).style.display = 'none';
                         }}
@@ -728,8 +731,8 @@ export const AdminCatalogTable: React.FC<AdminCatalogTableProps> = ({
                           {item.type === 'channel'
                             ? item.channelCategory || 'TV ao Vivo'
                             : Array.isArray(item.genres)
-                            ? item.genres.join(' · ')
-                            : item.genres}
+                              ? item.genres.join(' · ')
+                              : item.genres}
                         </p>
                       </div>
 

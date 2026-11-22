@@ -59,6 +59,9 @@ class ContentController {
         $method = $_SERVER['REQUEST_METHOD'];
 
         if (isset($_GET['action']) && $_GET['action'] === 'fetch_m3u') {
+            // M3U external import proxy requires authenticated Master Admin
+            requireMasterAdmin($this->pdo);
+            $pdo = $this->pdo;
             require_once __DIR__ . '/../m3u_proxy.php';
             exit;
         }
@@ -97,6 +100,8 @@ class ContentController {
                 $this->listContents();
                 break;
             case 'POST':
+                // Catalog write operations (save, delete, clear_all, bulk_import) require Master Admin
+                requireMasterAdmin($this->pdo);
                 $this->handlePost();
                 break;
             default:

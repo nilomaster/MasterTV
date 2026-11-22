@@ -1,7 +1,7 @@
 // MasterTV Modern Admin & Reseller Dashboard Component
 // Strictly ASCII comments only
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users,
   UserPlus,
@@ -42,7 +42,7 @@ import type {
   ContentType,
   CastMemberItem
 } from '../../types/admin';
-import { AdminService } from '../../services/adminService';
+import { AdminService, type AdminAuthSession } from '../../services/adminService';
 import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../services/epgService';
 import { M3UImporterModal } from './M3UImporterModal';
 import { AdminSidebar, type AdminCatalogShortcut, type AdminTabKey } from './layout/AdminSidebar';
@@ -53,9 +53,17 @@ import { AdminEPGView } from './views/AdminEPGView';
 
 interface AdminDashboardProps {
   onBackToPlayer: () => void;
+  authSession?: AdminAuthSession | null;
+  onLogoutAdmin?: () => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({
+  onBackToPlayer,
+  authSession,
+  onLogoutAdmin,
+}) => {
+  const isAuthenticatedMasterAdmin = authSession?.user?.role === 'admin';
+
   // Navigation tabs & sidebar responsive state
   const [activeTab, setActiveTab] = useState<AdminTabKey>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -63,9 +71,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   const [isRefreshingDashboard, setIsRefreshingDashboard] = useState<boolean>(false);
   const [lastCatalogSyncAt, setLastCatalogSyncAt] = useState<Date | null>(null);
 
-  // Simulation mode (Master Admin vs Reseller)
-  const [currentRole, setCurrentRole] = useState<'admin' | 'reseller'>('admin');
-  const [activeResellerId, setActiveResellerId] = useState<string>('reseller-1');
+  // Role state (resellers are strictly locked to 'reseller'; only Master Admin can preview reseller view)
+  const [currentRole, setCurrentRole] = useState<'admin' | 'reseller'>(() =>
+    authSession?.user?.role === 'reseller' ? 'reseller' : 'admin'
+  );
+  const [activeResellerId, setActiveResellerId] = useState<string>(() =>
+    authSession?.user?.role === 'reseller' ? String(authSession.user.id) : 'reseller-1'
+  );
 
   // Content state
   const [contents, setContents] = useState<AdminContentItem[]>(() => {
@@ -73,6 +85,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     return Array.isArray(loaded) ? loaded : [];
   });
   const [contentFilter, setContentFilter] = useState<'all' | 'movie' | 'series' | 'channel' | 'anime' | 'dorama'>('all');
+  const [contentCategoryFilter, setContentCategoryFilter] = useState<string>('all');
   const [contentSearchQuery, setContentSearchQuery] = useState<string>('');
   const [isContentModalOpen, setIsContentModalOpen] = useState<boolean>(false);
   const [isM3UModalOpen, setIsM3UModalOpen] = useState<boolean>(false);
@@ -296,8 +309,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     };
   }, [contents, catalogCounts, lastCatalogSyncAt]);
 
-  // Handle sidebar role switch ensuring reseller cannot remain on admin-only tabs
+  // Handle sidebar role switch (restricted exclusively to authenticated Master Admin)
   const handleRoleSwitch = (nextRole: 'admin' | 'reseller') => {
+    if (!isAuthenticatedMasterAdmin) return;
     setCurrentRole(nextRole);
     if (
       nextRole === 'reseller' &&
@@ -310,6 +324,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
   // Handle sidebar catalog shortcut
   const handleSelectCatalogShortcut = (filter: AdminCatalogShortcut) => {
     setContentFilter(filter);
+    setContentCategoryFilter('all');
     setActiveTab('contents');
   };
 
@@ -694,67 +709,99 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  // Operation-scoped idempotency tracking (prevents duplicate charges on retries/network drops)
+  const pendingCreateOpRef = useRef<{ signature: string; key: string } | null>(null);
+  const pendingRenewOpsRef = useRef<Map<string, string>>(new Map());
+  const [isSubmittingClient, setIsSubmittingClient] = useState<boolean>(false);
+  const [renewingClientId, setRenewingClientId] = useState<string | null>(null);
+
   // Handle client creation
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientName.trim()) return;
+    if (!newClientName.trim() || isSubmittingClient) return;
 
-    // Check reseller credits if in reseller mode
-    if (currentRole === 'reseller') {
-      const isTrial = ['1h', '2h', '4h', '24h'].includes(newClientDuration);
-      if (!isTrial) {
-        if (!activeReseller || activeReseller.credits < 1) {
-          alert('Saldo de creditos insuficiente para ativar este cliente! Recarregue seus creditos.');
-          return;
-        }
-        AdminService.addCredits(activeReseller.id, -1, `Ativacao de cliente: ${newClientName}`);
-      }
+    const opSignature = `${newClientName.trim()}|${newClientUsername.trim().toLowerCase()}|${newClientDuration}`;
+    if (!pendingCreateOpRef.current || pendingCreateOpRef.current.signature !== opSignature) {
+      pendingCreateOpRef.current = {
+        signature: opSignature,
+        key: AdminService.generateIdempotencyKey('create'),
+      };
     }
 
-    const created = await AdminService.addClient({
-      customerName: newClientName,
-      customerPhone: newClientPhone,
-      username: newClientUsername,
-      password: newClientPassword,
-      planDuration: newClientDuration,
-      maxScreens: newClientScreens,
-      notes: newClientNotes,
-      createdBy: currentRole === 'reseller' ? activeReseller.id : 'admin',
-      resellerName: currentRole === 'reseller' ? activeReseller.name : undefined,
-    });
+    try {
+      setIsSubmittingClient(true);
+      const created = await AdminService.addClient({
+        customerName: newClientName,
+        customerPhone: newClientPhone,
+        username: newClientUsername,
+        password: newClientPassword,
+        planDuration: newClientDuration,
+        maxScreens: newClientScreens,
+        notes: newClientNotes,
+        createdBy: currentRole === 'reseller' ? activeReseller?.id : 'admin',
+        resellerName: currentRole === 'reseller' ? activeReseller?.name : undefined,
+        idempotencyKey: pendingCreateOpRef.current.key,
+      });
 
-    refreshAll();
-    setIsNewClientModalOpen(false);
-    // Reset fields
-    setNewClientName('');
-    setNewClientPhone('');
-    setNewClientUsername('');
-    setNewClientPassword('');
-    setNewClientNotes('');
-    setWhatsAppModalClient(created);
+      pendingCreateOpRef.current = null;
+      await AdminService.verifyAdminSession().catch(() => null);
+      refreshAll();
+      setIsNewClientModalOpen(false);
+      // Reset fields
+      setNewClientName('');
+      setNewClientPhone('');
+      setNewClientUsername('');
+      setNewClientPassword('');
+      setNewClientNotes('');
+      setWhatsAppModalClient(created);
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao cadastrar cliente. Tente novamente.');
+    } finally {
+      setIsSubmittingClient(false);
+    }
   };
 
   // Handle quick trial creation
   const handleCreateQuickTrial = async (e: React.FormEvent) => {
     e.preventDefault();
-    const created = await AdminService.generateQuickTrial(trialName || undefined, trialDurationHours);
-    refreshAll();
-    setLastGeneratedTrial(created);
-    setTrialName('');
-    setWhatsAppModalClient(created);
+    try {
+      const created = await AdminService.generateQuickTrial(trialName || undefined, trialDurationHours);
+      refreshAll();
+      setLastGeneratedTrial(created);
+      setTrialName('');
+      setWhatsAppModalClient(created);
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao gerar teste rapido.');
+    }
   };
 
   // Handle client renewal
   const handleRenew = async (client: ClientLine, duration: PlanDuration) => {
-    if (currentRole === 'reseller') {
-      if (!activeReseller || activeReseller.credits < 1) {
-        alert('Saldo de creditos insuficiente para renovar! Recarregue seus creditos.');
-        return;
-      }
-      AdminService.addCredits(activeReseller.id, -1, `Renovacao de cliente: ${client.customerName}`);
+    if (renewingClientId === client.id) return;
+
+    const renewSig = `${client.id}:${duration}`;
+    let idemKey = pendingRenewOpsRef.current.get(renewSig);
+    if (!idemKey) {
+      idemKey = AdminService.generateIdempotencyKey('renew');
+      pendingRenewOpsRef.current.set(renewSig, idemKey);
     }
-    await AdminService.renewClient(client.id, duration);
-    refreshAll();
+
+    try {
+      setRenewingClientId(client.id);
+      await AdminService.renewClient(client.id, duration, idemKey);
+      pendingRenewOpsRef.current.delete(renewSig);
+      await AdminService.verifyAdminSession().catch(() => null);
+      refreshAll();
+    } catch (err: any) {
+      const msg = err?.message || 'Erro ao renovar assinatura.';
+      // Clear key on definitive business rejection; preserve key on network errors for safe retry
+      if (msg.includes('Saldo') || msg.includes('Acesso negado') || msg.includes('conflito')) {
+        pendingRenewOpsRef.current.delete(renewSig);
+      }
+      alert(msg);
+    } finally {
+      setRenewingClientId(null);
+    }
   };
 
   // Handle client delete
@@ -810,6 +857,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         activeTab={activeTab}
         activeContentFilter={contentFilter}
         currentRole={currentRole}
+        authUserName={authSession?.user?.name}
         activeReseller={activeReseller}
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileSidebarOpen}
@@ -827,6 +875,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onBackToPlayer={onBackToPlayer}
+        onLogoutAdmin={onLogoutAdmin}
       />
 
       {/* Right Main Area (Header + Content) */}
@@ -839,6 +888,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
           activeTab={activeTab}
           activeContentFilter={contentFilter}
           currentRole={currentRole}
+          canSwitchRole={isAuthenticatedMasterAdmin}
           activeReseller={activeReseller}
           isRefreshing={isRefreshingDashboard}
           onChangeRole={handleRoleSwitch}
@@ -1660,6 +1710,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             filteredContents={filteredContents}
             catalogCounts={catalogCounts}
             contentFilter={contentFilter}
+            selectedCategoryFilter={contentCategoryFilter}
             contentSearchQuery={contentSearchQuery}
             contentPage={contentPage}
             contentItemsPerPage={contentItemsPerPage}
@@ -1669,6 +1720,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             isClearingCatalog={isClearingCatalog}
             copiedId={copiedId}
             onChangeFilter={setContentFilter}
+            onChangeCategoryFilter={setContentCategoryFilter}
             onChangeSearch={setContentSearchQuery}
             onChangePage={setContentPage}
             onRefreshFromDB={() => {
@@ -1690,7 +1742,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToPlayer }
             contents={contents}
             onOpenCategoryInCatalog={(typeFilter, categoryName) => {
               setContentFilter(typeFilter);
-              setContentSearchQuery(categoryName);
+              setContentSearchQuery('');
+              setContentCategoryFilter(categoryName);
               setActiveTab('contents');
             }}
           />

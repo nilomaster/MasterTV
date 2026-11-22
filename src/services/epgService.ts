@@ -1693,6 +1693,53 @@ export function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
+// Diagnostic helper for Admin EPG View: inspects real EPG source without falling back silently
+export function getChannelEPGStatus(
+  channelOrId: Channel | string,
+  channelName?: string
+): {
+  canonicalId: string | null;
+  hasExplicitEpgId: boolean;
+  source: 'xmltv' | 'static' | 'fallback';
+  xmltvProgramsCount: number;
+} {
+  const isObj = typeof channelOrId === 'object' && channelOrId !== null;
+  const cachedCh = !isObj && typeof channelOrId === 'string' ? channelMetadataMap.get(channelOrId) : null;
+
+  const rawId = isObj ? channelOrId.id : (cachedCh ? cachedCh.id : (channelOrId as string));
+  const rawName = isObj ? channelOrId.name : (cachedCh ? cachedCh.name : (channelName || ''));
+  const rawEpgId = isObj ? channelOrId.epgId : (cachedCh ? cachedCh.epgId : undefined);
+
+  const hasExplicitEpgId = Boolean(rawEpgId && rawEpgId.trim().length > 0);
+  const canonicalId = resolveCanonicalChannelId(rawEpgId || rawId, rawName) || null;
+
+  const onlineList = (canonicalId && onlineEPGStore[canonicalId]) || (rawId ? onlineEPGStore[rawId] : undefined);
+  if (onlineList && onlineList.length > 0) {
+    return {
+      canonicalId,
+      hasExplicitEpgId,
+      source: 'xmltv',
+      xmltvProgramsCount: onlineList.length,
+    };
+  }
+
+  if (canonicalId && CHANNEL_24H_SCHEDULES[canonicalId]) {
+    return {
+      canonicalId,
+      hasExplicitEpgId,
+      source: 'static',
+      xmltvProgramsCount: 0,
+    };
+  }
+
+  return {
+    canonicalId,
+    hasExplicitEpgId,
+    source: 'fallback',
+    xmltvProgramsCount: 0,
+  };
+}
+
 // Find current, next program and progress based on real system time
 export function getLiveEPGForChannel(
   channelOrId: Channel | string,
