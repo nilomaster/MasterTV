@@ -26,6 +26,7 @@ import {
   type UniTVNotificationItem,
 } from './common/UniTVNotificationDrawer';
 import { UniTVProfileModal } from './auth/UniTVProfileModal';
+import { useDeviceLayout } from '../hooks/useDeviceLayout';
 
 interface NavbarProps {
   currentView: ViewType;
@@ -61,6 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [searchBarOpen, setSearchBarOpen] = useState<boolean>(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const { isMobileLandscape, isTabletLandscape, useCompactLiveHeader } = useDeviceLayout();
 
   // System notifications state for notification drawer
   const [notifications, setNotifications] = useState<UniTVNotificationItem[]>([
@@ -216,63 +218,74 @@ export const Navbar: React.FC<NavbarProps> = ({
     );
   }
 
-  // Dedicated Live TV Header (Desktop reference design + compact Mobile back bar)
+  // Dedicated Live TV Header (Adaptive Compact Mobile/Tablet Header + Desktop reference design)
   if (isTVActive) {
+    // Hide header completely on Phone Landscape so video maximizes fullscreen
+    if (isMobileLandscape) {
+      return null;
+    }
+
     return (
       <>
-        {/* Compact Mobile Live TV Top Bar (prevents mobile users from being trapped in Live TV) */}
-        <header className="md:hidden z-40 w-full bg-[#060c1a]/95 backdrop-blur-xl border-b border-white/10 relative shrink-0">
-          <div className="flex items-center justify-between px-3 py-2 gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <button
-                type="button"
-                onClick={() => handleNavClick('home')}
-                className="w-10 h-10 rounded-full bg-white/[0.08] active:bg-white/20 border border-white/10 text-white flex items-center justify-center shrink-0"
-                aria-label="Voltar ao inicio"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-extrabold tracking-tight text-white leading-none truncate">
-                  TV AO VIVO
-                </span>
-                <span className="text-[10px] text-sky-400 font-semibold mt-0.5 truncate">
-                  MasterTV Ultra HD
-                </span>
+        {useCompactLiveHeader ? (
+          /* Compact Mobile & Tablet Live TV Header (Vertical & Horizontal) */
+          <header className="z-40 w-full bg-[#070D18]/98 backdrop-blur-xl border-b border-[#293A50]/70 relative shrink-0">
+            <div className="flex items-center justify-between px-3 sm:px-5 py-2 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('home')}
+                  className="w-10 h-10 rounded-full bg-[#142136] active:bg-[#1e3150] border border-[#293A50] text-white flex items-center justify-center shrink-0 cursor-pointer"
+                  aria-label="Voltar ao inicio"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm sm:text-base font-extrabold tracking-tight text-white leading-none truncate">
+                    {isTabletLandscape ? 'MasterTV — TV AO VIVO' : 'TV AO VIVO'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('mastertv_focus_channel_search'))}
+                  className="w-10 h-10 rounded-full bg-[#142136] active:bg-[#1e3150] border border-[#293A50] text-slate-200 flex items-center justify-center cursor-pointer"
+                  aria-label="Buscar canal"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationOpen(true)}
+                  className="relative w-10 h-10 rounded-full bg-[#142136] active:bg-[#1e3150] border border-[#293A50] text-slate-200 flex items-center justify-center cursor-pointer"
+                  aria-label="Notificacoes"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadNotifCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center">
+                      {unreadNotifCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (isTabletLandscape ? onOpenSettingsModal() : setIsProfileOpen(true))}
+                  className="w-10 h-10 rounded-full bg-[#008DFF]/20 active:bg-[#008DFF]/35 border border-[#00BFFF]/40 text-[#00BFFF] flex items-center justify-center cursor-pointer"
+                  aria-label={isTabletLandscape ? 'Configuracoes' : 'Perfil do Usuario'}
+                >
+                  {isTabletLandscape ? <Settings className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsNotificationOpen(true)}
-                className="relative w-10 h-10 rounded-full bg-white/[0.08] active:bg-white/20 border border-white/10 text-slate-200 flex items-center justify-center"
-                aria-label="Notificacoes"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadNotifCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center">
-                    {unreadNotifCount}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsProfileOpen(true)}
-                className="w-10 h-10 rounded-full bg-sky-500/20 active:bg-sky-500/35 border border-sky-400/40 text-sky-300 flex items-center justify-center"
-                aria-label="Perfil do Usuario"
-              >
-                <User className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <header
-          onMouseEnter={() => onNavbarMouseEnter?.()}
-          onMouseLeave={() => onNavbarMouseLeave?.()}
-          className="hidden md:block z-40 w-full bg-transparent relative shrink-0"
-        >
+          </header>
+        ) : (
+          <header
+            onMouseEnter={() => onNavbarMouseEnter?.()}
+            onMouseLeave={() => onNavbarMouseLeave?.()}
+            className="z-40 w-full bg-transparent relative shrink-0"
+          >
           <div className="flex items-center justify-between px-5 lg:px-7 py-3 max-w-[1920px] mx-auto gap-4">
             {/* LEFT: MasterTV Logo (returns to Home) + Divider + Pure White TV AO VIVO Title */}
             <div className="flex items-center gap-5 min-w-0">
@@ -350,7 +363,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <UniTVClock showDate />
             </div>
           </div>
-        </header>
+          </header>
+        )}
 
         {/* Notification Drawer Component */}
         <UniTVNotificationDrawer

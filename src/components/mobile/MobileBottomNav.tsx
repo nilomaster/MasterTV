@@ -2,7 +2,7 @@
 // Strictly hidden on Tablet/Desktop (md:hidden) to preserve Web Desktop and TV layouts
 // Strictly ASCII comments only
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Home,
   Tv,
@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import type { ViewType, VODFilterType } from '../../context/NavigationContext';
+import { useDeviceLayout } from '../../hooks/useDeviceLayout';
 
 interface MobileBottomNavProps {
   currentView: ViewType;
@@ -32,9 +33,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onNavigate,
 }) => {
   const [moreOpen, setMoreOpen] = useState<boolean>(false);
+  const [isPlayerFullscreen, setIsPlayerFullscreen] = useState<boolean>(false);
+  const { showMobileBottomNav } = useDeviceLayout();
 
-  // Never render on fullscreen playback or admin panel
-  if (currentView === 'vod-player' || currentView === 'admin') {
+  useEffect(() => {
+    const handleFs = (e: Event) => {
+      const custom = e as CustomEvent<{ isFullscreen?: boolean }>;
+      setIsPlayerFullscreen(Boolean(custom.detail?.isFullscreen));
+    };
+    window.addEventListener('mastertv_fullscreen_change', handleFs);
+    return () => window.removeEventListener('mastertv_fullscreen_change', handleFs);
+  }, []);
+
+  // Only render on Portrait Mobile / Portrait Tablet; never on Landscape, Desktop, TV, Fullscreen, VOD player or Admin
+  if (!showMobileBottomNav || isPlayerFullscreen || currentView === 'vod-player' || currentView === 'admin') {
     return null;
   }
 
@@ -69,7 +81,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       {/* Backdrop + More Drawer Sheet */}
       {moreOpen && (
         <div
-          className="md:hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex flex-col justify-end animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex flex-col justify-end animate-in fade-in duration-150"
           onClick={() => setMoreOpen(false)}
         >
           <div
@@ -185,10 +197,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         </div>
       )}
 
-      {/* Fixed Bottom Navigation Bar (Mobile Only) */}
+      {/* Fixed Bottom Navigation Bar (Portrait Mobile & Portrait Tablet) */}
       <nav
         aria-label="Navegacao principal mobile"
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.55)] pb-safe ${barThemeClass}`}
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.55)] pb-safe ${barThemeClass}`}
       >
         <div className="grid grid-cols-5 items-center h-[60px] px-1">
           <button

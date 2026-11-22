@@ -7,10 +7,12 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
@@ -67,6 +69,9 @@ public class MainActivity extends BridgeActivity {
                 // Force hardware layer for smooth video compositing on budget chipsets
                 webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
+                // Expose lightweight native bridge for immersive fullscreen system bars
+                webView.addJavascriptInterface(new MasterTVNativeBridge(), "MasterTVNative");
+
                 // Enable remote control focus for Android TV and TV Boxes
                 webView.setFocusable(true);
                 webView.setFocusableInTouchMode(true);
@@ -116,5 +121,29 @@ public class MainActivity extends BridgeActivity {
         }
 
         return super.dispatchKeyEvent(event);
+    }
+
+    // Native JS Bridge for immersive fullscreen bar control on Android Mobile and Tablets
+    private class MasterTVNativeBridge {
+        @JavascriptInterface
+        public void setImmersiveFullscreen(final boolean enabled) {
+            runOnUiThread(() -> {
+                try {
+                    Window window = getWindow();
+                    WindowInsetsControllerCompat controller =
+                        WindowCompat.getInsetsController(window, window.getDecorView());
+                    if (controller == null) return;
+                    if (enabled) {
+                        controller.setSystemBarsBehavior(
+                            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        );
+                        controller.hide(WindowInsetsCompat.Type.systemBars());
+                    } else {
+                        controller.show(WindowInsetsCompat.Type.systemBars());
+                    }
+                } catch (Exception ignored) {
+                }
+            });
+        }
     }
 }

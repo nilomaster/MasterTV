@@ -33,6 +33,7 @@ import type { Channel, Category } from '../types/iptv';
 import { getLiveEPGForChannel, getChannelTimelinePrograms } from '../services/epgService';
 import { EPGGuideView } from './EPGGuideView';
 import { resolvePlayableStreamUrl } from '../services/streamResolver';
+import { useDeviceLayout } from '../hooks/useDeviceLayout';
 
 interface PlayerViewProps {
   channels: Channel[];
@@ -141,6 +142,41 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   const osdTimeoutRef = useRef<number | null>(null);
   const digitBufferRef = useRef<string>('');
   const digitTimerRef = useRef<number | null>(null);
+
+  const {
+    isMobileLandscape,
+    isTabletPortrait,
+    isTabletLandscape,
+    isDesktopOrTV,
+    useTwoColumnLiveTV,
+    useStackedLiveTV,
+  } = useDeviceLayout();
+
+  const isEffectiveFullscreen = isFullscreen || isMobileLandscape;
+
+  // Sync Android immersive system bars and mobile bottom nav visibility with fullscreen state
+  useEffect(() => {
+    const nativeBridge = (
+      window as unknown as {
+        MasterTVNative?: { setImmersiveFullscreen?: (enabled: boolean) => void };
+      }
+    ).MasterTVNative;
+    nativeBridge?.setImmersiveFullscreen?.(isEffectiveFullscreen);
+    window.dispatchEvent(
+      new CustomEvent('mastertv_fullscreen_change', {
+        detail: { isFullscreen: isEffectiveFullscreen },
+      })
+    );
+
+    return () => {
+      nativeBridge?.setImmersiveFullscreen?.(false);
+      window.dispatchEvent(
+        new CustomEvent('mastertv_fullscreen_change', {
+          detail: { isFullscreen: false },
+        })
+      );
+    };
+  }, [isEffectiveFullscreen]);
 
   // Reset active source and errors whenever channel changes
   useEffect(() => {
@@ -1156,23 +1192,37 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`w-full select-none font-sans ${
-        isFullscreen
+        isEffectiveFullscreen
           ? 'fixed inset-0 z-50 h-[100dvh] w-full overflow-hidden bg-black'
-          : 'w-full h-full overflow-hidden flex flex-col relative bg-[#060912] md:bg-transparent'
+          : `w-full h-full overflow-hidden flex flex-col relative ${
+              isDesktopOrTV ? 'bg-transparent' : 'bg-[#070D18]'
+            }`
       }`}
     >
 
-      {/* MAIN TWO-COLUMN DESKTOP/TABLET-LANDSCAPE WORKSPACE (Mobile & Tablet Portrait stack video + tabs cleanly) */}
+      {/* ADAPTIVE WORKSPACE: 2-Column on Tablet Landscape & Desktop/TV; Stacked 16:9 + List on Portrait Phone/Tablet */}
       <div
-        className={`relative z-10 w-full flex-1 min-h-0 ${
-          isFullscreen
-            ? 'h-full w-full'
-            : 'flex flex-col lg:flex-row lg:gap-5 lg:px-7 lg:pb-5 lg:pt-1 max-w-[1920px] mx-auto overflow-hidden'
+        className={`relative z-10 w-full ${
+          isEffectiveFullscreen
+            ? 'flex-1 min-h-0 h-full w-full'
+            : useTwoColumnLiveTV
+            ? `flex-1 min-h-0 flex flex-row ${
+                isTabletLandscape
+                  ? 'gap-3 px-3 pb-3 pt-2.5'
+                  : 'gap-5 px-7 pb-5 pt-1'
+              } max-w-[1920px] mx-auto overflow-hidden`
+            : 'shrink-0 flex flex-col overflow-hidden'
         }`}
       >
-        {/* LEFT COLUMN — CHANNEL LIST (Desktop & Tablet Landscape >= 1024px, independent scroll) */}
-        {!isFullscreen && (
-          <aside className="hidden lg:flex lg:w-[31%] xl:w-[30%] min-w-[290px] max-w-[430px] h-full flex-col rounded-2xl bg-[#0a1120]/90 backdrop-blur-xl border border-sky-400/20 shadow-[0_18px_50px_rgba(0,0,0,0.65)] overflow-hidden shrink-0">
+        {/* LEFT COLUMN — CHANNEL LIST (Tablet Landscape 32%-35% & Desktop/TV 30%-31%, independent scroll) */}
+        {!isEffectiveFullscreen && useTwoColumnLiveTV && (
+          <aside
+            className={`flex h-full flex-col rounded-2xl backdrop-blur-xl overflow-hidden shrink-0 ${
+              isTabletLandscape
+                ? 'w-[33%] min-w-[235px] max-w-[340px] bg-[#0D1727]/95 border border-[#293A50] shadow-[0_14px_35px_rgba(0,0,0,0.55)]'
+                : 'lg:w-[31%] xl:w-[30%] min-w-[290px] max-w-[430px] bg-[#0a1120]/90 border border-sky-400/20 shadow-[0_18px_50px_rgba(0,0,0,0.65)]'
+            }`}
+          >
             {/* Search Bar + Filter Dropdown Button */}
             <div className="p-3.5 pb-3 flex items-center gap-2.5 border-b border-white/[0.06] shrink-0">
               <div className="relative flex-1 flex items-center">
@@ -1390,20 +1440,30 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
           </aside>
         )}
 
-        {/* RIGHT COLUMN — PLAYER IPTV 16:9 + BOTTOM 3-SECTION INFO PANEL */}
+        {/* RIGHT / TOP COLUMN — PLAYER IPTV 16:9 (Single DOM node preserved across orientation changes) */}
         <div
           className={`flex flex-col min-w-0 ${
-            isFullscreen
+            isEffectiveFullscreen
               ? 'w-full h-full'
-              : 'w-full md:flex-1 md:h-full md:gap-3.5 overflow-hidden shrink-0 md:shrink'
+              : useTwoColumnLiveTV
+              ? `flex-1 h-full ${isTabletLandscape ? 'gap-2.5' : 'gap-3.5'} overflow-hidden`
+              : `w-full shrink-0 overflow-hidden ${isTabletPortrait ? 'px-3 pt-2 pb-2' : ''}`
           }`}
         >
-          {/* VIDEO PLAYER CONTAINER (Preserves exact <video> + HLS engine) */}
+          {/* VIDEO PLAYER CONTAINER (Preserves exact <video> + HLS engine without remount on rotation) */}
           <div
-            className={`relative bg-black shrink-0 md:shrink transition-all overflow-hidden ${
-              isFullscreen
+            className={`relative bg-black transition-all overflow-hidden ${
+              isEffectiveFullscreen
                 ? 'w-full h-full rounded-none border-0'
-                : 'w-full aspect-video md:aspect-auto md:flex-1 md:min-h-0 md:rounded-2xl md:border md:border-sky-400/20 md:shadow-[0_18px_50px_rgba(0,0,0,0.7)]'
+                : useTwoColumnLiveTV
+                ? `w-full flex-1 min-h-0 rounded-2xl border ${
+                    isTabletLandscape
+                      ? 'border-[#293A50] shadow-[0_14px_35px_rgba(0,0,0,0.6)]'
+                      : 'border-sky-400/20 shadow-[0_18px_50px_rgba(0,0,0,0.7)]'
+                  }`
+                : `w-full aspect-video max-h-[40dvh] shrink-0 ${
+                    isTabletPortrait ? 'rounded-2xl border border-[#293A50] shadow-lg' : ''
+                  }`
             }`}
           >
             {/* Video Element */}
@@ -1877,9 +1937,112 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
             )}
           </div>
 
-          {/* BOTTOM 3-SECTION CHANNEL & EPG INFO PANEL (Desktop & Tablet Landscape >= 1024px, non-fullscreen) */}
-          {!isFullscreen && (
-            <div className="hidden lg:grid grid-cols-12 items-center rounded-2xl bg-[#0a1222]/95 backdrop-blur-xl border border-sky-400/20 px-5 py-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.55)] shrink-0">
+          {/* COMPACT TABLET LANDSCAPE INFO BAR (Below 16:9 Player on Galaxy Tab A9 / Horizontal Tablets) */}
+          {!isEffectiveFullscreen && isTabletLandscape && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#0D1727]/95 border border-[#293A50] px-4 py-2.5 shrink-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-[#142136] border border-[#293A50] flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                  {currentChannel?.logo ? (
+                    <img
+                      src={currentChannel.logo}
+                      alt={currentChannel.name}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <Tv className="w-5 h-5 text-[#00BFFF]" />
+                  )}
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h2 className="text-sm font-extrabold text-white truncate leading-tight">
+                      {currentChannel?.name || 'Selecione um canal'}
+                    </h2>
+                    {currentChannel?.quality && (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold shrink-0 ${
+                          currentChannel.quality === '4K'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : currentChannel.quality === 'FHD'
+                            ? 'bg-[#008DFF]/25 text-[#00BFFF]'
+                            : currentChannel.quality === 'SD'
+                            ? 'bg-slate-700/60 text-slate-300'
+                            : 'bg-emerald-500/20 text-emerald-300'
+                        }`}
+                      >
+                        {currentChannel.quality}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[#A8B7CB] mt-0.5 min-w-0">
+                    <span className="truncate">
+                      {hasRealCurrentEPG && currentLiveInfo
+                        ? currentLiveInfo.currentProgram
+                        : currentChannel?.currentProgram || 'Programacao ao Vivo'}
+                    </span>
+                    {currentLiveInfo?.currentProgramTime && (
+                      <>
+                        <span className="text-white/25 shrink-0">·</span>
+                        <span className="font-mono text-[11px] shrink-0">
+                          {currentLiveInfo.currentProgramTime}
+                        </span>
+                      </>
+                    )}
+                    {hasRealNextEPG && currentLiveInfo?.nextProgram && (
+                      <>
+                        <span className="text-white/25 shrink-0 hidden sm:inline">|</span>
+                        <span className="text-[11px] text-[#00BFFF] truncate hidden sm:inline">
+                          A seguir: {currentLiveInfo.nextProgram}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {currentLiveInfo && (
+                    <div className="w-full max-w-[260px] h-1 bg-white/10 rounded-full overflow-hidden mt-1.5">
+                      <div
+                        className="h-full bg-[#008DFF] rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, Math.max(0, currentLiveInfo.progressPercent || 0))}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => currentChannel && onToggleFavorite(currentChannel.id)}
+                  className="w-10 h-10 rounded-xl bg-[#142136] active:bg-[#1d2f4d] border border-[#293A50] flex items-center justify-center cursor-pointer"
+                  aria-label="Favoritar canal"
+                >
+                  <Star
+                    className={`w-4 h-4 ${
+                      currentChannel?.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-[#A8B7CB]'
+                    }`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="w-10 h-10 rounded-xl bg-[#142136] active:bg-[#1d2f4d] border border-[#293A50] text-white flex items-center justify-center cursor-pointer"
+                  aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="w-10 h-10 rounded-xl bg-[#008DFF]/20 active:bg-[#008DFF]/35 border border-[#00BFFF]/40 text-[#00BFFF] flex items-center justify-center cursor-pointer"
+                  aria-label="Tela cheia"
+                >
+                  <Maximize className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* BOTTOM 3-SECTION CHANNEL & EPG INFO PANEL (Desktop & TV >= 1024px, non-fullscreen) */}
+          {!isEffectiveFullscreen && isDesktopOrTV && (
+            <div className="grid grid-cols-12 items-center rounded-2xl bg-[#0a1222]/95 backdrop-blur-xl border border-sky-400/20 px-5 py-3.5 shadow-[0_12px_35px_rgba(0,0,0,0.55)] shrink-0">
               {/* SECTION 1 — CURRENT CHANNEL */}
               <div className="col-span-4 flex items-center gap-3.5 pr-4 border-r border-white/10 min-w-0">
                 <div className="w-12 h-12 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center p-1.5 shrink-0 overflow-hidden">
@@ -2047,13 +2210,13 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         </div>
       )}
 
-      {/* MOBILE & TABLET PORTRAIT APP INTERFACE (TiviMate / Smarters style) - Below Video */}
-      {!isFullscreen && (
-        <div className="flex-1 min-h-0 flex flex-col w-full bg-[#07090e] lg:hidden overflow-hidden">
-          {/* Active Channel Strip Header */}
-          <div className="shrink-0 p-3 bg-gradient-to-b from-[#0b0e14] to-[#07090e] border-b border-white/10 flex items-center justify-between gap-3">
+      {/* MOBILE & TABLET PORTRAIT INTERFACE (Below 16:9 Video, occupies all remaining height) */}
+      {!isEffectiveFullscreen && useStackedLiveTV && (
+        <div className="flex-1 min-h-0 flex flex-col w-full bg-[#070D18] overflow-hidden">
+          {/* Compact Active Channel Info Strip */}
+          <div className="shrink-0 px-3.5 py-2.5 bg-[#0D1727]/90 border-b border-[#293A50]/70 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative w-11 h-11 rounded-xl bg-slate-900 border border-blue-500/30 p-1 flex items-center justify-center shrink-0 shadow-md shadow-blue-950/30">
+              <div className="relative w-10 h-10 rounded-xl bg-[#142136] border border-[#293A50] p-1 flex items-center justify-center shrink-0">
                 {currentChannel?.logo ? (
                   <img
                     src={currentChannel.logo}
@@ -2061,46 +2224,75 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                     className="w-full h-full object-contain"
                   />
                 ) : (
-                  <Tv className="w-6 h-6 text-blue-400" />
+                  <Tv className="w-5 h-5 text-[#00BFFF]" />
                 )}
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono font-bold text-blue-400">
-                    CH {currentChannel?.number ? String(currentChannel.number).padStart(2, '0') : '01'}
+                  <span className="text-[10px] font-mono font-bold text-[#00BFFF] shrink-0">
+                    {currentChannel?.number ? String(currentChannel.number).padStart(3, '0') : '001'}
                   </span>
                   <h2 className="text-sm font-extrabold text-white truncate">
                     {currentChannel?.name || 'Canal'}
                   </h2>
-                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                    {currentChannel?.quality || 'HD'}
-                  </span>
+                  {currentChannel?.quality && (
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.2 rounded shrink-0 ${
+                        currentChannel.quality === '4K'
+                          ? 'bg-amber-500/20 text-amber-300'
+                          : currentChannel.quality === 'FHD'
+                          ? 'bg-[#008DFF]/25 text-[#00BFFF]'
+                          : currentChannel.quality === 'SD'
+                          ? 'bg-slate-700/60 text-slate-300'
+                          : 'bg-emerald-500/20 text-emerald-300'
+                      }`}
+                    >
+                      {currentChannel.quality}
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-300 font-semibold truncate mt-0.5">
-                  {currentLiveInfo?.currentProgram || currentChannel?.currentProgram || 'Programacao Ao Vivo'}
-                </p>
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                  <span className="text-blue-400 font-mono font-bold">
-                    {currentLiveInfo?.currentProgramTime || currentChannel?.currentProgramTime || 'Agora'}
+                <div className="flex items-center gap-1.5 text-xs text-[#A8B7CB] truncate mt-0.5">
+                  <span className="truncate font-medium">
+                    {currentLiveInfo?.currentProgram || currentChannel?.currentProgram || 'Programacao Ao Vivo'}
                   </span>
-                  <span>· {currentLiveInfo?.durationText || 'Ao Vivo'}</span>
+                  {currentLiveInfo?.currentProgramTime && (
+                    <>
+                      <span className="text-white/25 shrink-0">·</span>
+                      <span className="text-[#00BFFF] font-mono text-[11px] shrink-0">
+                        {currentLiveInfo.currentProgramTime}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            <button
-              onClick={() => currentChannel && onToggleFavorite(currentChannel.id)}
-              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 shrink-0 transition-all cursor-pointer"
-              title="Favoritar"
-            >
-              <Star
-                className={`w-5 h-5 ${
-                  currentChannel?.isFavorite
-                    ? 'fill-yellow-400 text-yellow-400'
-                    : 'text-slate-400'
-                }`}
-              />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => currentChannel && onToggleFavorite(currentChannel.id)}
+                className="w-10 h-10 rounded-xl bg-[#142136] active:bg-[#1e3150] border border-[#293A50] flex items-center justify-center shrink-0 transition-all cursor-pointer"
+                title="Favoritar"
+                aria-label="Favoritar canal"
+              >
+                <Star
+                  className={`w-5 h-5 ${
+                    currentChannel?.isFavorite
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'text-[#A8B7CB]'
+                  }`}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="w-10 h-10 rounded-xl bg-[#142136] active:bg-[#1e3150] border border-[#293A50] text-white flex items-center justify-center shrink-0 transition-all cursor-pointer"
+                title="Tela cheia"
+                aria-label="Tela cheia"
+              >
+                <Maximize className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Progress bar of current program */}
@@ -2154,21 +2346,29 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
 
           {/* TAB 1: CANAIS */}
           {mobileTab === 'channels' && (
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scroll pb-24 pb-mobile-nav">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 pt-3 space-y-3 custom-scroll pb-mobile-nav">
+              {/* Channels Header Row */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-extrabold text-white tracking-tight">Canais</h3>
+                <span className="text-xs font-medium text-[#A8B7CB]">
+                  {filteredChannels.length} {filteredChannels.length === 1 ? 'disponivel' : 'disponiveis'}
+                </span>
+              </div>
+
               {/* Search Bar */}
               <div className="relative flex items-center">
-                <Search className="absolute left-3 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3.5 w-4 h-4 text-[#A8B7CB]" />
                 <input
                   type="text"
-                  placeholder="Buscar canal ou programa..."
+                  placeholder="Buscar canal..."
                   value={searchChannel}
                   onChange={(e) => setSearchChannel(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2.5 bg-slate-900/90 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+                  className="w-full pl-10 pr-9 py-2.5 bg-[#142136] border border-[#293A50] rounded-xl text-xs text-white placeholder-[#A8B7CB] focus:outline-none focus:border-[#008DFF] transition-all"
                 />
                 {searchChannel && (
                   <button
                     onClick={() => setSearchChannel('')}
-                    className="absolute right-3 text-slate-400 hover:text-white"
+                    className="absolute right-3 text-[#A8B7CB] hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -2183,10 +2383,10 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
-                      className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer border ${
                         isCatActive
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                          : 'bg-slate-900 border border-white/10 text-slate-300 hover:text-white'
+                          ? 'bg-[#008DFF]/25 border-[#008DFF] text-white'
+                          : 'bg-[#142136] border-[#293A50] text-[#A8B7CB] active:text-white'
                       }`}
                     >
                       {cat.name}
@@ -2195,7 +2395,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
                 })}
               </div>
 
-              {/* Channel Cards (Single column on Phone, 2-column grid on Tablet Portrait) */}
+              {/* Channel Cards (Fluid list, 2 columns on wider portrait tablets) */}
               <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-2.5">
                 {filteredChannels.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-xs">

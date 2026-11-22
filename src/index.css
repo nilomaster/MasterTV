@@ -64,12 +64,6 @@
   padding-bottom: calc(4.75rem + var(--sab));
 }
 
-@media (min-width: 768px) {
-  .pb-mobile-nav {
-    padding-bottom: 0;
-  }
-}
-
 /* Hide scrollbar utility for carousels and clean rows */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;

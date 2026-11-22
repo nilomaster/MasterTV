@@ -8,6 +8,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Play, Search, Tv, X } from 'lucide-react';
 import type { Channel, MediaItem } from '../types/iptv';
 import { AdminService } from '../services/adminService';
+import { useDeviceLayout } from '../hooks/useDeviceLayout';
 
 interface HomeViewProps {
   channels?: Channel[];
@@ -99,6 +100,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [dbContents, setDbContents] = useState(() => AdminService.getContents());
+  const {
+    width,
+    isMobilePortrait,
+    isMobileLandscape,
+    isTabletPortrait,
+    isTabletLandscape,
+    showMobileBottomNav,
+  } = useDeviceLayout();
 
   // Keep local catalog synced in background for global search
   useEffect(() => {
@@ -375,12 +384,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
       ) : (
-        /* 5 LARGE VERTICAL CATEGORY CARDS (Balanced Mobile 1+2x2, Tablet 3-col, Desktop 5-col) */
-        <div className="relative z-10 flex-1 flex items-center justify-center w-full px-4 sm:px-8 lg:px-14 py-3 sm:py-4 pb-mobile-nav">
-          <div className="w-full max-w-[1640px] mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 xl:gap-6">
+        /* 5 LARGE VERTICAL CATEGORY CARDS (Adaptive: Tablet Horizontal 5-col fit, Portrait 1+2x2, Desktop 5-col) */
+        <div
+          className={`relative z-10 flex-1 flex items-center justify-center w-full ${
+            isTabletLandscape || isMobileLandscape
+              ? 'px-4 sm:px-6 py-2 overflow-y-auto'
+              : 'px-4 sm:px-8 lg:px-14 py-3 sm:py-4 overflow-y-auto'
+          } ${showMobileBottomNav ? 'pb-mobile-nav' : ''}`}
+        >
+          <div
+            className={`w-full max-w-[1640px] mx-auto grid ${
+              isTabletLandscape || isMobileLandscape
+                ? width >= 740
+                  ? 'grid-cols-5 gap-3'
+                  : 'grid-cols-3 gap-3'
+                : isMobilePortrait || isTabletPortrait
+                ? 'grid-cols-2 gap-3 sm:gap-4 max-w-[740px]'
+                : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 xl:gap-6'
+            }`}
+          >
             {HOME_CARDS.map((card, index) => {
               const isFocused = focusedIndex === index;
-              const isMobileFeatured = index === 0;
+              const isPortraitFeatured = (isMobilePortrait || isTabletPortrait) && index === 0;
+              const isCompactHorizontal = isTabletLandscape || isMobileLandscape;
+
+              const cardHeightClass = isCompactHorizontal
+                ? isMobileLandscape
+                  ? 'h-[clamp(155px,62dvh,225px)] flex-col justify-between'
+                  : 'h-[clamp(215px,58dvh,380px)] flex-col justify-between'
+                : isPortraitFeatured
+                ? isTabletPortrait
+                  ? 'col-span-2 h-[195px] flex-row items-center justify-between'
+                  : 'col-span-2 h-[155px] flex-row items-center justify-between'
+                : isTabletPortrait
+                ? 'h-[235px] flex-col justify-between'
+                : isMobilePortrait
+                ? 'h-[190px] flex-col justify-between'
+                : 'h-[270px] sm:h-[340px] lg:h-[clamp(370px,58vh,540px)] flex-col justify-between';
+
               return (
                 <button
                   key={card.id}
@@ -389,11 +430,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   onMouseEnter={() => setFocusedIndex(index)}
                   onMouseLeave={() => setFocusedIndex(-1)}
                   onFocus={() => setFocusedIndex(index)}
-                  className={`group relative w-full rounded-2xl overflow-hidden border bg-[#0b101d] cursor-pointer text-center flex transition-all duration-300 ease-out shadow-[0_20px_50px_rgba(0,0,0,0.65)] hover:-translate-y-1.5 hover:scale-[1.02] focus:outline-none ${
-                    isMobileFeatured
-                      ? 'col-span-2 sm:col-span-1 h-[155px] sm:h-[320px] lg:h-[clamp(370px,58vh,540px)] flex-row sm:flex-col items-center sm:items-stretch justify-between'
-                      : 'h-[195px] sm:h-[320px] lg:h-[clamp(370px,58vh,540px)] flex-col justify-between'
-                  } ${
+                  className={`group relative w-full rounded-2xl overflow-hidden border bg-[#0b101d] cursor-pointer text-center flex transition-all duration-300 ease-out shadow-[0_20px_50px_rgba(0,0,0,0.65)] hover:-translate-y-1.5 hover:scale-[1.02] focus:outline-none ${cardHeightClass} ${
                     isFocused
                       ? `${card.focusRingClass} -translate-y-1.5 scale-[1.02] z-20`
                       : `border-white/15 ${card.hoverBorderClass}`
@@ -413,8 +450,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   {/* Upper Illustration / Icon Area */}
                   <div
                     className={`relative z-10 flex items-center justify-center overflow-hidden ${
-                      isMobileFeatured
-                        ? 'w-[42%] sm:w-full h-full sm:flex-1 px-4 sm:pt-5 sm:pb-1'
+                      isPortraitFeatured
+                        ? 'w-[42%] h-full px-4'
+                        : isCompactHorizontal
+                        ? 'flex-1 w-full px-3 pt-3 pb-1'
                         : 'flex-1 w-full px-3 sm:px-4 pt-3 sm:pt-5 pb-1'
                     }`}
                   >
@@ -423,8 +462,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       alt={card.title}
                       className={`object-contain transition-transform duration-500 ease-out group-hover:scale-105 group-hover:-translate-y-1 drop-shadow-[0_14px_24px_rgba(0,0,0,0.45)] ${
                         card.id === 'anime'
-                          ? 'w-[86%] max-w-[235px] max-h-full'
-                          : 'w-[76%] max-w-[205px] max-h-full'
+                          ? 'w-[84%] max-w-[235px] max-h-full'
+                          : 'w-[74%] max-w-[205px] max-h-full'
                       }`}
                     />
                   </div>
@@ -432,18 +471,34 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   {/* Lower Title, Accent Line & Subtitle */}
                   <div
                     className={`relative z-10 flex flex-col ${
-                      isMobileFeatured
-                        ? 'w-[58%] sm:w-full items-start sm:items-center text-left sm:text-center pr-5 sm:px-4 py-4 sm:pb-7 lg:pb-8 sm:pt-2'
+                      isPortraitFeatured
+                        ? 'w-[58%] items-start text-left pr-5 py-4'
+                        : isCompactHorizontal
+                        ? 'w-full items-center px-2 pb-3 pt-1'
                         : 'w-full items-center px-3 sm:px-4 pb-4 sm:pb-7 lg:pb-8 pt-1 sm:pt-2'
                     }`}
                   >
-                    <h2 className="text-xl sm:text-3xl xl:text-[34px] font-black tracking-wide text-white uppercase leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]">
+                    <h2
+                      className={`${
+                        isCompactHorizontal
+                          ? 'text-lg sm:text-xl'
+                          : 'text-xl sm:text-3xl xl:text-[34px]'
+                      } font-black tracking-wide text-white uppercase leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]`}
+                    >
                       {card.title}
                     </h2>
                     <span
-                      className={`block w-10 sm:w-14 h-[3px] rounded-full my-2 sm:my-3 transition-all duration-300 group-hover:w-16 ${card.accentBarClass}`}
+                      className={`block ${
+                        isCompactHorizontal ? 'w-8 my-1.5' : 'w-10 sm:w-14 my-2 sm:my-3'
+                      } h-[3px] rounded-full transition-all duration-300 group-hover:w-16 ${card.accentBarClass}`}
                     />
-                    <p className="text-[10px] sm:text-[11px] xl:text-xs font-semibold tracking-[0.12em] sm:tracking-[0.14em] text-slate-200/90 uppercase leading-snug">
+                    <p
+                      className={`${
+                        isCompactHorizontal
+                          ? 'text-[9px] tracking-[0.08em]'
+                          : 'text-[10px] sm:text-[11px] xl:text-xs tracking-[0.12em] sm:tracking-[0.14em]'
+                      } font-semibold text-slate-200/90 uppercase leading-snug`}
+                    >
                       {card.subtitle}
                     </p>
                   </div>
