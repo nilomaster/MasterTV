@@ -44,12 +44,12 @@ import type {
 } from '../../types/admin';
 import { AdminService, type AdminAuthSession } from '../../services/adminService';
 import { fetchAndSyncXMLTV, getLiveEPGForChannel } from '../../services/epgService';
-import { M3UImporterModal } from './M3UImporterModal';
 import { AdminSidebar, type AdminCatalogShortcut, type AdminTabKey } from './layout/AdminSidebar';
 import { AdminHeader } from './layout/AdminHeader';
 import { AdminCatalogTable } from './views/AdminCatalogTable';
 import { AdminCategoriesView } from './views/AdminCategoriesView';
 import { AdminEPGView } from './views/AdminEPGView';
+import { AdminM3UImporterView } from './views/AdminM3UImporterView';
 
 interface AdminDashboardProps {
   onBackToPlayer: () => void;
@@ -88,7 +88,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [contentCategoryFilter, setContentCategoryFilter] = useState<string>('all');
   const [contentSearchQuery, setContentSearchQuery] = useState<string>('');
   const [isContentModalOpen, setIsContentModalOpen] = useState<boolean>(false);
-  const [isM3UModalOpen, setIsM3UModalOpen] = useState<boolean>(false);
   const [editingContentId, setEditingContentId] = useState<string | null>(null);
   const [isSavingContent, setIsSavingContent] = useState<boolean>(false);
   const [contentStatusFeedback, setContentStatusFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -315,7 +314,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setCurrentRole(nextRole);
     if (
       nextRole === 'reseller' &&
-      (activeTab === 'resellers' || activeTab === 'contents' || activeTab === 'categories' || activeTab === 'epg')
+      (activeTab === 'resellers' || activeTab === 'm3u' || activeTab === 'contents' || activeTab === 'categories' || activeTab === 'epg')
     ) {
       setActiveTab('dashboard');
     }
@@ -690,6 +689,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await AdminService.clearRemoteContents();
       if (res.success) {
         setContents([]);
+        setCatalogCounts({ channels: 0, movies: 0, series: 0, animes: 0, doramas: 0, total: 0 });
         setSyncFeedback('Catalogo apagado com sucesso. O banco de dados esta pronto para receber uma nova lista!');
       } else {
         alert(res.message);
@@ -871,7 +871,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }}
         onSelectTab={(tab) => setActiveTab(tab)}
         onSelectCatalogShortcut={handleSelectCatalogShortcut}
-        onOpenM3UImporter={() => setIsM3UModalOpen(true)}
+        onOpenM3UImporter={() => setActiveTab('m3u')}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onBackToPlayer={onBackToPlayer}
@@ -1090,7 +1090,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {currentRole === 'admin' && (
                     <button
                       type="button"
-                      onClick={() => setIsM3UModalOpen(true)}
+                      onClick={() => setActiveTab('m3u')}
                       className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#009DFF] hover:bg-[#0077D9] text-[#070B16] font-bold text-xs transition-colors cursor-pointer"
                     >
                       <ListVideo className="w-4 h-4 shrink-0" />
@@ -1727,12 +1727,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               syncDashboardData();
             }}
             onSaveAllToDB={handleSaveAllToRemoteDatabase}
-            onOpenM3UImporter={() => setIsM3UModalOpen(true)}
+            onOpenM3UImporter={() => setActiveTab('m3u')}
             onClearAllContents={handleClearAllContents}
             onAddContent={openAddContentModal}
             onEditContent={openEditContentModal}
             onDeleteContent={handleDeleteContent}
             onCopyUrl={copyToClipboard}
+          />
+        )}
+
+        {/* TAB: DEDICATED FULL-PAGE M3U IMPORTER */}
+        {activeTab === 'm3u' && currentRole === 'admin' && (
+          <AdminM3UImporterView
+            existingContents={contents}
+            onGoToCatalog={() => setActiveTab('contents')}
+            onImportSuccess={async () => {
+              try {
+                const [channels, remote, counts] = await Promise.all([
+                  AdminService.fetchRemoteChannels(),
+                  AdminService.fetchRemoteContents(),
+                  AdminService.fetchCatalogCounts(),
+                ]);
+                const mergedMap = new Map<string, AdminContentItem>();
+                channels.forEach((c) => mergedMap.set(c.id, c));
+                remote.forEach((c) => mergedMap.set(c.id, c));
+                setContents(Array.from(mergedMap.values()));
+                setCatalogCounts(counts);
+              } catch {
+                setContents(AdminService.getContents());
+              }
+            }}
           />
         )}
 
@@ -3314,30 +3338,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </form>
           </div>
         </div>
-      )}
-
-      {/* M3U & IPTV Playlist Importer Modal */}
-      {isM3UModalOpen && (
-        <M3UImporterModal
-          isOpen={isM3UModalOpen}
-          onClose={() => setIsM3UModalOpen(false)}
-          onImportSuccess={async () => {
-            try {
-              const [channels, remote, counts] = await Promise.all([
-                AdminService.fetchRemoteChannels(),
-                AdminService.fetchRemoteContents(),
-                AdminService.fetchCatalogCounts(),
-              ]);
-              const mergedMap = new Map<string, AdminContentItem>();
-              channels.forEach((c) => mergedMap.set(c.id, c));
-              remote.forEach((c) => mergedMap.set(c.id, c));
-              setContents(Array.from(mergedMap.values()));
-              setCatalogCounts(counts);
-            } catch {
-              setContents(AdminService.getContents());
-            }
-          }}
-        />
       )}
     </div>
   );

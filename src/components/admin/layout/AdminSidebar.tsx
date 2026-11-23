@@ -30,6 +30,7 @@ export type AdminTabKey =
   | 'clients'
   | 'trials'
   | 'resellers'
+  | 'm3u'
   | 'contents'
   | 'categories'
   | 'epg'
@@ -276,12 +277,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             <button
               type="button"
               onClick={() => handleNav(onOpenM3UImporter)}
-              className={navItemClass(false)}
-              title="Importar Listas M3U"
+              className={navItemClass(activeTab === 'm3u')}
+              title="Importador M3U"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <ListVideo className={iconClass(false)} />
-                {!isCollapsed && <span className="truncate">Listas M3U</span>}
+                <ListVideo className={iconClass(activeTab === 'm3u')} />
+                {!isCollapsed && <span className="truncate">Importador M3U</span>}
               </div>
             </button>
 
